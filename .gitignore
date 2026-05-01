@@ -32,9 +32,12 @@ build/
 *.bin
 *.ckpt
 *.pth
-*.pt
 *.onnx
 *.gguf
+
+# Allow persona files
+!personas/*.pt
+!personas/*.wav
 
 # HuggingFace cache
 .huggingface/
