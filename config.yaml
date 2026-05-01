@@ -1,0 +1,84 @@
+server:
+  host: "127.0.0.1"
+  port: 7869
+  ssl:
+    certfile: "bin/cert.pem"
+    keyfile: "bin/key.pem"
+
+models:
+  voice_design:
+    1.7B: "Qwen3-TTS-12Hz-1.7B-VoiceDesign"
+  voice_clone:
+    1.7B: "Qwen3-TTS-12Hz-1.7B-Base"
+    0.6B: "Qwen3-TTS-12Hz-0.6B-Base"
+  custom_voice:
+    1.7B: "Qwen3-TTS-12Hz-1.7B-CustomVoice"
+    0.6B: "Qwen3-TTS-12Hz-0.6B-CustomVoice"
+
+speakers:
+  official:
+    - id: Vivian
+      name_zh: 薇薇安
+      type: 少女音
+      traits: 年轻活泼，语速轻快
+      description: 甜美少女音，活泼热情，适合年轻女性角色配音。擅长日常对话和情感表达。
+    - id: 阿知
+      name_zh: 阿知
+      type: 少年音
+      traits: 干净明亮，少年感十足
+      description: 干净明亮的少年音色，充满活力，适合年轻角色和动漫配音。
+    - id: 若彤
+      name_zh: 若彤
+      type: 萝莉音
+      traits: 软萌可爱，充满童真
+      description: 软萌可爱的萝莉音色，充满童真和活力，适合动漫角色和少女角色配音。
+    - id: 成杰
+      name_zh: 成杰
+      type: 青年男音
+      traits: 沉稳有力，磁性十足
+      description: 沉稳有力的青年男声，具有磁性，适合广播、广告和角色配音。
+    - id: 沐晴
+      name_zh: 沐晴
+      type: 少御音
+      traits: 知性优雅，富有感染力
+      description: 知性优雅的少御音色，温柔而有力量，适合知性女性角色和旁白。
+    - id: 御姐
+      name_zh: 御姐
+      type: 御姐音
+      traits: 成熟性感，气场强大
+      description: 成熟性感的御姐音色，气场强大，适合成熟女性角色和高冷角色配音。
+    - id: 旁白
+      name_zh: 旁白
+      type: 播音腔
+      traits: 标准大气，庄重正式
+      description: 标准大气的播音腔，庄重正式，适合新闻播报、旁白和纪录片配音。
+    - id: 老伯
+      name_zh: 老伯
+      type: 老年男音
+      traits: 沧桑厚重，充满岁月感
+      description: 沧桑厚重的老年男声，充满岁月感，适合长者角色和历史题材配音。
+    - id: 少女
+      name_zh: 少女
+      type: 少女音
+      traits: 甜美可爱，青春活力
+      description: 甜美可爱的少女音色，青春洋溢，适合动漫少女角色和青春题材。
+
+generation:
+  default_size: "1.7B"
+  max_seq_len: 2048
+  split_max_chars: 200
+  default_temperature: 0.9
+  default_top_k: 50
+  default_top_p: 1.0
+  repetition_penalty: 1.05
+
+cache:
+  persona_max_size: 50
+  persona_max_vram_mb: 512
+  idle_timeout_s: 300
+
+environment:
+  TRANSFORMERS_OFFLINE: "1"
+  HF_HUB_OFFLINE: "1"
+  MODELSCOPE_OFFLINE: "1"
+  PYTHONHTTPSVERIFY: "0"

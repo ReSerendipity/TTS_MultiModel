@@ -1,0 +1,40 @@
+# Model files - Download separately (see README.md)
+models/
+pretrained_models/
+cache/
+outputs/
+
+# Temp files
+._____temp/
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Model downloads (large files)
+*.safetensors
+*.bin
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.gguf
+
+# HuggingFace cache
+.huggingface/
