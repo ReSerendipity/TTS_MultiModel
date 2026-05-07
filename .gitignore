@@ -54,9 +54,6 @@ build/
 WPy64-*/
 python/
 
-# VC Redistributable (large binary)
-VC运行库/
-
 # Audio outputs
 outputs/
 *.wav
