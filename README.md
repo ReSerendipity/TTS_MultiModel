@@ -13,6 +13,83 @@ A powerful multi-model Text-to-Speech (TTS) web application with Gradio interfac
 - **Multi-language**: Internationalization support (i18n)
 - **GPU Acceleration**: Optimized for GPU-based inference and training
 
+## Quick Start (Windows)
+
+### Prerequisites
+
+- **Operating System**: Windows 10/11 (64-bit)
+- **Python**: 3.12+ (bundled WinPython included, or install your own)
+- **GPU**: NVIDIA GPU with CUDA support (recommended for optimal performance)
+- **VC Redistributable**: Visual C++ Redistributable (included in `VC运行库/` folder)
+
+### Installation Steps
+
+#### Method 1: Use Bundled WinPython (Recommended)
+
+1. **Download or clone this repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd TTS_MultiModel
+   ```
+
+2. **Install VC Redistributable** (if not already installed):
+   - Run `VC运行库\VC_redist.x64.exe`
+
+3. **Install dependencies and setup**:
+   ```bash
+   install.bat
+   ```
+
+4. **Download required models** (see [Model Download](#model-download) section)
+
+5. **Start the application**:
+   ```bash
+   start.bat
+   ```
+
+#### Method 2: Use Your Own Python Environment
+
+1. **Install Python 3.12+** from [python.org](https://www.python.org/downloads/)
+
+2. **Clone and install dependencies**:
+   ```bash
+   git clone <your-repo-url>
+   cd TTS_MultiModel
+   pip install -r requirements.txt
+   ```
+
+3. **Download required models**
+
+4. **Start the application**:
+   ```bash
+   python bin\clean_launch.py
+   ```
+
+## Model Download
+
+The following models need to be downloaded separately and placed in the `pretrained_models/` directory:
+
+### Required Models
+
+1. **VoxCPM2** - Main TTS model
+   - Place in: `pretrained_models\VoxCPM2\`
+   - Download from HuggingFace or ModelScope
+
+2. **SenseVoiceSmall** - ASR (Automatic Speech Recognition) model
+   - Place in: `pretrained_models\SenseVoiceSmall\`
+   - Download from HuggingFace or ModelScope
+
+3. **speech_zipenhancer** - Audio denoiser model
+   - Place in: `pretrained_models\speech_zipenhancer\`
+   - Download from HuggingFace or ModelScope
+
+### Model Download Script (Optional)
+
+If a `download_models.py` script is included, you can use it to automate the download:
+```bash
+python download_models.py
+```
+
 ## Project Structure
 
 ```
@@ -32,79 +109,11 @@ TTS_MultiModel/
 ├── lora/                        # LoRA fine-tuned models
 ├── cache/                       # Cache directory
 ├── config.yaml                  # Application configuration
-├── LICENSE                      # MIT License
-└── start.bat                    # Windows startup script
+├── requirements.txt             # Python dependencies
+├── install.bat                  # Windows installation script
+├── start.bat                    # Windows startup script
+└── LICENSE                      # MIT License
 ```
-
-## Prerequisites
-
-- **Operating System**: Windows 10/11 (64-bit)
-- **Python**: 3.12+ (bundled WinPython included)
-- **GPU**: NVIDIA GPU with CUDA support (recommended for optimal performance)
-- **VC Redistributable**: Visual C++ Redistributable (included in `VC运行库/` folder)
-- **FFmpeg**: Required for audio processing
-
-## Installation
-
-### Option 1: Use Bundled Python (Recommended for Windows)
-
-1. Download or clone this repository:
-   ```bash
-   git clone https://github.com/Doro2047/TTS_MultiModel.git
-   cd TTS_MultiModel
-   ```
-
-2. Install VC Redistributable (if not already installed):
-   - Run `VC运行库/VC_redist.x64.exe`
-
-3. Download required pre-trained models (see [Model Download](#model-download) section)
-
-4. Launch the application:
-   ```bash
-   start.bat
-   ```
-
-### Option 2: Use Your Own Python Environment
-
-1. Install Python 3.12+ from [python.org](https://www.python.org/downloads/)
-
-2. Clone and install dependencies:
-   ```bash
-   git clone https://github.com/Doro2047/TTS_MultiModel.git
-   cd TTS_MultiModel
-   pip install -r requirements.txt
-   ```
-
-3. Download required pre-trained models
-
-4. Launch:
-   ```bash
-   python bin/integrated_app/app_server.py
-   ```
-
-## Model Download
-
-The following models need to be downloaded separately and placed in the `pretrained_models/` directory:
-
-### Required Models
-
-1. **VoxCPM2** - Main TTS model
-   - Place in: `pretrained_models/VoxCPM2/`
-
-2. **SenseVoiceSmall** - ASR (Automatic Speech Recognition) model
-   - Place in: `pretrained_models/SenseVoiceSmall/`
-
-3. **speech_zipenhancer** - Audio denoiser model
-   - Place in: `pretrained_models/speech_zipenhancer/`
-
-### Download Instructions
-
-Models can be downloaded from:
-- HuggingFace Hub
-- ModelScope
-- Official model repositories
-
-Refer to each model's documentation for specific download instructions.
 
 ## Usage
 
@@ -120,19 +129,14 @@ Refer to each model's documentation for specific download instructions.
    python bin/clean_launch.py
    ```
 
-3. **Direct Launch**:
-   ```bash
-   python bin/integrated_app/app_server.py
-   ```
-
 ### Web Interface
 
 After starting the application, open your browser and navigate to:
 ```
-http://localhost:7860
+http://127.0.0.1:7869
 ```
 
-The port may vary depending on your configuration. Check the console output for the actual URL.
+The application will auto-open your browser when ready.
 
 ### Features Overview
 
@@ -165,7 +169,7 @@ Edit `config.yaml` to customize:
   - `retry_badcase`: Auto-retry on bad cases (default: True)
 
 - **Server Settings**:
-  - Port number
+  - Port number (default: 7869)
   - Host address
   - GPU settings
 
@@ -175,22 +179,22 @@ The application comes with 9 pre-configured official speakers:
 
 | Speaker | Description | Voice Type |
 |---------|-------------|------------|
-| Vivian | 薇薇安 - Sweet and youthful voice | 少女音 |
-| 阿知 | 阿知 - Clean and bright youthful voice | 少年音 |
-| 若彤 | 若彤 - Soft and cute loli voice | 萝莉音 |
-| 成杰 | 成杰 - Calm and powerful young male voice | 青年男音 |
-| 沐晴 | 沐晴 | 知性优雅，温柔而有力量 | 少御音 |
-| 御姐 | 御姐 - Mature and charismatic voice | 御姐音 |
-| 旁白 | 旁白 - Standard broadcasting voice | 播音腔 |
-| 老伯 | 老伯 - Experienced and deep elderly voice | 老年男音 |
-| 少女 | 少女 - Sweet and lovely young girl voice | 少女音 |
+| Vivian | Sweet and youthful voice | 少女音 |
+| 阿知 | Clean and bright youthful voice | 少年音 |
+| 若彤 | Soft and cute loli voice | 萝莉音 |
+| 成杰 | Calm and powerful young male voice | 青年男音 |
+| 沐晴 | Intellectual and elegant voice | 少御音 |
+| 御姐 | Mature and charismatic voice | 御姐音 |
+| 旁白 | Standard broadcasting voice | 播音腔 |
+| 老伯 | Experienced and deep elderly voice | 老年男音 |
+| 少女 | Sweet and lovely young girl voice | 少女音 |
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **VC Redistributable Error**:
-   - Install `VC运行库/VC_redist.x64.exe`
+   - Install `VC运行库\VC_redist.x64.exe`
 
 2. **Model Not Found**:
    - Ensure models are downloaded and placed in `pretrained_models/`
@@ -201,12 +205,12 @@ The application comes with 9 pre-configured official speakers:
    - Verify NVIDIA drivers are up to date
 
 4. **Port Already in Use**:
-   - Change port in configuration
-   - Or kill existing process using the port
+   - The app will auto-select an available port
+   - Check console output for the actual URL
 
 ### Logs
 
-Check console output for detailed error messages. Log files are generated in the root directory if errors occur.
+Check `logs/app.log` for detailed error messages.
 
 ## Development
 
