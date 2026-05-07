@@ -110,6 +110,10 @@ TTS_MultiModel/
 ├── cache/                       # Cache directory
 ├── config.yaml                  # Application configuration
 ├── requirements.txt             # Python dependencies
+├── docs/                        # Documentation
+│   ├── MODEL_DOWNLOAD_GUIDE.md      # Model download and configuration guide
+│   ├── MODEL_EXTENSION_GUIDE.md     # How to add new TTS engines
+│   └── UI开发指南_README.md         # Gradio UI development guide
 ├── install.bat                  # Windows installation script
 ├── start.bat                    # Windows startup script
 └── LICENSE                      # MIT License
@@ -233,6 +237,12 @@ python bin/test_integration.py
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Documentation
+
+- [Model Download Guide](docs/MODEL_DOWNLOAD_GUIDE.md) - How to download and configure models
+- [Model Extension Guide](docs/MODEL_EXTENSION_GUIDE.md) - How to add new TTS engines
+- [UI Development Guide](docs/UI开发指南_README.md) - Gradio UI development guide
 
 ## Acknowledgments
 
