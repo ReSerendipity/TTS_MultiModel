@@ -3,7 +3,7 @@ chcp 65001 >nul
 title TTS MultiModel
 
 echo ============================================================
-echo   TTS MultiModel
+echo   TTS MultiModel - AI Voice Workshop Pro
 echo ============================================================
 echo.
 
@@ -15,8 +15,8 @@ if not exist "%PYTHON%" (
     exit /b 1
 )
 
-if not exist "%~dp0bin\integrated_app" (
-    echo Error: Application not found at bin\integrated_app
+if not exist "%~dp0bin\clean_launch.py" (
+    echo Error: Launch script not found at bin\clean_launch.py
     pause
     exit /b 1
 )
@@ -25,7 +25,7 @@ echo Starting TTS MultiModel...
 echo.
 
 cd /d "%~dp0"
-"%PYTHON%" bin\integrated_app\ui\app.py
+"%PYTHON%" bin\clean_launch.py
 
 if errorlevel 1 (
     echo.

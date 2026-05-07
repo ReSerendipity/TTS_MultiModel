@@ -42,15 +42,12 @@ class EngineSwitchError(TTSError):
 
 
 def tts_error_handler(func):
-    """TTS 函数统一异常处理装饰器"""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except TTSError as e:
-            import gradio as gr
-            raise gr.Error(f"[{e.error_code}] {str(e)}")
+        except TTSError:
+            raise
         except Exception as e:
-            import gradio as gr
-            raise gr.Error(f"未知错误: {type(e).__name__}: {e}")
+            raise GenerationError(f"未知错误: {type(e).__name__}: {e}") from e
     return wrapper

@@ -1,0 +1,259 @@
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
+            <h3 class="card-header-title">{{ "engine_info"|t(lang) }}</h3>
+        </div>
+        <div id="settings-engine-info">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "engine_version"|t(lang) }}</span>
+                    <span id="settings-engine-version" style="font-weight:600;font-size:13px;">{{ version }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "model_path"|t(lang) }}</span>
+                    <span id="settings-model-path" style="font-weight:600;font-size:13px;max-width:200px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ "loading"|t(lang) }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "running_status"|t(lang) }}</span>
+                    <span id="settings-engine-status" style="font-weight:600;font-size:13px;">
+                        <span class="health-status-badge ready">{{ "ready"|t(lang) }}</span>
+                    </span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "device"|t(lang) }}</span>
+                    <span id="settings-device" style="font-weight:600;font-size:13px;">{{ "loading"|t(lang) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></span>
+            <h3 class="card-header-title">{{ "lora_management"|t(lang) }}</h3>
+        </div>
+        <div id="settings-lora-section">
+            <div style="margin-bottom:12px;">
+                <select id="settings-lora-select" class="tts-input-dropdown" style="width:100%;box-sizing:border-box;">
+                    <option value="">{{ "select_lora"|t(lang) }}</option>
+                    {% for lora in lora_list %}
+                    <option value="{{ lora }}">{{ lora }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button type="button" id="settings-lora-load-btn" class="primary-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="loadLoraModel()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>{{ "load"|t(lang) }}</button>
+                <button type="button" id="settings-lora-unload-btn" class="secondary-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="unloadLoraModel()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>{{ "unload"|t(lang) }}</button>
+                <button type="button" id="settings-lora-toggle-btn" class="secondary-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="toggleLoraModel()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>{{ "toggle"|t(lang) }}</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "current_loaded"|t(lang) }}</span>
+                    <span id="settings-lora-current" style="font-weight:600;font-size:13px;">{{ "none"|t(lang) }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "lora_count"|t(lang) }}</span>
+                    <span id="settings-lora-count" style="font-weight:600;font-size:13px;">{{ lora_list | length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg></span>
+            <h3 class="card-header-title">{{ "gpu_vram"|t(lang) }}</h3>
+        </div>
+        <div id="settings-vram-section">
+            <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                    <span style="color:var(--text-secondary);font-size:13px;">{{ "vram_usage"|t(lang) }}</span>
+                    <span id="settings-vram-used" style="font-weight:600;font-size:13px;">--</span>
+                </div>
+                <div style="width:100%;height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;">
+                    <div id="settings-vram-bar" style="width:0%;height:100%;background:#10B981;transition:width 0.5s ease,background-color 0.5s ease;"></div>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "vram_total"|t(lang) }}</span>
+                    <span id="settings-vram-total" style="font-weight:600;font-size:13px;">--</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "vram_free"|t(lang) }}</span>
+                    <span id="settings-vram-free" style="font-weight:600;font-size:13px;">--</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "gpu_util"|t(lang) }}</span>
+                    <span id="settings-gpu-util" style="font-weight:600;font-size:13px;">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
+            <h3 class="card-header-title">{{ "cache_stats"|t(lang) }}</h3>
+        </div>
+        <div id="settings-cache-section">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "cache_hits"|t(lang) }}</span>
+                    <span id="settings-cache-hits" style="font-weight:600;font-size:13px;">0</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "cache_misses"|t(lang) }}</span>
+                    <span id="settings-cache-misses" style="font-weight:600;font-size:13px;">0</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "hit_rate"|t(lang) }}</span>
+                    <span id="settings-cache-rate" style="font-weight:600;font-size:13px;">0%</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "cache_entries"|t(lang) }}</span>
+                    <span id="settings-cache-entries" style="font-weight:600;font-size:13px;">0</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;">
+                    <span style="color:var(--text-muted);font-size:13px;">{{ "cache_size"|t(lang) }}</span>
+                    <span id="settings-cache-size" style="font-weight:600;font-size:13px;">0 MB</span>
+                </div>
+            </div>
+            <button type="button" class="secondary-btn" style="width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="clearCache()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>{{ "clear_cache"|t(lang) }}</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    function fetchSettingsData() {
+        fetch('/api/system/settings')
+            .then(function(res) {
+                if (!res.ok) {
+                    console.warn('Settings API returned status:', res.status);
+                    return null;
+                }
+                return res.json();
+            })
+            .then(function(data) {
+                if (!data || data.status !== 'ok') return;
+                    var modelPath = document.getElementById('settings-model-path');
+                    if (modelPath) modelPath.textContent = data.model_path || '--';
+
+                    var device = document.getElementById('settings-device');
+                    if (device) device.textContent = data.device || '--';
+
+                    var vramUsed = document.getElementById('settings-vram-used');
+                    if (vramUsed) vramUsed.textContent = data.vram_used || '--';
+
+                    var vramTotal = document.getElementById('settings-vram-total');
+                    if (vramTotal) vramTotal.textContent = data.vram_total || '--';
+
+                    var vramFree = document.getElementById('settings-vram-free');
+                    if (vramFree) vramFree.textContent = data.vram_free || '--';
+
+                    var gpuUtil = document.getElementById('settings-gpu-util');
+                    if (gpuUtil) gpuUtil.textContent = data.gpu_util || '--';
+
+                    var vramBar = document.getElementById('settings-vram-bar');
+                    if (vramBar && data.vram_percent) {
+                        vramBar.style.width = data.vram_percent + '%';
+                        if (data.vram_percent > 90) {
+                            vramBar.style.background = '#EF4444';
+                        } else if (data.vram_percent > 70) {
+                            vramBar.style.background = '#F59E0B';
+                        } else {
+                            vramBar.style.background = '#10B981';
+                        }
+                    }
+
+                    var loraCurrent = document.getElementById('settings-lora-current');
+                    if (loraCurrent) loraCurrent.textContent = data.current_lora || '{{ "none"|t(lang) }}';
+
+                    var cacheHits = document.getElementById('settings-cache-hits');
+                    if (cacheHits) cacheHits.textContent = data.cache_hits || 0;
+
+                    var cacheMisses = document.getElementById('settings-cache-misses');
+                    if (cacheMisses) cacheMisses.textContent = data.cache_misses || 0;
+
+                    var cacheRate = document.getElementById('settings-cache-rate');
+                    if (cacheRate) cacheRate.textContent = (data.cache_rate || 0) + '%';
+
+                    var cacheEntries = document.getElementById('settings-cache-entries');
+                    if (cacheEntries) cacheEntries.textContent = data.cache_entries || 0;
+
+                    var cacheSize = document.getElementById('settings-cache-size');
+                    if (cacheSize) cacheSize.textContent = (data.cache_size_mb || 0) + ' MB';
+            })
+            .catch(function(err) {
+                console.error('Failed to fetch settings:', err);
+            });
+    }
+
+    window.loadLoraModel = function() {
+        var select = document.getElementById('settings-lora-select');
+        if (!select || !select.value) return;
+        fetch('/api/lora/load', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lora_name: select.value })
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (data.status === 'ok') {
+                fetchSettingsData();
+            }
+        }).catch(function(err) {
+            console.error('Failed to load LoRA:', err);
+        });
+    };
+
+    window.unloadLoraModel = function() {
+        fetch('/api/lora/unload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (data.status === 'ok') {
+                fetchSettingsData();
+            }
+        }).catch(function(err) {
+            console.error('Failed to unload LoRA:', err);
+        });
+    };
+
+    window.toggleLoraModel = function() {
+        var select = document.getElementById('settings-lora-select');
+        if (!select || !select.value) return;
+        fetch('/api/lora/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lora_name: select.value })
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (data.status === 'ok') {
+                fetchSettingsData();
+            }
+        }).catch(function(err) {
+            console.error('Failed to toggle LoRA:', err);
+        });
+    };
+
+    window.clearCache = function() {
+        fetch('/api/cache/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (data.status === 'ok') {
+                fetchSettingsData();
+            }
+        }).catch(function(err) {
+            console.error('Failed to clear cache:', err);
+        });
+    };
+
+    fetchSettingsData();
+    var refreshInterval = setInterval(fetchSettingsData, 5000);
+
+    window.addEventListener('beforeunload', function() {
+        clearInterval(refreshInterval);
+    });
+})();
+</script>

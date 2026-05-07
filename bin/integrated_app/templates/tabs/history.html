@@ -1,0 +1,687 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>
+        <h3 class="card-header-title">{{ "history"|t(lang) }}</h3>
+    </div>
+    {% if history_count == 0 %}
+    <div class="empty-state" style="text-align:center;padding:48px 24px;">
+        <div class="empty-state-icon" style="font-size:64px;margin-bottom:16px;opacity:0.5;">📭</div>
+        <h3 style="margin:0 0 8px 0;color:var(--text-primary);">{{ "no_records"|t(lang) }}</h3>
+        <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "records_auto_show"|t(lang) }}</p>
+        <button class="primary-btn" onclick="window.activateTab && window.activateTab('voice_design')">{{ "start_first"|t(lang) }}</button>
+    </div>
+    {% else %}
+    <div class="stat-card">
+        <span class="stat-card-icon">📜</span>
+        <div>
+            <div class="stat-card-value">{{ history_count }}</div>
+            <div class="stat-card-label">{{ "records_count"|t(lang) }}</div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="history-filters">
+        <span class="filter-bar-label">{{ "time"|t(lang) }}:</span>
+        <span class="time-filter-chip active" data-time="all" onclick="filterHistoryTime('all')">{{ "all"|t(lang) }}</span>
+        <span class="time-filter-chip" data-time="today" onclick="filterHistoryTime('today')">{{ "today"|t(lang) }}</span>
+        <span class="time-filter-chip" data-time="week" onclick="filterHistoryTime('week')">{{ "week"|t(lang) }}</span>
+        <span class="time-filter-chip" data-time="month" onclick="filterHistoryTime('month')">{{ "month"|t(lang) }}</span>
+    </div>
+    <div class="history-search-bar">
+        <input type="text" id="hist-search" class="history-search-input" placeholder="{{ 'keyword_search'|t(lang) }}">
+        <input type="hidden" id="hist-time-filter" value="all">
+        <div class="history-search-actions">
+            <button class="secondary-btn history-search-btn" onclick="refreshHistory()">{{ "refresh_records"|t(lang) }}</button>
+            <button class="stop-btn history-search-btn" onclick="clearHistorySearch()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                {{ "clear_search"|t(lang) }}
+            </button>
+        </div>
+    </div>
+    <div id="hist-info" class="history-info-bar">
+        {% if history_count > 0 %}
+        {{ "total"|t(lang) }} <strong>{{ history_count }}</strong> {{ "records"|t(lang) }}, {{ "loaded"|t(lang) }} <strong>{{ history_loaded }}</strong> {{ "records"|t(lang) }}
+        {% endif %}
+    </div>
+    <!-- History Table Skeleton -->
+    <div class="skeleton-screen" id="history-skeleton">
+        <div class="skeleton-table">
+            <div class="skeleton-table-header">
+                <div class="skeleton-block skeleton-col-check"></div>
+                <div class="skeleton-block skeleton-col-name"></div>
+                <div class="skeleton-block skeleton-col-time"></div>
+                <div class="skeleton-block skeleton-col-dur"></div>
+                <div class="skeleton-block skeleton-col-size"></div>
+            </div>
+            <div class="skeleton-table-row skeleton-stagger-1"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
+            <div class="skeleton-table-row skeleton-stagger-2"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
+            <div class="skeleton-table-row skeleton-stagger-3"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
+            <div class="skeleton-table-row skeleton-stagger-4"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
+            <div class="skeleton-table-row skeleton-stagger-5"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
+            <div class="skeleton-table-row skeleton-stagger-6"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
+            <div class="skeleton-table-row skeleton-stagger-7"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
+        </div>
+    </div>
+    <div class="dataframe-container skeleton-content hidden" id="hist-table-container">
+        <style>
+        /* === History Table Styles === */
+        .history-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .history-table thead th {
+            background: var(--primary-bg);
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .history-table thead th:nth-child(1) {
+            width: 40px;
+            text-align: center;
+        }
+        .history-table tbody tr {
+            transition: background 0.15s ease, transform 0.15s ease;
+            border-bottom: 1px solid var(--border-color);
+            cursor: default;
+        }
+        .history-table tbody tr:last-child { border-bottom: none; }
+        .history-table tbody tr:hover {
+            background: var(--hover-bg);
+        }
+        .history-table tbody td {
+            padding: 8px 12px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            vertical-align: middle;
+        }
+        .history-table tbody td:nth-child(1) {
+            text-align: center;
+            width: 40px;
+        }
+        .history-table tbody td:nth-child(4),
+        .history-table tbody td:nth-child(5) {
+            white-space: nowrap;
+        }
+        .history-table .history-duration {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        /* === History Search Bar === */
+        .history-search-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .history-search-input {
+            flex: 4;
+            min-width: 200px;
+        }
+        .history-search-actions {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            gap: 8px;
+        }
+        .history-search-btn {
+            flex: 1;
+        }
+        .history-info-bar {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        /* === Skeleton Column Widths === */
+        .skeleton-col-check { width: 40px; }
+        .skeleton-col-name { flex: 3; }
+        .skeleton-col-time { flex: 1.5; }
+        .skeleton-col-dur { flex: 0.8; }
+        .skeleton-col-size { flex: 0.8; }
+        .skeleton-stagger-1 { animation-delay: 0s; }
+        .skeleton-stagger-2 { animation-delay: 0.08s; }
+        .skeleton-stagger-3 { animation-delay: 0.16s; }
+        .skeleton-stagger-4 { animation-delay: 0.24s; }
+        .skeleton-stagger-5 { animation-delay: 0.32s; }
+        .skeleton-stagger-6 { animation-delay: 0.4s; }
+        .skeleton-stagger-7 { animation-delay: 0.48s; }
+
+        /* === Empty State Hierarchy === */
+        .empty-state-hint {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        /* === Load More / No More Indicators === */
+        .history-load-indicator {
+            text-align: center;
+            padding: 16px;
+            color: var(--text-muted);
+            font-size: var(--text-sm);
+        }
+        .history-load-indicator .spinner-icon {
+            display: inline-block;
+            animation: tts-spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        /* === Batch Action Bar === */
+        .history-batch-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+        .history-batch-bar .batch-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .history-batch-bar .batch-spacer {
+            flex: 1;
+        }
+        .history-batch-bar .batch-btn {
+            font-size: 11px;
+            padding: 4px 8px;
+            white-space: nowrap;
+        }
+
+        /* === Pagination Styles === */
+        .history-pagination {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            margin-top: 16px;
+        }
+        .pagination-info {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .pagination-btn {
+            font-size: 12px;
+            padding: 6px 12px;
+            min-width: 60px;
+        }
+        .pagination-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .pagination-pages {
+            display: flex;
+            gap: 4px;
+            margin: 0 8px;
+        }
+        .pagination-page-btn {
+            font-size: 12px;
+            padding: 6px 10px;
+            min-width: 32px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-medium);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .pagination-page-btn:hover {
+            background: var(--primary-bg);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .pagination-page-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        .pagination-size {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .pagination-size select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-medium);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+        }
+        @media (max-width: 768px) {
+            .history-pagination {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .pagination-controls {
+                order: -1;
+            }
+        }
+        </style>
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" class="history-header-checkbox" onclick="toggleAllHistory(this.checked)"></th>
+                    <th>{{ "filename"|t(lang) }}</th>
+                    <th>{{ "gen_time"|t(lang) }}</th>
+                    <th>{{ "duration"|t(lang) }}</th>
+                    <th>{{ "size"|t(lang) }}</th>
+                </tr>
+            </thead>
+            <tbody id="hist-table-body">
+                {% for row in history_records %}
+                <tr class="history-record-row">
+                    <td><input type="checkbox" class="history-row-checkbox" data-history-id="{{ row[0] }}"></td>
+                    <td>{{ row[0] }}</td>
+                    <td>{{ row[1] }}</td>
+                    <td><span class="history-duration">{{ row[2] }}</span></td>
+                    <td>{{ row[3] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!-- Pagination Controls -->
+    <div class="history-pagination" id="history-pagination" style="display:none;">
+        <div class="pagination-info">
+            <span id="pagination-text">{{ "page"|t(lang) }} 1 / 1</span>
+        </div>
+        <div class="pagination-controls">
+            <button class="secondary-btn pagination-btn" id="pagination-first" onclick="goToPage(1)" disabled>{{ "first_page"|t(lang) }}</button>
+            <button class="secondary-btn pagination-btn" id="pagination-prev" onclick="goToPrevPage()" disabled>{{ "prev_page"|t(lang) }}</button>
+            <div class="pagination-pages" id="pagination-pages"></div>
+            <button class="secondary-btn pagination-btn" id="pagination-next" onclick="goToNextPage()" disabled>{{ "next_page"|t(lang) }}</button>
+            <button class="secondary-btn pagination-btn" id="pagination-last" onclick="goToLastPage()" disabled>{{ "last_page"|t(lang) }}</button>
+        </div>
+        <div class="pagination-size">
+            <label>{{ "per_page"|t(lang) }}:</label>
+            <select id="pagination-size" onchange="changePageSize(this.value)">
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Loading indicator for infinite scroll -->
+    <div id="hist-load-more-indicator" class="history-load-indicator" style="display:none;">
+        <span class="spinner-icon">⟳</span>
+        {{ "loading_more"|t(lang) }}
+    </div>
+    <div id="hist-no-more-indicator" class="history-load-indicator" style="display:none;">
+        {{ "all_loaded"|t(lang) }}
+    </div>
+    <div class="history-batch-bar skeleton-content hidden" id="history-batch-actions">
+        <span class="batch-hint">{{ "select_rows_hint"|t(lang) }}</span>
+        <span class="batch-spacer"></span>
+        <button class="secondary-btn batch-btn" onclick="batchExportHistory()">{{ "batch_export"|t(lang) }}</button>
+        <button class="stop-btn batch-btn" onclick="batchDeleteHistory()">{{ "batch_delete"|t(lang) }}</button>
+    </div>
+</div>
+<script>
+(function(){
+    var skeleton = document.getElementById('history-skeleton');
+    var contentEls = document.querySelectorAll('#history-batch-actions, #hist-table-container');
+    // Pagination state
+    var totalRecords = {{ history_count | default(0) }};
+    var hasMore = {{ 'true' if history_has_more else 'false' }};
+    var loadedRecords = {{ history_loaded | default(0) }};
+    var isLoading = false;
+    var PAGE_SIZE = 20;
+
+    // Update info text
+    function updateInfoText() {
+        var infoEl = document.getElementById('hist-info');
+        if (infoEl && totalRecords > 0) {
+            var keyword = document.getElementById('hist-search').value;
+            if (keyword) return; // Don't override during search
+            infoEl.innerHTML = '{{ "total"|t(lang) }} <strong>' + totalRecords + '</strong> {{ "records"|t(lang) }}, {{ "loaded"|t(lang) }} <strong>' + loadedRecords + '</strong> {{ "records"|t(lang) }}';
+        }
+    }
+
+    // Helper: show content elements and clean up skeleton artifacts
+    function showContent() {
+        if (skeleton) skeleton.classList.remove('active');
+        contentEls.forEach(function(el) {
+            el.classList.remove('hidden');
+            el.classList.remove('skeleton-content');
+            el.getAnimations().forEach(function(a) { a.cancel(); });
+            el.style.transform = 'none';
+            el.style.background = '';
+            el.style.animation = 'none';
+        });
+    }
+
+    // Robust initialization: ensure content is visible when data exists
+    function ensureContentVisible() {
+        var hasContent = document.querySelectorAll('#hist-table-body tr').length > 0;
+        var initialCount = {{ 'true' if history_count > 0 else 'false' }};
+        if (hasContent || initialCount) {
+            showContent();
+            updateInfoText();
+        }
+    }
+    // Run immediately and also after a short delay for HTMX settling
+    ensureContentVisible();
+    setTimeout(ensureContentVisible, 100);
+    setTimeout(ensureContentVisible, 500);
+
+    // Render rows helper
+    function renderRows(records, append) {
+        var tbody = document.getElementById('hist-table-body');
+        var html = '';
+        records.forEach(function(r){
+            html += '<tr class="history-record-row">' +
+                '<td><input type="checkbox" class="history-row-checkbox" data-history-id="' + r[0] + '"></td>' +
+                '<td>' + r[0] + '</td>' +
+                '<td>' + r[1] + '</td>' +
+                '<td><span class="history-duration">' + r[2] + '</span></td>' +
+                '<td>' + r[3] + '</td></tr>';
+        });
+        if (append) {
+            tbody.innerHTML += html;
+        } else {
+            tbody.innerHTML = html;
+        }
+    }
+
+    function showLoading() {
+        var el = document.getElementById('hist-load-more-indicator');
+        if (el) el.style.display = 'block';
+        var noMore = document.getElementById('hist-no-more-indicator');
+        if (noMore) noMore.style.display = 'none';
+    }
+
+    function hideLoading() {
+        var el = document.getElementById('hist-load-more-indicator');
+        if (el) el.style.display = 'none';
+    }
+
+    function showNoMore() {
+        hideLoading();
+        var el = document.getElementById('hist-no-more-indicator');
+        if (el) el.style.display = 'block';
+    }
+
+    // Load next page
+    function loadMoreHistory() {
+        if (isLoading || !hasMore) return;
+        var searchEl = document.getElementById('hist-search');
+        var timeEl = document.getElementById('hist-time-filter');
+        if (!searchEl || !timeEl) return;
+        isLoading = true;
+        showLoading();
+
+        var keyword = searchEl.value;
+        var timeFilter = timeEl.value;
+        var url = '/api/history/table?keyword=' + encodeURIComponent(keyword) +
+            '&time_filter=' + encodeURIComponent(timeFilter) +
+            '&limit=' + PAGE_SIZE +
+            '&offset=' + loadedRecords;
+
+        fetch(url)
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                hideLoading();
+                isLoading = false;
+                if (data.records && data.records.length > 0) {
+                    renderRows(data.records, true);
+                    loadedRecords = data.loaded;
+                    totalRecords = data.total;
+                    hasMore = data.hasMore;
+                    updateInfoText();
+                    if (!hasMore) {
+                        showNoMore();
+                    }
+                } else {
+                    hasMore = false;
+                    showNoMore();
+                }
+            })
+            .catch(function(){
+                hideLoading();
+                isLoading = false;
+            });
+    }
+
+    window.refreshHistory = function() {
+        var keyword = document.getElementById('hist-search').value;
+        var timeFilter = document.getElementById('hist-time-filter').value;
+        // Reset pagination state
+        loadedRecords = 0;
+        hasMore = true;
+        totalRecords = 0;
+        hideLoading();
+        var noMore = document.getElementById('hist-no-more-indicator');
+        if (noMore) noMore.style.display = 'none';
+
+        if (skeleton) skeleton.classList.add('active');
+        contentEls.forEach(function(el) { el.classList.add('hidden'); });
+        fetch('/api/history/table?keyword=' + encodeURIComponent(keyword) + '&time_filter=' + encodeURIComponent(timeFilter) + '&limit=' + PAGE_SIZE + '&offset=0')
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if (data.records && data.records.length > 0) {
+                    renderRows(data.records, false);
+                    totalRecords = data.total;
+                    loadedRecords = data.loaded;
+                    hasMore = data.hasMore;
+                    updateInfoText();
+                } else {
+                    var tbody = document.getElementById('hist-table-body');
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">{{ "no_records"|t(lang) }}</td></tr>';
+                    var infoEl = document.getElementById('hist-info');
+                    infoEl.innerHTML = keyword ? '{{ "no_matches"|t(lang) }}' : '';
+                }
+                if (skeleton) skeleton.classList.remove('active');
+                showContent();
+            }).catch(function(){
+                if (skeleton) skeleton.classList.remove('active');
+                showContent();
+            });
+    };
+    window.clearHistorySearch = function() {
+        document.getElementById('hist-search').value = '';
+        document.getElementById('hist-time-filter').value = 'all';
+        document.querySelectorAll('.time-filter-chip').forEach(function(c){ c.classList.remove('active'); });
+        document.querySelector('.time-filter-chip[data-time="all"]').classList.add('active');
+        refreshHistory();
+    };
+
+    // Infinite scroll: detect when user scrolls near bottom of history table container
+    var scrollContainer = null;
+    function findScrollContainer() {
+        if (scrollContainer) return;
+        // Try to find the scrollable parent of the history table
+        var tableContainer = document.getElementById('hist-table-container');
+        if (!tableContainer) return;
+        // Check if any ancestor has overflow:scroll/auto
+        var el = tableContainer.parentElement;
+        while (el) {
+            var overflow = getComputedStyle(el).overflowY;
+            if (overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') {
+                var height = el.scrollHeight || el.clientHeight;
+                if (height > 300) { // Only consider containers with meaningful height
+                    scrollContainer = el;
+                    return;
+                }
+            }
+            el = el.parentElement;
+        }
+        // Fallback to window
+        scrollContainer = window;
+    }
+
+    function handleScroll() {
+        if (isLoading || !hasMore) return;
+        findScrollContainer();
+        if (!scrollContainer) return;
+
+        var scrollTop, clientHeight, scrollHeight;
+        if (scrollContainer === window) {
+            scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            clientHeight = window.innerHeight;
+            scrollHeight = document.documentElement.scrollHeight;
+        } else {
+            scrollTop = scrollContainer.scrollTop;
+            clientHeight = scrollContainer.clientHeight;
+            scrollHeight = scrollContainer.scrollHeight;
+        }
+
+        // Trigger load when within 200px of bottom
+        if (scrollTop + clientHeight >= scrollHeight - 200) {
+            loadMoreHistory();
+        }
+    }
+
+    // Attach scroll listener after a short delay to ensure DOM is ready
+    setTimeout(function() {
+        findScrollContainer();
+        if (scrollContainer) {
+            scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+        } else {
+            window.addEventListener('scroll', handleScroll, { passive: true });
+        }
+    }, 500);
+
+    document.getElementById('hist-search').addEventListener('input', function() { refreshHistory(); });
+    window.filterHistoryTime = function(filter) {
+        document.querySelectorAll('.time-filter-chip').forEach(function(c){ c.classList.remove('active'); });
+        document.querySelector('.time-filter-chip[data-time="' + filter + '"]').classList.add('active');
+        document.getElementById('hist-time-filter').value = filter;
+        refreshHistory();
+    };
+
+    // Pagination functions
+    var currentPage = 1;
+    var totalPages = 1;
+    var paginationEnabled = false;
+
+    function updatePagination() {
+        var paginationEl = document.getElementById('history-pagination');
+        if (!paginationEl) return;
+
+        // Show pagination only when we have data
+        if (totalRecords <= 0) {
+            paginationEl.style.display = 'none';
+            return;
+        }
+
+        paginationEl.style.display = 'flex';
+        totalPages = Math.ceil(totalRecords / PAGE_SIZE) || 1;
+
+        // Update info text
+        var infoText = document.getElementById('pagination-text');
+        if (infoText) {
+            infoText.textContent = '{{ "page"|t(lang) }} ' + currentPage + ' / ' + totalPages + ' ({{ "total"|t(lang) }} ' + totalRecords + ' {{ "records"|t(lang) }})';
+        }
+
+        // Update button states
+        var firstBtn = document.getElementById('pagination-first');
+        var prevBtn = document.getElementById('pagination-prev');
+        var nextBtn = document.getElementById('pagination-next');
+        var lastBtn = document.getElementById('pagination-last');
+
+        if (firstBtn) firstBtn.disabled = currentPage <= 1;
+        if (prevBtn) prevBtn.disabled = currentPage <= 1;
+        if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+        if (lastBtn) lastBtn.disabled = currentPage >= totalPages;
+
+        // Update page number buttons
+        var pagesContainer = document.getElementById('pagination-pages');
+        if (pagesContainer) {
+            var pagesHtml = '';
+            var startPage = Math.max(1, currentPage - 2);
+            var endPage = Math.min(totalPages, startPage + 4);
+            if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+            }
+
+            for (var i = startPage; i <= endPage; i++) {
+                var activeClass = i === currentPage ? 'active' : '';
+                pagesHtml += '<button class="pagination-page-btn ' + activeClass + '" onclick="goToPage(' + i + ')">' + i + '</button>';
+            }
+            pagesContainer.innerHTML = pagesHtml;
+        }
+    }
+
+    window.goToPage = function(page) {
+        if (page < 1 || page > totalPages || page === currentPage) return;
+        currentPage = page;
+        loadedRecords = (currentPage - 1) * PAGE_SIZE;
+        loadMoreHistory();
+        updatePagination();
+        // Scroll to top of table
+        var tableContainer = document.getElementById('hist-table-container');
+        if (tableContainer) {
+            tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    window.goToPrevPage = function() {
+        if (currentPage > 1) {
+            goToPage(currentPage - 1);
+        }
+    };
+
+    window.goToNextPage = function() {
+        if (currentPage < totalPages) {
+            goToPage(currentPage + 1);
+        }
+    };
+
+    window.goToLastPage = function() {
+        goToPage(totalPages);
+    };
+
+    window.changePageSize = function(size) {
+        PAGE_SIZE = parseInt(size);
+        currentPage = 1;
+        loadedRecords = 0;
+        refreshHistory();
+    };
+
+    // Override updateInfoText to also update pagination
+    var originalUpdateInfoText = updateInfoText;
+    updateInfoText = function() {
+        originalUpdateInfoText();
+        updatePagination();
+    };
+})();
+</script>

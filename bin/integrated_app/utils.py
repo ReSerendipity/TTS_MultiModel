@@ -6,8 +6,40 @@ import glob
 import time
 import re
 from datetime import datetime
+from typing import List, Dict, Any, Optional, Tuple
 
 from .config import SAVE_DIR, PERSONA_DIR, OFFICIAL_SPEAKERS, OFFICIAL_SPEAKER_INFO, _AUDIO_EXTS, _ROLE_COLOR_MAP
+
+
+# --- 历史记录缓存 ---
+class HistoryCache:
+    TTL_SECONDS = 5
+
+    def __init__(self):
+        self._data: Optional[List[Dict[str, Any]]] = None
+        self._timestamp: float = 0
+
+    def get(self, search_keyword: str = "", time_filter: str = "all") -> Optional[List[Dict[str, Any]]]:
+        now = time.time()
+        if self._data is not None and (now - self._timestamp) < self.TTL_SECONDS:
+            if search_keyword == "" and time_filter == "all":
+                return self._data
+        return None
+
+    def set(self, data: List[Dict[str, Any]]):
+        self._data = data
+        self._timestamp = time.time()
+
+    def invalidate(self):
+        self._data = None
+        self._timestamp = 0
+
+
+_history_cache = HistoryCache()
+
+
+def invalidate_history_cache():
+    _history_cache.invalidate()
 
 
 def cleanup_temp_files():
@@ -96,7 +128,10 @@ def get_total_history_count():
 
 
 def get_generation_history_enhanced(search_keyword="", time_filter="all"):
-    """增强的历史记录获取，支持时间筛选"""
+    cached = _history_cache.get(search_keyword, time_filter)
+    if cached is not None:
+        return cached
+
     kw_lower = search_keyword.lower() if search_keyword else ""
     now = time.time()
     history = []
@@ -111,7 +146,6 @@ def get_generation_history_enhanced(search_keyword="", time_filter="all"):
             continue
         stat = os.stat(f)
         mtime = stat.st_mtime
-        # 时间筛选
         if time_filter == "today":
             if now - mtime > 86400:
                 continue
@@ -121,7 +155,6 @@ def get_generation_history_enhanced(search_keyword="", time_filter="all"):
         elif time_filter == "month":
             if now - mtime > 2592000:
                 continue
-        # 估算时长 (基于文件大小粗略估算)
         duration = f"{stat.st_size / 1024 / 150:.1f}s" if stat.st_size > 1024 else "<1s"
         history.append({
             "basename": basename,
@@ -132,6 +165,10 @@ def get_generation_history_enhanced(search_keyword="", time_filter="all"):
             "mtime": mtime,
         })
     history.sort(key=lambda x: x["mtime"], reverse=True)
+
+    if search_keyword == "" and time_filter == "all":
+        _history_cache.set(history)
+
     return history
 
 
@@ -141,3 +178,54 @@ def get_history_table_data(search_keyword="", time_filter="all"):
     if not records:
         return [["暂无记录", "-", "-", "-"]]
     return [[r["basename"], r["time"], r["duration"], r["size"]] for r in records]
+
+
+def get_history_table_data_paginated(search_keyword="", time_filter="all", limit=20, offset=0):
+    """获取分页的历史记录表格数据
+
+    Args:
+        search_keyword: 搜索关键词
+        time_filter: 时间过滤器 (all/today/week/month)
+        limit: 每页数量，默认20，最大50
+        offset: 偏移量
+
+    Returns:
+        dict: {
+            "items": [[basename, time, duration, size], ...],
+            "total": int,
+            "hasMore": bool,
+            "loaded": int
+        }
+    """
+    # Clamp limit
+    if limit < 1:
+        limit = 1
+    if limit > 50:
+        limit = 50
+    if offset < 0:
+        offset = 0
+
+    records = get_generation_history_enhanced(search_keyword, time_filter)
+    total = len(records)
+
+    if not records:
+        return {
+            "items": [],
+            "total": 0,
+            "hasMore": False,
+            "loaded": 0,
+        }
+
+    # Slice the records for pagination
+    end = offset + limit
+    page_records = records[offset:end]
+    loaded = offset + len(page_records)
+
+    items = [[r["basename"], r["time"], r["duration"], r["size"]] for r in page_records]
+
+    return {
+        "items": items,
+        "total": total,
+        "hasMore": loaded < total,
+        "loaded": loaded,
+    }

@@ -1,0 +1,580 @@
+
+======================================================
+         VoxCPM Studio Console
+======================================================
+
+  Hotkeys:
+    [R] - Load Model
+    [U] - Unload Model
+    [Q] - Quit Application
+    [H] - Show Help
+
+======================================================
+
+[START] Launching TTS MultiModel application...
+[OK] Application started, PID: 31708
+[INFO] Waiting for server to be ready...
+[INFO] 正在等待引擎加载...
+INFO:     Started server process [31708]
+INFO:     Waiting for application startup.
+[INFO] [启动] 正在加载 VoxCPM2 模型...
+[INFO] [启动] 正在加载 VoxCPM2 模型...
+voxcpm_model_path: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\VoxCPM2, zipenhancer_model_path: iic/speech_zipenhancer_ans_multiloss_16k_base, enable_denoiser: True
+Loading AudioVAE from pytorch: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\VoxCPM2\audiovae.pth
+Running on device: cuda, dtype: bfloat16
+Loading model from safetensors: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\VoxCPM2\model.safetensors
+Warning: torch.compile disabled - triton is not installed
+Loaded VoxCPM2Model
+[INFO] PyTorch version 2.8.0+cu128 available.
+2026-05-06 11:31:31,464 - modelscope - INFO - initiate model from C:\Users\FREE\.trae-cn\TTS_MultiModel\cache\modelscope\models\iic\speech_zipenhancer_ans_multiloss_16k_base
+2026-05-06 11:31:31,464 - modelscope - INFO - initiate model from location C:\Users\FREE\.trae-cn\TTS_MultiModel\cache\modelscope\models\iic\speech_zipenhancer_ans_multiloss_16k_base.
+2026-05-06 11:31:31,466 - modelscope - INFO - initialize model from C:\Users\FREE\.trae-cn\TTS_MultiModel\cache\modelscope\models\iic\speech_zipenhancer_ans_multiloss_16k_base
+2026-05-06 11:31:31,550 - modelscope - WARNING - No preprocessor field found in cfg.
+2026-05-06 11:31:31,550 - modelscope - WARNING - No val key and type key found in preprocessor domain of configuration.json file.
+2026-05-06 11:31:31,550 - modelscope - INFO - No preprocessor key ('speech_zipenhancer_ans_multiloss_16k_base', 'acoustic-noise-suppression') found in PREPROCESSOR_MAP, skip building preprocessor. If the pipeline runs normally, please ignore this log.
+2026-05-06 11:31:31,550 - modelscope - WARNING - Cannot find available config to build preprocessor at mode inference, current config: {'model_dir': 'C:\\Users\\FREE\\.trae-cn\\TTS_MultiModel\\cache\\modelscope\\models\\iic\\speech_zipenhancer_ans_multiloss_16k_base'}. trying to build by task and model information.
+Warm up VoxCPMModel...
+
+Downloading Model from https://www.modelscope.cn to directory: C:\Users\FREE\.trae-cn\TTS_MultiModel\cache\modelscope\models\iic\speech_zipenhancer_ans_multiloss_16k_base
+  0%|          | 0/10 [00:00<?, ?it/s]
+ 10%|█         | 1/10 [00:00<00:01,  5.36it/s]
+ 20%|██        | 2/10 [00:00<00:01,  6.11it/s]
+ 30%|███       | 3/10 [00:00<00:01,  6.22it/s]
+ 40%|████      | 4/10 [00:00<00:00,  6.13it/s]
+ 50%|█████     | 5/10 [00:00<00:00,  6.32it/s]
+[OK] Server is ready!
+ 60%|██████    | 6/10 [00:00<00:00,  6.58it/s]
+ 70%|███████   | 7/10 [00:01<00:00,  6.75it/s]
+ 80%|████████  | 8/10 [00:01<00:00,  6.56it/s]
+ 90%|█████████ | 9/10 [00:01<00:00,  6.72it/s]
+[INFO] Press hotkeys to control the application...
+100%|██████████| 10/10 [00:01<00:00,  6.71it/s]
+100%|██████████| 10/10 [00:01<00:00,  6.49it/s]
+
+[INFO] [启动] 正在加载 ASR 模型...
+[INFO] download models from model hub: ms
+[WARNING] trust_remote_code: False
+[INFO] Loading pretrained params from C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\SenseVoiceSmall\model.pt
+[INFO] ckpt: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\SenseVoiceSmall\model.pt
+[INFO] scope_map: ['module.', 'None']
+[INFO] excludes: None
+[INFO] Loading ckpt: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\SenseVoiceSmall\model.pt, status: <All keys matched successfully>
+[INFO] [启动] VoxCPM2 引擎就绪
+[INFO] [启动] VoxCPM2 模型已就绪，服务完全启动
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:7869 (Press CTRL+C to quit)
+funasr version: 1.3.1.
+You are using the latest version of funasr-1.3.1
+INFO:     127.0.0.1:7512 - "GET /sse/progress HTTP/1.1" 200 OK
+Check update of funasr, and it would cost few times. You may disable it by set `disable_update=True` in AutoModel
+INFO:     127.0.0.1:6265 - "GET /sse/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1805 - "GET /sse/cancel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9147 - "GET /sse/engine_switch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1154 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7504 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12967 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11410 - "GET /sse/engine_switch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12083 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10883 - "GET /sse/cancel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:8586 - "GET /sse/status HTTP/1.1" 200 OK
+[INFO] 服务就绪，正在弹出网页...
+INFO:     127.0.0.1:3093 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3093 - "GET /sse/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14559 - "GET /tab/voice_design HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+    return await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 87, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.app(scope, receive, send)
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+    response = await f(request)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+               ^^^^^^^^^^^^^^^^
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\tabs.py", line 87, in get_tab
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+    return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 209, in TemplateResponse
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 132, in get_template
+    template = self.get_template(name)
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    return self._load_template(name, globals)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\loaders.py", line 138, in load
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    code = environment.compile(source, name, filename)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 771, in compile
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\templates\tabs\voice_design.html", line 4, in template
+    self.handle_exception(source=source_hint)
+    <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
+jinja2.exceptions.TemplateAssertionError: No filter named 't'.
+    raise rewrite_traceback_stack(source=source)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+INFO:     127.0.0.1:7360 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14697 - "GET /sse/cancel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2024 - "GET /sse/engine_switch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11444 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2400 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2400 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2400 - "GET /sse/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10730 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11124 - "GET /sse/cancel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10369 - "GET /sse/engine_switch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4999 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14595 - "GET /tab/voice_design HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 87, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+    await app(scope, receive, sender)
+               ^^^^^^^^^^^^^^^^
+    response = await f(request)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\tabs.py", line 87, in get_tab
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 209, in TemplateResponse
+    return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+               ^^^^^^^^^^^^^^^^^^^^^^^
+    template = self.get_template(name)
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 132, in get_template
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    return self._load_template(name, globals)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\loaders.py", line 138, in load
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    self.handle_exception(source=source_hint)
+    code = environment.compile(source, name, filename)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 771, in compile
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\templates\tabs\voice_design.html", line 4, in template
+    <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.TemplateAssertionError: No filter named 't'.
+    raise rewrite_traceback_stack(source=source)
+INFO:     127.0.0.1:7152 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7152 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7152 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7152 - "GET /sse/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10805 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3507 - "GET /sse/cancel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1947 - "GET /sse/engine_switch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2923 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3022 - "GET /tab/voice_design HTTP/1.1" 500 Internal Server Error
+Traceback (most recent call last):
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 87, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\tabs.py", line 87, in get_tab
+    return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 209, in TemplateResponse
+    template = self.get_template(name)
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 132, in get_template
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 771, in compile
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    self.handle_exception(source=source_hint)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\templates\tabs\voice_design.html", line 4, in template
+    <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
+jinja2.exceptions.TemplateAssertionError: No filter named 't'.
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR:    Exception in ASGI application
+INFO:     127.0.0.1:4006 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4006 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4006 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4006 - "GET /sse/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7022 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4535 - "GET /tab/voice_design HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 87, in __call__
+    await self.middleware_stack(scope, receive, send)
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    raise exc
+    await self.app(scope, receive, send)
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+    await route.handle(scope, receive, send)
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await self.middleware_stack(scope, receive, send)
+    response = await f(request)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+    raw_response = await run_endpoint_function(
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\tabs.py", line 87, in get_tab
+    return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 209, in TemplateResponse
+               ^^^^^^^^^^^^^^^^^^^^^^^
+    template = self.get_template(name)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 132, in get_template
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+    template = self.loader.load(self, name, self.make_globals(globals))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    self.handle_exception(source=source_hint)
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\templates\tabs\voice_design.html", line 4, in template
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.TemplateAssertionError: No filter named 't'.
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+INFO:     127.0.0.1:7692 - "GET /sse/cancel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /sse/engine_switch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14291 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9638 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14291 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9638 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9638 - "GET /sse/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9093 - "GET /tab/voice_design HTTP/1.1" 500 Internal Server Error
+Traceback (most recent call last):
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 87, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\tabs.py", line 87, in get_tab
+    return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 209, in TemplateResponse
+    template = self.get_template(name)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 132, in get_template
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+               ^^^^^^^^^^^^^^^^^^^^^^^
+    template = self.loader.load(self, name, self.make_globals(globals))
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 771, in compile
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    self.handle_exception(source=source_hint)
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\templates\tabs\voice_design.html", line 4, in template
+    <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.TemplateAssertionError: No filter named 't'.
+ERROR:    Exception in ASGI application
+INFO:     127.0.0.1:10536 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2561 - "GET /sse/cancel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:8404 - "GET /sse/engine_switch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:8744 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13466 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:8744 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13466 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13466 - "GET /sse/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1750 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:9763 - "GET /sse/cancel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11727 - "GET /tab/voice_design HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 87, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\tabs.py", line 87, in get_tab
+    return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 209, in TemplateResponse
+    template = self.get_template(name)
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\templating.py", line 132, in get_template
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    self.handle_exception(source=source_hint)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\templates\tabs\voice_design.html", line 4, in template
+    <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.TemplateAssertionError: No filter named 't'.
+INFO:     127.0.0.1:6518 - "GET /sse/engine_switch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4134 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6326 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4134 - "GET /sse/progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10995 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4946 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13754 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:8645 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11326 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6753 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13681 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5909 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1438 - "GET /api/system/health HTTP/1.1" 200 OK

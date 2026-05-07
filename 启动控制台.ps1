@@ -1,4 +1,4 @@
-# PowerShell Startup Script - TTS MultiModel
+# PowerShell Startup Script - VoxCPM Studio
 # Hotkeys: q - Quit, r - Load Model, u - Unload Model
 
 $ErrorActionPreference = "Continue"
@@ -9,7 +9,6 @@ $Script:ROOT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:WPY_PATH = Join-Path $Script:ROOT_DIR "WPy64-312101\python"
 $Script:PY_EXE = Join-Path $Script:WPY_PATH "python.exe"
 $Script:BIN_DIR = Join-Path $Script:ROOT_DIR "bin"
-$Script:SRC_DIR = Join-Path $Script:ROOT_DIR "faster-qwen3-tts-main"
 
 # --- Server Configuration ---
 $Script:SERVER_IP = "127.0.0.1"
@@ -18,7 +17,7 @@ $Script:BASE_URL = "https://${Script:SERVER_IP}:${Script:SERVER_PORT}"
 
 # --- Environment Variables ---
 $env:PATH = "$($Script:BIN_DIR);$($Script:WPY_PATH);$($Script:WPY_PATH)\Scripts;$env:PATH"
-$env:PYTHONPATH = "$($Script:SRC_DIR);$($Script:BIN_DIR);$env:PYTHONPATH"
+$env:PYTHONPATH = "$($Script:BIN_DIR);$env:PYTHONPATH"
 $env:TRANSFORMERS_OFFLINE = "1"
 $env:HF_HUB_OFFLINE = "1"
 $env:MODELSCOPE_OFFLINE = "1"
@@ -150,13 +149,13 @@ function Invoke-ApiCall {
 }
 
 function Get-ModelStatus {
-    return Invoke-ApiCall -Endpoint "/api/model_status" -Method "Get"
+    return Invoke-ApiCall -Endpoint "/api/model/status" -Method "Get"
 }
 
 function Invoke-LoadModel {
     Write-Host "[LOAD] Sending model load request..." -ForegroundColor Cyan
 
-    $result = Invoke-ApiCall -Endpoint "/api/load_model" -Payload @{ m_type = "voice_design"; size = "1.7B" }
+    $result = Invoke-ApiCall -Endpoint "/api/model/load" -Payload @{ engine = "voxcpm2"; size = "voxcpm2" }
 
     if ($null -ne $result) {
         if ($result.status -eq "ok") {
@@ -171,7 +170,7 @@ function Invoke-LoadModel {
 function Invoke-UnloadModel {
     Write-Host "[UNLOAD] Sending model unload request..." -ForegroundColor Cyan
 
-    $result = Invoke-ApiCall -Endpoint "/api/unload_model"
+    $result = Invoke-ApiCall -Endpoint "/api/model/unload"
 
     if ($null -ne $result) {
         if ($result.status -eq "ok") {
@@ -186,7 +185,7 @@ function Invoke-UnloadModel {
 function Show-Help {
     Write-Host ""
     Write-Host "======================================================" -ForegroundColor Magenta
-    Write-Host "         TTS MultiModel Console" -ForegroundColor Magenta
+    Write-Host "         VoxCPM Studio Console" -ForegroundColor Magenta
     Write-Host "======================================================" -ForegroundColor Magenta
     Write-Host ""
     Write-Host "  Hotkeys:" -ForegroundColor Cyan

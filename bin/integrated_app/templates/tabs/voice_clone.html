@@ -1,0 +1,239 @@
+<style>
+    /* Voice Clone Tab Styles */
+    .vc-persona-desc {
+        margin-top: 8px;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+    }
+    .vc-spacer-top-sm { margin-top: 8px; }
+    .vc-spacer-top-md { margin-top: 12px; }
+    .vc-full-width { width: 100%; }
+    .vc-hidden { display: none; }
+
+    .vc-file-input {
+        width: 100%;
+        margin-bottom: 8px;
+    }
+
+    .vc-submit-btn {
+        width: 100%;
+    }
+
+    /* Advanced Params */
+    .advanced-params {
+        margin-top: 12px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+    .advanced-params summary {
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: var(--bg-tertiary);
+    }
+    .advanced-params-body {
+        padding: 12px 14px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .vc-param-range {
+        width: 100%;
+    }
+    .vc-param-value {
+        color: var(--primary-light);
+        font-weight: 700;
+        font-size: 13px;
+    }
+    .vc-checkbox-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        margin-top: 0;
+    }
+
+    /* Save Row */
+    .vc-save-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    .vc-save-input {
+        flex: 3;
+    }
+    .vc-save-btn {
+        flex: 1;
+    }
+
+    /* Spinner */
+    .vc-spinner-center {
+        display: none;
+        text-align: center;
+        padding: 24px;
+    }
+    .vc-spinner-icon {
+        margin: 0 auto 8px;
+    }
+</style>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+        <h3 class="card-header-title">{{ "tab_voice_clone"|t(lang) }}</h3>
+    </div>
+    <form id="vc-form" hx-post="/api/generate/voxcpm_clone" hx-target="#vc-result" hx-swap="innerHTML" hx-indicator="#vc-spinner">
+        <input type="hidden" name="mode" value="voxcpm_clone">
+        <label>{{ "synthesis_text"|t(lang) }}</label>
+        <textarea name="text" class="tts-input-textarea" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}">{{ "default_clone_text"|t(lang) }}</textarea>
+        <label>{{ "language"|t(lang) }}</label>
+        <select name="lang" class="tts-input-dropdown">
+            {% for l in langs %}
+            <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+            <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
+                {% for dialect in dialects %}
+                <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
+                {% endfor %}
+            </optgroup>
+        </select>
+        <div class="inner-tabs">
+            <div class="sub-tab-nav">
+                <button type="button" class="sub-tab-btn active" onclick="switchVcInnerTab('saved', this)">{{ "saved_voices"|t(lang) }}</button>
+                <button type="button" class="sub-tab-btn" onclick="switchVcInnerTab('upload', this)">{{ "upload_reference"|t(lang) }}</button>
+            </div>
+            <div id="vc-tab-saved" class="inner-tab-panel">
+                <label>{{ "select_voice"|t(lang) }}</label>
+                <select name="persona_name" class="tts-input-dropdown">
+                    {% for p in persona_list %}
+                    <option value="{{ p }}">{{ p }}</option>
+                    {% endfor %}
+                </select>
+                <div id="vc-persona-desc" class="vc-persona-desc"></div>
+                <div class="vc-spacer-top-sm">
+                    <button type="button" class="secondary-btn" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
+                </div>
+            </div>
+            <div id="vc-tab-upload" class="inner-tab-panel vc-hidden">
+                <label>{{ "ref_audio"|t(lang) }}</label>
+                <input type="file" name="ref_audio_path" accept=".wav,.mp3,.flac,.ogg,.m4a,audio/*" class="vc-file-input">
+                <div class="file-upload-info" style="margin-top:8px;font-size:12px;color:var(--text-muted);">
+                    <span id="selected-filename">{{ "no_file_selected"|t(lang) }}</span>
+                    <span style="margin-left:12px;">{{ "supported_formats"|t(lang) }}</span>
+                </div>
+                <label>{{ "ref_text"|t(lang) }}</label>
+                <textarea name="ref_text" class="tts-input-textarea" rows="2" placeholder="{{ 'ref_text_placeholder'|t(lang) }}"></textarea>
+                <label style="margin-top:8px;">{{ "control_instruction"|t(lang) }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">({{ 'optional'|t(lang) }})</span></label>
+                <input type="text" name="instruction" class="tts-input-textbox" placeholder="{{ 'instruction_placeholder'|t(lang) }}" style="width:100%;">
+            </div>
+        </div>
+        <button type="submit" class="primary-btn generate-btn vc-submit-btn">{{ "clone_btn"|t(lang) }}</button>
+        <details class="advanced-params">
+            <summary>{{ "advanced_params"|t(lang) }}</summary>
+            <div class="advanced-params-body">
+                <div>
+                    <label>{{ "cfg_value"|t(lang) }}</label>
+                    <input type="range" name="cfg_value" min="0.1" max="10" step="0.1" value="2.0" class="vc-param-range" oninput="document.getElementById('vc-cfg-val').textContent=this.value">
+                    <span id="vc-cfg-val" class="vc-param-value">2.0</span>
+                </div>
+                <div>
+                    <label>{{ "inference_steps"|t(lang) }}</label>
+                    <input type="range" name="inference_timesteps" min="1" max="30" step="1" value="10" class="vc-param-range" oninput="document.getElementById('vc-step-val').textContent=this.value">
+                    <span id="vc-step-val" class="vc-param-value">10</span>
+                </div>
+                <div>
+                    <label class="vc-checkbox-label">
+                        <input type="checkbox" name="normalize" checked>
+                        <span>{{ "text_normalize"|t(lang) }}</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="vc-checkbox-label">
+                        <input type="checkbox" name="denoise" checked>
+                        <span>{{ "denoise"|t(lang) }}</span>
+                    </label>
+                </div>
+            </div>
+        </details>
+        <div class="vc-save-row">
+            <input type="text" name="save_name" placeholder="{{ 'save_voice_name'|t(lang) }}" class="vc-save-input">
+            <button type="button" class="secondary-btn icon-btn vc-save-btn" hx-post="/api/persona/save" hx-target="#vc-status" hx-swap="innerHTML">{{ "save_persona"|t(lang) }}</button>
+        </div>
+    </form>
+</div>
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <h3 class="card-header-title">{{ "clone_result"|t(lang) }}</h3>
+    </div>
+    <div id="vc-result">
+        <div id="vc-spinner" class="htmx-indicator vc-spinner-center">
+            <div class="tts-loading-spinner vc-spinner-icon"></div>
+            <div class="tts-loading-text">{{ "cloning"|t(lang) }}</div>
+        </div>
+        <div class="status-message" id="vc-status"></div>
+    </div>
+    <audio class="tts-audio-player vc-full-width" id="vc-audio" controls style="display:none;"></audio>
+</div>
+<script>
+(function(){
+    window.switchVcInnerTab = function(tab, btn) {
+        document.querySelectorAll('#vc-form .inner-tab-panel').forEach(function(p){ p.style.display = 'none'; });
+        document.querySelectorAll('#vc-form .sub-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.getElementById('vc-tab-' + tab).style.display = '';
+        btn.classList.add('active');
+    };
+    // Frontend validation: prevent empty text submission
+    document.getElementById('vc-form').addEventListener('submit', function(e) {
+        var textarea = this.querySelector('textarea[name="text"]');
+        if (textarea && !textarea.value.trim()) {
+            e.preventDefault();
+            var statusEl = document.getElementById('vc-status');
+            if (statusEl) {
+                statusEl.className = 'status-message error';
+                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
+            }
+            return false;
+        }
+    });
+    document.getElementById('vc-form').addEventListener('htmx:afterRequest', function(e) {
+        if (e.detail.successful) {
+            var audioEl = document.getElementById('vc-audio');
+            var audioSrc = document.querySelector('#vc-result audio');
+            if (audioSrc) {
+                audioEl.src = audioSrc.src;
+                audioEl.style.display = '';
+                try { audioEl.play(); } catch(ex) {}
+            }
+        }
+    });
+
+    // File upload feedback
+    var fileInput = document.querySelector('input[type="file"][name="ref_audio_path"]');
+    var filenameSpan = document.getElementById('selected-filename');
+    var MAX_SIZE = 100 * 1024 * 1024;
+
+    if (fileInput && filenameSpan) {
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                var file = this.files[0];
+                var sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                if (file.size > MAX_SIZE) {
+                    filenameSpan.textContent = '{{ "file_too_large"|t(lang) }}' + sizeMB + 'MB ({{ "max_size"|t(lang) }})';
+                    filenameSpan.style.color = '#ef4444';
+                    this.value = '';
+                } else {
+                    filenameSpan.textContent = file.name + ' (' + sizeMB + 'MB)';
+                    filenameSpan.style.color = 'var(--text-secondary)';
+                }
+            } else {
+                filenameSpan.textContent = '{{ "no_file_selected"|t(lang) }}';
+                filenameSpan.style.color = 'var(--text-muted)';
+            }
+        });
+    }
+})();
+</script>

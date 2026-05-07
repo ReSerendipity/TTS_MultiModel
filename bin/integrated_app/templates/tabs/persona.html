@@ -1,0 +1,575 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+        <h3 class="card-header-title">{{ "voice_library"|t(lang) }}</h3>
+    </div>
+    {% if total_persona_count == 0 %}
+    <div class="empty-state" style="text-align:center;padding:48px 24px;">
+        <div class="empty-state-icon" style="font-size:64px;margin-bottom:16px;opacity:0.5;">🎙️</div>
+        <h3 style="margin:0 0 8px 0;color:var(--text-primary);">{{ "no_custom_voice"|t(lang) }}</h3>
+        <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "clone_to_create"|t(lang) }}</p>
+        <button class="primary-btn" onclick="window.activateTab && window.activateTab('voice_clone')">{{ "go_clone"|t(lang) }}</button>
+    </div>
+    {% else %}
+    <div class="stat-card">
+        <span class="stat-card-icon">🎙️</span>
+        <div>
+            <div class="stat-card-value">{{ total_persona_count }}</div>
+            <div class="stat-card-label">{{ "custom_voice_count"|t(lang) }}</div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="persona-toolbar">
+        <input type="text" id="persona-search" class="persona-search-input" placeholder="{{ 'keyword_search'|t(lang) }}">
+        <div class="persona-view-switcher">
+            <div class="view-toggle">
+                <span class="view-toggle-btn active" data-view="list" onclick="switchVoiceView('list')">{{ "list_view"|t(lang) }}</span>
+                <span class="view-toggle-btn" data-view="card" onclick="switchVoiceView('card')">{{ "card_view"|t(lang) }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="persona-action-bar">
+        <button class="primary-btn persona-action-btn" onclick="searchPersona()">{{ "search"|t(lang) }}</button>
+        <button class="stop-btn persona-action-btn" onclick="clearPersonaSearch()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            {{ "clear_search"|t(lang) }}
+        </button>
+        <button class="secondary-btn persona-action-btn" onclick="refreshPersonaList()">{{ "refresh_list"|t(lang) }}</button>
+    </div>
+    <div id="persona-search-info" class="persona-search-info"></div>
+    <!-- Persona Card Skeleton -->
+    <div class="skeleton-screen" id="persona-skeleton">
+        <div class="skeleton-card-grid">
+            <div class="skeleton-card skeleton-stagger-1">
+                <div class="skeleton-card-header">
+                    <div class="skeleton-block skeleton-block-fill"></div>
+                    <div class="skeleton-block skeleton-circle"></div>
+                </div>
+                <div class="skeleton-card-body">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+                <div class="skeleton-card-footer">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+            </div>
+            <div class="skeleton-card skeleton-stagger-2">
+                <div class="skeleton-card-header">
+                    <div class="skeleton-block skeleton-block-fill"></div>
+                    <div class="skeleton-block skeleton-circle"></div>
+                </div>
+                <div class="skeleton-card-body">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+                <div class="skeleton-card-footer">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+            </div>
+            <div class="skeleton-card skeleton-stagger-3">
+                <div class="skeleton-card-header">
+                    <div class="skeleton-block skeleton-block-fill"></div>
+                    <div class="skeleton-block skeleton-circle"></div>
+                </div>
+                <div class="skeleton-card-body">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+                <div class="skeleton-card-footer">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+            </div>
+            <div class="skeleton-card skeleton-stagger-4">
+                <div class="skeleton-card-header">
+                    <div class="skeleton-block skeleton-block-fill"></div>
+                    <div class="skeleton-block skeleton-circle"></div>
+                </div>
+                <div class="skeleton-card-body">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+                <div class="skeleton-card-footer">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+            </div>
+            <div class="skeleton-card skeleton-stagger-5">
+                <div class="skeleton-card-header">
+                    <div class="skeleton-block skeleton-block-fill"></div>
+                    <div class="skeleton-block skeleton-circle"></div>
+                </div>
+                <div class="skeleton-card-body">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+                <div class="skeleton-card-footer">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+            </div>
+            <div class="skeleton-card skeleton-stagger-6">
+                <div class="skeleton-card-header">
+                    <div class="skeleton-block skeleton-block-fill"></div>
+                    <div class="skeleton-block skeleton-circle"></div>
+                </div>
+                <div class="skeleton-card-body">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+                <div class="skeleton-card-footer">
+                    <div class="skeleton-block"></div>
+                    <div class="skeleton-block"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="persona-list-view" class="dataframe-container skeleton-content hidden">
+        <style>
+        /* === Persona Table Styles === */
+        .persona-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .persona-table thead th {
+            background: var(--primary-bg);
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .persona-table thead th:nth-child(1) { width: 60px; text-align: center; }
+        .persona-table thead th:nth-child(2) { width: 120px; }
+        .persona-table thead th:nth-child(3) { width: 90px; }
+        .persona-table thead th:nth-child(4) { width: 100px; }
+        .persona-table thead th:nth-child(5) { width: 140px; }
+        .persona-table thead th:nth-child(6) { }
+        .persona-table tbody tr {
+            transition: background 0.15s ease;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .persona-table tbody tr:last-child { border-bottom: none; }
+        .persona-table tbody tr:hover { background: var(--hover-bg); }
+        .persona-table tbody tr.selected { background: var(--primary-bg); }
+        .persona-table tbody td {
+            padding: 12px 16px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            vertical-align: middle;
+        }
+        .persona-table tbody td:nth-child(1) { text-align: center; }
+        .persona-table tbody td:nth-child(2) { font-weight: 600; color: var(--text-primary); }
+        .persona-table .ref-text {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .persona-play-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .persona-play-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(107, 92, 231, 0.4);
+        }
+        .persona-play-btn:active { transform: scale(0.95); }
+        .persona-play-btn .persona-play-icon { font-size: 12px; }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-badge.firm { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+        .status-badge.pending { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+        /* === Persona Toolbar & Layout === */
+        .persona-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .persona-search-input {
+            flex: 4;
+            min-width: 200px;
+        }
+        .persona-view-switcher {
+            flex: 1;
+            min-width: 280px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .persona-action-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .persona-action-btn {
+            flex: 1;
+        }
+        .persona-search-info {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        /* === Skeleton Staggered Animation === */
+        .skeleton-block-fill {
+            flex: 1;
+        }
+        .skeleton-stagger-1 { animation-delay: 0s; }
+        .skeleton-stagger-2 { animation-delay: 0.1s; }
+        .skeleton-stagger-3 { animation-delay: 0.2s; }
+        .skeleton-stagger-4 { animation-delay: 0.3s; }
+        .skeleton-stagger-5 { animation-delay: 0.4s; }
+        .skeleton-stagger-6 { animation-delay: 0.5s; }
+
+        /* === Empty State Hierarchy === */
+        .empty-state-hint {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        /* === Selection Area & Actions === */
+        .persona-selection-area {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .persona-selection-field {
+            flex: 1;
+            min-width: 200px;
+        }
+        .persona-selection-field input[type="text"],
+        .persona-selection-field audio {
+            width: 100%;
+        }
+        .persona-selection-field audio {
+            height: 40px;
+        }
+        .persona-bottom-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .persona-bottom-actions .secondary-btn,
+        .persona-bottom-actions .stop-btn {
+            flex: 1;
+        }
+        .persona-delete-status {
+            margin-top: 8px;
+            font-size: var(--text-sm);
+        }
+        </style>
+        <table class="persona-table">
+            <thead>
+                <tr>
+                    <th>{{ "preview"|t(lang) }}</th>
+                    <th>{{ "voice_name"|t(lang) }}</th>
+                    <th>{{ "firm_status"|t(lang) }}</th>
+                    <th>{{ "audio_size"|t(lang) }}</th>
+                    <th>{{ "create_time"|t(lang) }}</th>
+                    <th>{{ "ref_text_col"|t(lang) }}</th>
+                </tr>
+            </thead>
+            <tbody id="persona-table-body">
+                {% for row in persona_table_data %}
+                <tr class="persona-row" onclick="selectPersonaRow(this)" style="cursor:pointer;">
+                    <td>
+                        <button class="persona-play-btn" onclick="event.stopPropagation(); playPersonaAudio('{{ row[0] }}', this)" title="{{ 'preview_voice'|t(lang) }}" aria-label="{{ 'preview_voice'|t(lang) }} {{ row[0] }}">
+                            <span class="persona-play-icon">&#9654;</span>
+                        </button>
+                    </td>
+                    <td>{{ row[0] }}</td>
+                    <td>
+                        <span class="status-badge {{ 'firm' if '✅' in row[1] else 'pending' }}">
+                            {{ row[1] }}
+                        </span>
+                    </td>
+                    <td>{{ row[2] }}</td>
+                    <td>{{ row[3] }}</td>
+                    <td><span class="ref-text" title="{{ row[4] }}">{{ row[4] }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div id="persona-card-view" class="persona-card-view">
+        <div id="persona-card-grid" class="voice-card-grid skeleton-content hidden"></div>
+    </div>
+    <div class="persona-selection-area skeleton-content hidden" id="persona-selection-area">
+        <div class="persona-selection-field">
+            <label>{{ "current_selected"|t(lang) }}</label>
+            <input type="text" id="selected-persona" readonly placeholder="{{ 'click_to_select'|t(lang) }}">
+        </div>
+        <div class="persona-selection-field">
+            <label>{{ "preview"|t(lang) }}</label>
+            <audio id="persona-preview-audio" controls></audio>
+        </div>
+    </div>
+    <div class="persona-bottom-actions skeleton-content hidden" id="persona-actions">
+        <button class="secondary-btn" onclick="playSelectedPersona()">{{ "play"|t(lang) }}</button>
+        <button class="stop-btn" onclick="deleteSelectedPersona()">{{ "delete"|t(lang) }}</button>
+    </div>
+    <div id="persona-delete-status" class="persona-delete-status"></div>
+</div>
+<script>
+(function(){
+    // Robust initialization: ensure content is visible when data exists
+    function ensureContentVisible() {
+        var sk = document.getElementById('persona-skeleton');
+        var els = document.querySelectorAll('.skeleton-content');
+        var hasContent = document.querySelectorAll('#persona-table-body tr').length > 0;
+        if (hasContent || {{ 'true' if total_persona_count > 0 else 'false' }}) {
+            if (sk) sk.classList.remove('active');
+            els.forEach(function(el) {
+                el.classList.remove('hidden');
+                // Remove skeleton-content class to prevent beautify.css [class*="skeleton"] from applying
+                el.classList.remove('skeleton-content');
+                // Cancel any running skeleton animations
+                el.getAnimations().forEach(function(a) { a.cancel(); });
+                // Reset transform and background set by skeleton animations
+                el.style.transform = 'none';
+                el.style.background = '';
+                el.style.animation = 'none';
+            });
+        }
+    }
+    // Run immediately and also after a short delay for HTMX settling
+    ensureContentVisible();
+    setTimeout(ensureContentVisible, 100);
+    setTimeout(ensureContentVisible, 500);
+    window.selectPersonaRow = function(row) {
+        document.querySelectorAll('#persona-table-body tr').forEach(function(r){ r.classList.remove('selected'); });
+        row.classList.add('selected');
+        var cells = row.querySelectorAll('td');
+        var name = cells.length > 1 ? cells[1].textContent.trim() : '';
+        document.getElementById('selected-persona').value = name;
+    };
+
+    // Play persona audio by name
+    window.playPersonaAudio = function(name, btn) {
+        if (!name) return;
+        var audio = document.getElementById('persona-preview-audio');
+        var statusEl = document.getElementById('persona-delete-status');
+        // Update UI to show loading
+        if (btn) {
+            btn.innerHTML = '<span class="persona-play-icon">⟳</span>';
+            btn.disabled = true;
+        }
+        audio.src = '/personas/' + encodeURIComponent(name) + '.wav';
+        audio.play().then(function() {
+            if (statusEl) statusEl.innerHTML = '<div class="tts-success-block">🎵 {{ "playing"|t(lang) }}: ' + name + '</div>';
+        }).catch(function(err) {
+            if (statusEl) statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "play_failed"|t(lang) }}</div><div class="error-message">{{ "audio_not_exist"|t(lang) }}: ' + name + '</div></div>';
+        }).finally(function() {
+            // Restore button
+            if (btn) {
+                btn.innerHTML = '<span class="persona-play-icon">&#9654;</span>';
+                btn.disabled = false;
+            }
+        });
+    };
+    window.playSelectedPersona = function() {
+        var name = document.getElementById('selected-persona').value;
+        if (!name) { document.getElementById('persona-delete-status').innerHTML = '<div class="tts-warning-block">{{ "select_first"|t(lang) }}</div>'; return; }
+        var audio = document.getElementById('persona-preview-audio');
+        audio.src = '/personas/' + encodeURIComponent(name) + '.wav';
+        audio.play().catch(function(){
+            document.getElementById('persona-delete-status').innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "play_failed"|t(lang) }}</div><div class="error-message">{{ "audio_not_exist"|t(lang) }}: ' + name + '</div></div>';
+        });
+        document.getElementById('persona-delete-status').innerHTML = '<div class="tts-success-block">🎵 {{ "playing"|t(lang) }}: ' + name + '</div>';
+    };
+    window.deleteSelectedPersona = function() {
+        var name = document.getElementById('selected-persona').value;
+        if (!name) { document.getElementById('persona-delete-status').innerHTML = '<div class="tts-warning-block">{{ "select_first"|t(lang) }}</div>'; return; }
+        showDeleteModal(name);
+    };
+
+    function showDeleteModal(name) {
+        // Create custom modal
+        var modal = document.createElement('div');
+        modal.className = 'custom-modal';
+        modal.innerHTML = `
+            <div class="custom-modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;">
+                <div class="custom-modal-content" style="background:var(--bg-secondary);padding:24px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                    <h3 style="margin:0 0 16px 0;color:var(--text-primary);">{{ "confirm_delete"|t(lang) }}</h3>
+                    <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "delete_confirm_msg"|t(lang) }} "${name}" {{ "delete_warning"|t(lang) }}</p>
+                    <div style="display:flex;gap:12px;justify-content:flex-end;">
+                        <button class="secondary-btn" onclick="this.closest('.custom-modal').remove()">{{ "cancel"|t(lang) }}</button>
+                        <button class="stop-btn" onclick="confirmDeletePersona('${name}')">{{ "delete"|t(lang) }}</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    window.confirmDeletePersona = function(name) {
+        document.querySelector('.custom-modal').remove();
+        fetch('/api/persona/' + encodeURIComponent(name), { method: 'DELETE' })
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if (data.status === 'ok') {
+                    document.getElementById('persona-delete-status').innerHTML = '<div class="tts-success-block">✅ ' + data.message + '</div>';
+                    refreshPersonaList();
+                } else {
+                    document.getElementById('persona-delete-status').innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "delete_failed"|t(lang) }}</div><div class="error-message">' + data.message + '</div></div>';
+                }
+            }).catch(function(err){
+                document.getElementById('persona-delete-status').innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "delete_failed"|t(lang) }}</div><div class="error-message">' + err + '</div></div>';
+            });
+    };
+    window.searchPersona = function() {
+        var keyword = document.getElementById('persona-search').value;
+        fetch('/api/persona/table?keyword=' + encodeURIComponent(keyword))
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                updatePersonaTable(data.records || []);
+                var count = (data.records || []).length;
+                document.getElementById('persona-search-info').innerHTML = keyword ? '{{ "found"|t(lang) }} <strong>' + count + '</strong> {{ "matching_voices"|t(lang) }}' : '{{ "total_voices"|t(lang) }} <strong>' + count + '</strong> {{ "voices"|t(lang) }}';
+            }).catch(function(){});
+    };
+    window.clearPersonaSearch = function() {
+        document.getElementById('persona-search').value = '';
+        refreshPersonaList();
+        document.getElementById('persona-search-info').innerHTML = '';
+    };
+    window.refreshPersonaList = function() {
+        fetch('/api/persona/table')
+            .then(function(r){ return r.json(); })
+            .then(function(data){ updatePersonaTable(data.records || []); })
+            .catch(function(){});
+    };
+    function updatePersonaTable(records) {
+        var tbody = document.getElementById('persona-table-body');
+        if (records.length > 0) {
+            var html = '';
+            records.forEach(function(r){
+                var safeName = r[0].replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                html += '<tr class="persona-row" onclick="selectPersonaRow(this)" style="cursor:pointer;">' +
+                    '<td style="padding:8px 12px;">' +
+                    '<button class="persona-play-btn" onclick="event.stopPropagation(); playPersonaAudio(\'' + safeName + '\', this)" title="{{ 'preview_voice'|t(lang) }}" aria-label="{{ 'preview_voice'|t(lang) }} ' + safeName + '">' +
+                    '<span class="persona-play-icon">&#9654;</span></button></td>' +
+                    '<td style="padding:8px 12px;">' + r[0] + '</td>' +
+                    '<td style="padding:8px 12px;">' + r[1] + '</td>' +
+                    '<td style="padding:8px 12px;">' + r[2] + '</td>' +
+                    '<td style="padding:8px 12px;">' + r[3] + '</td>' +
+                    '<td style="padding:8px 12px;">' + r[4] + '</td></tr>';
+            });
+            tbody.innerHTML = html;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">{{ "no_voices"|t(lang) }}</td></tr>';
+        }
+    }
+    document.getElementById('persona-search').addEventListener('input', function() {
+        searchPersona();
+    });
+
+    // Load persona table data on page load
+    if ({{ 'true' if total_persona_count > 0 else 'false' }}) {
+        refreshPersonaList();
+    }
+
+    // View toggle: list / card
+    window.switchVoiceView = function(view) {
+        var listView = document.getElementById('persona-list-view');
+        var cardView = document.getElementById('persona-card-view');
+        document.querySelectorAll('.view-toggle-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-view') === view);
+        });
+        if (view === 'card') {
+            listView.style.display = 'none';
+            cardView.style.display = 'block';
+            populatePersonaCards();
+        } else {
+            listView.style.display = 'block';
+            cardView.style.display = 'none';
+        }
+    };
+
+    // Populate card view from current table data
+    function populatePersonaCards() {
+        var grid = document.getElementById('persona-card-grid');
+        if (!grid) return;
+        var rows = document.querySelectorAll('#persona-table-body tr');
+        if (rows.length === 0 || (rows.length === 1 && rows[0].querySelector('td[colspan]'))) {
+            grid.innerHTML = renderEmptyState('persona', '{{ "no_voices"|t(lang) }}', '{{ "save_voice_hint"|t(lang) }}', '', '');
+            return;
+        }
+        var html = '';
+        rows.forEach(function(row) {
+            var cells = row.querySelectorAll('td');
+            if (cells.length < 6) return;
+            var name = cells[1].textContent.trim();
+            var status = cells[2].textContent.trim();
+            var size = cells[3].textContent.trim();
+            var created = cells[4].textContent.trim();
+            var refText = cells[5].textContent.trim();
+            var safeName = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            html += '<div class="voice-card">' +
+                '<div class="voice-card-header">' +
+                '<div class="voice-card-title">' + name + '</div>' +
+                '<button class="persona-card-play-btn" onclick="playPersonaAudio(\'' + safeName + '\', this)" title="{{ 'preview'|t(lang) }}" aria-label="{{ 'preview'|t(lang) }} ' + safeName + '">' +
+                '<span class="persona-play-icon">&#9654;</span></button>' +
+                '</div>' +
+                '<div class="voice-card-meta">' + status + ' · ' + size + '</div>' +
+                '<div class="voice-card-ref-text">' + (refText.length > 60 ? refText.substring(0, 60) + '...' : refText) + '</div>' +
+                '<div class="voice-card-footer">' +
+                '<span class="voice-card-time">' + created + '</span>' +
+                '<button class="voice-card-select-btn" onclick="selectPersonaFromCard(\'' + safeName + '\')">{{ "select"|t(lang) }}</button>' +
+                '</div>' +
+                '</div>';
+        });
+        grid.innerHTML = html;
+    }
+
+    window.selectPersonaFromCard = function(name) {
+        document.getElementById('selected-persona').value = name;
+        var rows = document.querySelectorAll('#persona-table-body tr');
+        rows.forEach(function(row) {
+            var cells = row.querySelectorAll('td');
+            if (cells.length >= 6 && cells[1].textContent.trim() === name) {
+                selectPersonaRow(row);
+            }
+        });
+        window.showToast('{{ "voice_selected"|t(lang) }}: ' + name, 'success', 2000);
+    };
+})();
+</script>

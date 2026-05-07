@@ -1,169 +1,245 @@
 # TTS MultiModel
 
-A complete TTS (Text-to-Speech) project integrating multiple models including Qwen3-TTS, SenseVoice, VoxCPM2, and speech enhancement, with a portable Python environment (WinPython) and custom voice personas.
+A powerful multi-model Text-to-Speech (TTS) web application with Gradio interface, supporting voice cloning, model training, and high-quality speech synthesis.
+
+## Features
+
+- **Multiple TTS Models**: Support for VoxCPM2 and other advanced TTS models
+- **Voice Cloning**: Create custom voice personas with minimal audio samples
+- **Model Training**: Fine-tune models with your own datasets
+- **Web Interface**: User-friendly Gradio-based web UI
+- **Batch Processing**: Support for batch audio generation
+- **History Management**: Track and manage your generation history
+- **Multi-language**: Internationalization support (i18n)
+- **GPU Acceleration**: Optimized for GPU-based inference and training
 
 ## Project Structure
 
 ```
 TTS_MultiModel/
-├── bin/                          # Application binaries, configs, and tools
-│   ├── integrated_app/           # Main application
-│   ├── sox-14.4.2-win32/         # Audio processing tool
-│   ├── ffmpeg.exe                # FFmpeg for audio/video processing
-│   └── config.yaml               # Application configuration
-├── docs/                         # Documentation
-├── personas/                     # Custom voice profiles (audio + config)
-├── faster-qwen3-tts-main/        # Faster Qwen3-TTS source code
-├── WPy64-312101/                 # Portable Python 3.12 environment
-│   └── python/                   # Python installation with all dependencies
-├── VC运行库/                     # Visual C++ Redistributables (Windows)
-└── setup.bat                     # One-click setup script (auto-generated)
+├── bin/                          # Application binaries and scripts
+│   ├── integrated_app/          # Main application code
+│   │   ├── routes/             # API route handlers
+│   │   ├── engines/            # TTS model engines
+│   │   ├── training/           # Model training modules
+│   │   ├── ui/                 # UI components
+│   │   └── ...
+│   ├── clean_launch.py         # Clean startup script
+│   └── test_integration.py     # Integration tests
+├── pretrained_models/           # Pre-trained model files (download separately)
+├── personas/                    # Custom voice persona files
+├── outputs/                     # Generated audio outputs
+├── lora/                        # LoRA fine-tuned models
+├── cache/                       # Cache directory
+├── config.yaml                  # Application configuration
+├── LICENSE                      # MIT License
+└── start.bat                    # Windows startup script
 ```
 
 ## Prerequisites
 
-Before using this project, you need to download the required model files. The code, Python environment, and tools are all included in this repository.
+- **Operating System**: Windows 10/11 (64-bit)
+- **Python**: 3.12+ (bundled WinPython included)
+- **GPU**: NVIDIA GPU with CUDA support (recommended for optimal performance)
+- **VC Redistributable**: Visual C++ Redistributable (included in `VC运行库/` folder)
+- **FFmpeg**: Required for audio processing
 
-### Step 1: Download Model Files
+## Installation
 
-The following directories must be populated with model files before running the application:
+### Option 1: Use Bundled Python (Recommended for Windows)
 
-```
-models/              # Main TTS models
-pretrained_models/   # Pretrained models (SenseVoice, VoxCPM2, speech enhancer)
-```
+1. Download or clone this repository:
+   ```bash
+   git clone https://github.com/Doro2047/TTS_MultiModel.git
+   cd TTS_MultiModel
+   ```
 
-#### Required Models
+2. Install VC Redistributable (if not already installed):
+   - Run `VC运行库/VC_redist.x64.exe`
 
-| Directory | Model Name | Download Source | Description |
-|-----------|-----------|-----------------|-------------|
-| `models/Qwen3-TTS-12Hz-0.6B-Base` | Qwen3-TTS 0.6B Base | [HuggingFace](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base) / [ModelScope](https://modelscope.cn/models/qwen/Qwen3-TTS-12Hz-0.6B-Base) | Base TTS model (0.6B parameters) |
-| `models/Qwen3-TTS-12Hz-0.6B-CustomVoice` | Qwen3-TTS 0.6B CustomVoice | [HuggingFace](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice) / [ModelScope](https://modelscope.cn/models/qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice) | Custom voice TTS model |
-| `models/Qwen3-TTS-12Hz-1.7B-Base` | Qwen3-TTS 1.7B Base | [HuggingFace](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) / [ModelScope](https://modelscope.cn/models/qwen/Qwen3-TTS-12Hz-1.7B-Base) | Base TTS model (1.7B parameters) |
-| `models/Qwen3-TTS-12Hz-1.7B-CustomVoice` | Qwen3-TTS 1.7B CustomVoice | [HuggingFace](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice) / [ModelScope](https://modelscope.cn/models/qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice) | Custom voice TTS model (1.7B) |
-| `models/Qwen3-TTS-12Hz-1.7B-VoiceDesign` | Qwen3-TTS 1.7B VoiceDesign | [HuggingFace](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign) / [ModelScope](https://modelscope.cn/models/qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign) | Voice design model |
-| `pretrained_models/SenseVoiceSmall` | SenseVoice Small | [HuggingFace](https://huggingface.co/FunAudioLLM/SenseVoiceSmall) / [ModelScope](https://modelscope.cn/models/iic/SenseVoiceSmall) | Speech recognition model |
-| `pretrained_models/VoxCPM2` | VoxCPM2 | [HuggingFace](https://huggingface.co/openbmb/VoxCPM2) / [ModelScope](https://modelscope.cn/models/openbmb/VoxCPM2) | Voice processing model |
-| `pretrained_models/speech_zipenhancer` | Speech ZipEnhancer | [HuggingFace](https://huggingface.co/modelscope/speech_zipenhancer_ans_multiloss_16k_base) | Speech enhancement model |
+3. Download required pre-trained models (see [Model Download](#model-download) section)
 
-### Step 2: Quick Download Script
+4. Launch the application:
+   ```bash
+   start.bat
+   ```
 
-Create a `download_models.py` file in the project root with the following content to download all models automatically:
+### Option 2: Use Your Own Python Environment
 
-```python
-"""
-Model download script. Run with: python download_models.py
-Requires: pip install modelscope huggingface_hub
-"""
-import os
-from pathlib import Path
+1. Install Python 3.12+ from [python.org](https://www.python.org/downloads/)
 
-PROJECT_DIR = Path(__file__).parent
+2. Clone and install dependencies:
+   ```bash
+   git clone https://github.com/Doro2047/TTS_MultiModel.git
+   cd TTS_MultiModel
+   pip install -r requirements.txt
+   ```
 
-MODEL_LIST = [
-    # (model_id, target_dir, source)
-    ("Qwen/Qwen3-TTS-12Hz-0.6B-Base", "models/Qwen3-TTS-12Hz-0.6B-Base"),
-    ("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", "models/Qwen3-TTS-12Hz-0.6B-CustomVoice"),
-    ("Qwen/Qwen3-TTS-12Hz-1.7B-Base", "models/Qwen3-TTS-12Hz-1.7B-Base"),
-    ("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", "models/Qwen3-TTS-12Hz-1.7B-CustomVoice"),
-    ("Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign", "models/Qwen3-TTS-12Hz-1.7B-VoiceDesign"),
-    ("FunAudioLLM/SenseVoiceSmall", "pretrained_models/SenseVoiceSmall"),
-    ("openbmb/VoxCPM2", "pretrained_models/VoxCPM2"),
-]
+3. Download required pre-trained models
 
-def download_model(model_id, target_dir):
-    full_path = PROJECT_DIR / target_dir
-    if full_path.exists() and list(full_path.glob("*.safetensors")):
-        print(f"[OK] {model_id} already exists, skipping")
-        return
-    
-    print(f"[Downloading] {model_id} -> {target_dir}")
-    try:
-        from modelscope import snapshot_download
-        snapshot_download(model_id, local_dir=str(full_path))
-        print(f"[Done] {model_id}")
-    except Exception as e:
-        print(f"[Error] Failed to download {model_id}: {e}")
-        print("  Try: huggingface-cli download {model_id} --local-dir {target_dir}")
+4. Launch:
+   ```bash
+   python bin/integrated_app/app_server.py
+   ```
 
-if __name__ == "__main__":
-    print("Downloading required models...")
-    for model_id, target_dir in MODEL_LIST:
-        download_model(model_id, target_dir)
-    print("\nAll downloads complete (or already existed).")
-```
+## Model Download
 
-Run the script:
-```bash
-# Using the bundled Python environment
-WPy64-312101\python\python.exe download_models.py
+The following models need to be downloaded separately and placed in the `pretrained_models/` directory:
 
-# Or with system Python (if modelscope is installed)
-python download_models.py
-```
+### Required Models
 
-### Step 3: Manual Download (Alternative)
+1. **VoxCPM2** - Main TTS model
+   - Place in: `pretrained_models/VoxCPM2/`
 
-If you prefer to download manually, use one of these commands:
+2. **SenseVoiceSmall** - ASR (Automatic Speech Recognition) model
+   - Place in: `pretrained_models/SenseVoiceSmall/`
 
-```bash
-# Using ModelScope (recommended for China users)
-pip install modelscope
-python -c "from modelscope import snapshot_download; snapshot_download('Qwen/Qwen3-TTS-12Hz-0.6B-Base', local_dir='models/Qwen3-TTS-12Hz-0.6B-Base')"
+3. **speech_zipenhancer** - Audio denoiser model
+   - Place in: `pretrained_models/speech_zipenhancer/`
 
-# Using HuggingFace
-pip install huggingface_hub
-huggingface-cli download Qwen/Qwen3-TTS-12Hz-0.6B-Base --local-dir models/Qwen3-TTS-12Hz-0.6B-Base
-```
+### Download Instructions
+
+Models can be downloaded from:
+- HuggingFace Hub
+- ModelScope
+- Official model repositories
+
+Refer to each model's documentation for specific download instructions.
 
 ## Usage
 
-### Launch the Application
+### Starting the Application
+
+1. **Quick Start** (Windows):
+   ```bash
+   start.bat
+   ```
+
+2. **Clean Launch** (clears cache):
+   ```bash
+   python bin/clean_launch.py
+   ```
+
+3. **Direct Launch**:
+   ```bash
+   python bin/integrated_app/app_server.py
+   ```
+
+### Web Interface
+
+After starting the application, open your browser and navigate to:
+```
+http://localhost:7860
+```
+
+The port may vary depending on your configuration. Check the console output for the actual URL.
+
+### Features Overview
+
+#### Text-to-Speech
+- Enter text in the input field
+- Select voice persona or adjust parameters
+- Click "Generate" to synthesize speech
+- Download or play the generated audio
+
+#### Voice Cloning
+- Upload reference audio files (5-30 seconds recommended)
+- Provide persona name and description
+- Generate custom voice persona
+
+#### Model Training
+- Prepare training dataset (audio + text pairs)
+- Configure training parameters
+- Start fine-tuning process
+- Monitor training progress in real-time
+
+## Configuration
+
+Edit `config.yaml` to customize:
+
+- **Generation Parameters**:
+  - `cfg_value`: Classifier-free guidance scale (default: 2.0)
+  - `inference_timesteps`: Number of inference steps (default: 10)
+  - `normalize`: Text normalization (default: True)
+  - `denoise`: Audio denoising (default: True)
+  - `retry_badcase`: Auto-retry on bad cases (default: True)
+
+- **Server Settings**:
+  - Port number
+  - Host address
+  - GPU settings
+
+## Official Speakers
+
+The application comes with 9 pre-configured official speakers:
+
+| Speaker | Description | Voice Type |
+|---------|-------------|------------|
+| Vivian | 薇薇安 - Sweet and youthful voice | 少女音 |
+| 阿知 | 阿知 - Clean and bright youthful voice | 少年音 |
+| 若彤 | 若彤 - Soft and cute loli voice | 萝莉音 |
+| 成杰 | 成杰 - Calm and powerful young male voice | 青年男音 |
+| 沐晴 | 沐晴 | 知性优雅，温柔而有力量 | 少御音 |
+| 御姐 | 御姐 - Mature and charismatic voice | 御姐音 |
+| 旁白 | 旁白 - Standard broadcasting voice | 播音腔 |
+| 老伯 | 老伯 - Experienced and deep elderly voice | 老年男音 |
+| 少女 | 少女 - Sweet and lovely young girl voice | 少女音 |
+
+## Troubleshooting
+
+### Common Issues
+
+1. **VC Redistributable Error**:
+   - Install `VC运行库/VC_redist.x64.exe`
+
+2. **Model Not Found**:
+   - Ensure models are downloaded and placed in `pretrained_models/`
+   - Check directory structure matches expected layout
+
+3. **GPU Not Detected**:
+   - Install CUDA-compatible PyTorch version
+   - Verify NVIDIA drivers are up to date
+
+4. **Port Already in Use**:
+   - Change port in configuration
+   - Or kill existing process using the port
+
+### Logs
+
+Check console output for detailed error messages. Log files are generated in the root directory if errors occur.
+
+## Development
+
+### Running Tests
 
 ```bash
-# Using the bundled portable Python
-WPy64-312101\python\python.exe bin\integrated_app\main.py
-
-# Or double-click the batch file (if created)
+python bin/test_integration.py
 ```
 
-### Available Personas
+### Code Structure
 
-The `personas/` directory includes pre-configured voice profiles:
-- gf1, 小林，御姐，旁白，李老师，南宫婉，韩立
-
-Each persona includes:
-- `.txt` - Voice description
-- `.wav` - Reference audio
-- `.pt` - Speaker embedding
-
-### Using VC Redistributable
-
-If you encounter missing DLL errors on first run, install the VC redistributable:
-
-```
-VC运行库\VC_redist.x64.exe
-```
-
-## Technical Details
-
-- **Python Version**: 3.12.10 (WinPython portable distribution)
-- **Main Framework**: PyTorch with CUDA support
-- **TTS Models**: Qwen3-TTS (0.6B / 1.7B), VoxCPM2
-- **ASR Model**: SenseVoiceSmall
-- **Speech Enhancement**: ZipEnhancer
-- **Audio Tools**: FFmpeg, SoX
-
-## Notes
-
-- Model files are **not** included in this repository due to their large size
-- All model files must be downloaded separately before first use
-- The bundled Python environment (`WPy64-312101/`) includes all required dependencies
-- CUDA-compatible GPU recommended for real-time performance
+- **bin/integrated_app/**: Main application
+  - `app_server.py`: Server entry point
+  - `config.py`: Path and model configuration
+  - `model_manager.py`: Model loading and management
+  - `routes/`: HTTP route handlers
+  - `engines/`: TTS model implementations
+  - `training/`: Model training functionality
 
 ## License
 
-This project is provided for personal/educational use. All model weights are subject to their respective licenses:
-- Qwen3-TTS: [Qwen License](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base)
-- SenseVoice: [FunAudioLLM License](https://huggingface.co/FunAudioLLM/SenseVoiceSmall)
-- VoxCPM2: [OpenBMB License](https://huggingface.co/openbmb/VoxCPM2)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- VoxCPM2 model and related technologies
+- Gradio for the web interface framework
+- All open-source contributors
+
+## Contact
+
+For issues, feature requests, or questions, please open an issue on GitHub.
+
+---
+
+**Note**: This project uses offline model loading by default. Ensure all required models are downloaded before first use.

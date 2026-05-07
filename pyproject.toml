@@ -1,0 +1,27 @@
+[project]
+name = "tts-multimodel"
+version = "2.0.0"
+description = "TTS MultiModel - VoxCPM2 based Text-to-Speech application"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+    "numpy>=1.24.0",
+    "soundfile>=0.12.0",
+    "torch>=2.1.0",
+    "torchaudio>=2.1.0",
+    "transformers>=4.36.0",
+    "funasr>=1.0.0",
+    "modelscope>=1.9.0",
+    "pyyaml>=6.0",
+    "aiofiles>=23.0",
+]
+
+[project.scripts]
+tts-multimodel = "integrated_app.cli:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

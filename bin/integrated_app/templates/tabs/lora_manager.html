@@ -1,0 +1,177 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+        <h3 class="card-header-title">{{ "lora_management"|t(lang) }}</h3>
+    </div>
+
+    <div style="padding:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+            <label style="font-weight:500;min-width:80px;">{{ "lora_model"|t(lang) }}</label>
+            <select id="lora-select" class="tts-input-dropdown" style="flex:1;">
+                <option value="None">{{ "none_base_model"|t(lang) }}</option>
+            </select>
+            <button type="button" class="secondary-btn" onclick="refreshLoraList()" style="white-space:nowrap;">{{ "refresh_list"|t(lang) }}</button>
+        </div>
+
+        <div id="lora-info" style="margin-bottom:16px;display:none;">
+            <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:12px;">
+                <div style="font-size:13px;font-weight:500;color:var(--text-primary);margin-bottom:8px;">{{ "model_info"|t(lang) }}</div>
+                <div id="lora-info-content" style="font-size:12px;color:var(--text-secondary);line-height:1.8;"></div>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <button type="button" class="primary-btn" onclick="loadLora()" style="flex:1;">{{ "load_lora"|t(lang) }}</button>
+            <button type="button" class="secondary-btn" onclick="unloadLora()" style="flex:1;">{{ "unload_lora"|t(lang) }}</button>
+        </div>
+
+        <div id="lora-state" style="margin-bottom:16px;">
+            <div style="background:rgba(107,114,128,0.08);border:1px solid rgba(107,114,128,0.2);border-radius:8px;padding:12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span id="lora-state-dot" style="width:8px;height:8px;border-radius:50%;background:#6B7280;"></span>
+                    <span id="lora-state-text" style="font-size:13px;color:var(--text-secondary);">{{ "not_loaded"|t(lang) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-top:1px solid var(--border-color);padding-top:16px;margin-top:16px;">
+            <div style="font-size:13px;font-weight:500;color:var(--text-primary);margin-bottom:12px;">{{ "lora_switch"|t(lang) }}</div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="lora-enabled" checked onchange="toggleLora(this.checked)">
+                    <span style="font-size:13px;color:var(--text-secondary);">{{ "enable_lora"|t(lang) }}</span>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    refreshLoraList();
+    pollLoraState();
+})();
+
+function refreshLoraList() {
+    fetch('/api/model/lora/list')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var sel = document.getElementById('lora-select');
+            sel.innerHTML = '<option value="None">{{ "none_base_model"|t(lang) }}</option>';
+            if (data.checkpoints) {
+                data.checkpoints.forEach(function(ckpt) {
+                    var opt = document.createElement('option');
+                    opt.value = ckpt.path;
+                    opt.textContent = ckpt.name + (ckpt.r ? ' (r=' + ckpt.r + ')' : '');
+                    opt.dataset.info = JSON.stringify(ckpt);
+                    sel.appendChild(opt);
+                });
+            }
+            updateLoraInfo();
+        })
+        .catch(function(e) {
+            console.error('Failed to refresh LoRA list:', e);
+        });
+}
+
+function updateLoraInfo() {
+    var sel = document.getElementById('lora-select');
+    var infoDiv = document.getElementById('lora-info');
+    var contentDiv = document.getElementById('lora-info-content');
+    var opt = sel.options[sel.selectedIndex];
+
+    if (opt && opt.value !== 'None' && opt.dataset.info) {
+        var info = JSON.parse(opt.dataset.info);
+        contentDiv.innerHTML =
+            '<div>{{ "name"|t(lang) }}: ' + info.name + '</div>' +
+            '<div>{{ "path"|t(lang) }}: ' + info.path + '</div>' +
+            (info.base_model ? '<div>{{ "base_model"|t(lang) }}: ' + info.base_model + '</div>' : '') +
+            (info.r ? '<div>{{ "lora_rank"|t(lang) }}: ' + info.r + '</div>' : '') +
+            (info.lora_alpha ? '<div>{{ "lora_alpha"|t(lang) }}: ' + info.lora_alpha + '</div>' : '');
+        infoDiv.style.display = '';
+    } else {
+        infoDiv.style.display = 'none';
+    }
+}
+
+document.getElementById('lora-select').addEventListener('change', updateLoraInfo);
+
+function loadLora() {
+    var sel = document.getElementById('lora-select');
+    var path = sel.value;
+    if (path === 'None') {
+        alert('{{ "select_lora_first"|t(lang) }}');
+        return;
+    }
+    fetch('/api/model/lora/load', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({lora_path: path})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') {
+            alert('{{ "lora_load_success"|t(lang) }}');
+        } else {
+            alert('{{ "lora_load_failed"|t(lang) }}: ' + (data.message || '{{ "unknown_error"|t(lang) }}'));
+        }
+        pollLoraState();
+    })
+    .catch(function(e) {
+        alert('{{ "lora_load_error"|t(lang) }}: ' + e.message);
+    });
+}
+
+function unloadLora() {
+    fetch('/api/model/lora/unload', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') {
+            alert('{{ "lora_unload_success"|t(lang) }}');
+        } else {
+            alert('{{ "lora_unload_failed"|t(lang) }}: ' + (data.message || '{{ "unknown_error"|t(lang) }}'));
+        }
+        pollLoraState();
+    })
+    .catch(function(e) {
+        alert('{{ "lora_unload_error"|t(lang) }}: ' + e.message);
+    });
+}
+
+function toggleLora(enabled) {
+    fetch('/api/model/lora/toggle', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enabled: enabled})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        pollLoraState();
+    })
+    .catch(function(e) {
+        console.error('LoRA toggle failed:', e);
+    });
+}
+
+function pollLoraState() {
+    fetch('/api/model/lora/state')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var dot = document.getElementById('lora-state-dot');
+        var text = document.getElementById('lora-state-text');
+        var cb = document.getElementById('lora-enabled');
+        if (data.state && data.state.loaded) {
+            dot.style.background = '#10B981';
+            text.textContent = '{{ "loaded"|t(lang) }}: ' + (data.state.name || data.state.path || 'LoRA');
+            cb.checked = data.state.enabled !== false;
+        } else {
+            dot.style.background = '#6B7280';
+            text.textContent = '{{ "not_loaded"|t(lang) }}';
+            cb.checked = true;
+        }
+    })
+    .catch(function(e) {
+        console.error('LoRA state poll failed:', e);
+    });
+}
+</script>

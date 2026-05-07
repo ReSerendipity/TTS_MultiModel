@@ -7,14 +7,11 @@ import sys
 os.environ['TRANSFORMERS_OFFLINE'] = '1'
 os.environ['HF_HUB_OFFLINE'] = '1'
 os.environ['MODELSCOPE_OFFLINE'] = '1'
-os.environ['PYTHONHTTPSVERIFY'] = '0'  # ⚠️ 安全风险：全局禁用 HTTPS 证书验证（仅本地离线部署时使用）
 
 # VoxCPM2 缓存路径
 _root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _bin_dir = os.path.dirname(os.path.abspath(__file__))
-_src_dir = os.path.join(_root_dir, "faster-qwen3-tts-main")
 
-sys.path.insert(0, _src_dir)
 sys.path.insert(0, _bin_dir)
 sys.path.insert(0, _root_dir)
 
@@ -23,7 +20,7 @@ os.environ['MODELSCOPE_CACHE'] = os.path.join(_root_dir, 'cache', 'modelscope')
 os.environ['TORCH_HOME'] = os.path.join(_root_dir, 'cache', 'torch')
 os.environ['XDG_CACHE_HOME'] = os.path.join(_root_dir, 'cache')
 
-# httpx SSL 验证：已在 Gradio launch 中通过 ssl_verify=False 处理
+# httpx SSL 验证：已在服务启动中通过 ssl_verify=False 处理
 # 不再全局 monkey-patch httpx，保持其他模块的 SSL 安全性
 
 import warnings
@@ -32,6 +29,21 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 import asyncio
 import logging
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+from logging.handlers import RotatingFileHandler
+
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+os.makedirs(log_dir, exist_ok=True)
+file_handler = RotatingFileHandler(
+    os.path.join(log_dir, "app.log"),
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=3,
+    encoding='utf-8'
+)
+file_handler.setFormatter(logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+logging.getLogger().addHandler(file_handler)
+
+logger = logging.getLogger("tts_multimodel")
 import threading
 import webbrowser
 import time
@@ -45,7 +57,7 @@ def silent_exception_handler(loop, context):
 
 def auto_open_browser(ip, port):
     url = f"http://{ip}:{port}"
-    print(f"[系统] 正在等待引擎加载...")
+    logger.info("正在等待引擎加载...")
     while True:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(1)
@@ -54,7 +66,7 @@ def auto_open_browser(ip, port):
                 url = f"http://{ip}:7860"; break
         time.sleep(1)
     time.sleep(2)
-    print(f"[系统] 服务就绪，正在弹出网页...")
+    logger.info("服务就绪，正在弹出网页...")
     webbrowser.open(url)
 
 def start_app():
@@ -65,14 +77,42 @@ def start_app():
     os.environ["PATH"] = wpy_path + os.pathsep + os.path.join(wpy_path, "Scripts") + os.pathsep + os.environ.get("PATH", "")
     if os.path.isdir(sox_dir):
         os.environ["PATH"] = sox_dir + os.pathsep + os.environ["PATH"]
-    threading.Thread(target=auto_open_browser, args=(ip, port), daemon=True).start()
+
+    # Auto-select port if 7869 is occupied
+    def _find_available_port(start_port, max_attempts=10):
+        import socket
+        for attempt in range(max_attempts):
+            test_port = start_port + attempt
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    s.bind((ip, test_port))
+                    return test_port
+            except OSError:
+                continue
+        return start_port
+
+    actual_port = str(_find_available_port(int(port)))
+    if actual_port != port:
+        logger.info(f"端口 {port} 被占用，使用可用端口 {actual_port}")
+
+    threading.Thread(target=auto_open_browser, args=(ip, actual_port), daemon=True).start()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.set_exception_handler(silent_exception_handler)
 
+    import signal
+
+    def signal_handler(sig, frame):
+        logging.info("Received shutdown signal, stopping server...")
+        os._exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     try:
-        import integrated_app
-        integrated_app.run_integrated(ip, port)
+        from integrated_app.app_server import run_server
+        run_server(ip, actual_port)
     except Exception as e:
         import traceback
         traceback.print_exc()

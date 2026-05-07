@@ -1,0 +1,54 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
+        <h3 class="card-header-title">{{ "script_workshop"|t(lang) }}</h3>
+        <span class="card-header-badge">{{ "multi_dialogue"|t(lang) }}</span>
+    </div>
+    <form id="script-form" hx-post="/api/generate/voxcpm_script" hx-target="#script-result" hx-swap="innerHTML" hx-indicator="#script-spinner">
+        <label>{{ "script_content"|t(lang) }}</label>
+        <div class="tts-textarea-wrapper" style="margin:12px 0;">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:8px 12px;background:rgba(139,92,246,0.1);border-radius:6px;border:1px solid rgba(139,92,246,0.2);">
+                <strong>{{ "format_desc"|t(lang) }}：</strong>{{ "script_example"|t(lang) }}<br>
+                <code style="color:var(--accent-secondary);">[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}</code><br>
+                <code style="color:var(--accent-secondary);">[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}</code>
+            </div>
+            <textarea name="text" class="tts-input-textarea" rows="8" placeholder="[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}&#10;[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}&#10;[{{ 'narrator'|t(lang) }}]{{ 'example_line3'|t(lang) }}" style="font-family:monospace;font-size:14px;min-height:200px;"></textarea>
+        </div>
+
+        <div style="margin:16px 0;">
+            <label>{{ "control_instruction"|t(lang) }}（{{ 'optional'|t(lang) }}）</label>
+            <input type="text" name="instruction" class="tts-input-text" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
+        </div>
+
+        <button type="submit" class="primary-btn generate-btn" style="width:100%;">{{ "generate_dialogue"|t(lang) }}</button>
+    </form>
+</div>
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
+    </div>
+    <div id="script-result">
+        <div id="script-spinner" class="htmx-indicator" style="display:none;text-align:center;padding:24px;">
+            <div class="tts-loading-spinner" style="margin:0 auto 8px;"></div>
+            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
+        </div>
+        <audio class="tts-audio-player" id="script-audio" controls style="width:100%;display:none;"></audio>
+        <div class="status-message" id="script-status"></div>
+    </div>
+</div>
+<script>
+(function(){
+    document.getElementById('script-form').addEventListener('htmx:afterRequest', function(e){
+        if (e.detail.successful) {
+            var audioEl = document.getElementById('script-audio');
+            var audioSrc = document.querySelector('#script-result audio');
+            if (audioSrc) {
+                audioEl.src = audioSrc.src;
+                audioEl.style.display = '';
+                try { audioEl.play(); } catch(ex) {}
+            }
+        }
+    });
+})();
+</script>

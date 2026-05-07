@@ -5,21 +5,25 @@ import os
 import re
 import logging
 from datetime import datetime
+from typing import List, Optional, Tuple
 
 import torch
-import gradio as gr
 
 from .config import (
     PERSONA_DIR, OFFICIAL_SPEAKERS, OFFICIAL_SPEAKER_INFO, _PERSONA_NAME_RE,
 )
 from .exceptions import PersonaError
-from .model_manager import load_model, _persona_embedding_cache
+from .model_manager import voxcpm_model, _persona_embedding_cache
 from .generation import preprocess_and_save_temp
+from .persona_metadata import (
+    PersonaMetadata, load_persona_metadata, save_persona_metadata,
+    PersonaExporter, get_all_tags, get_categories,
+)
 
 logger = logging.getLogger("tts_multimodel")
 
 
-def _validate_persona_name(name):
+def _validate_persona_name(name: str) -> Tuple[bool, str]:
     """验证音色名称合法性，防止路径遍历和注入"""
     if not name:
         return False, "名称不能为空"
@@ -28,15 +32,15 @@ def _validate_persona_name(name):
     return True, ""
 
 
-def fn_save_persona(name, audio_input, ref_text, overwrite=False):
+def fn_save_persona(name: str, audio_input, ref_text: str, overwrite: bool = False) -> Tuple[str, bool]:
     """保存音色到音色库（固化）"""
     if not name or audio_input is None:
-        return "❌ 失败：需输入名称及音频", gr.update(visible=False)
+        return "❌ 失败：需输入名称及音频", False
 
     # 输入验证
     valid, err_msg = _validate_persona_name(name)
     if not valid:
-        return f"❌ {err_msg}", gr.update(visible=False)
+        return f"❌ {err_msg}", False
 
     try:
         # 使用 realpath 防止路径遍历
@@ -44,27 +48,35 @@ def fn_save_persona(name, audio_input, ref_text, overwrite=False):
         txt_path = os.path.join(PERSONA_DIR, f"{name}.txt")
         wav_real = os.path.realpath(wav_path)
         if not wav_real.startswith(os.path.realpath(PERSONA_DIR)):
-            return "❌ 非法路径", gr.update(visible=False)
+            return "❌ 非法路径", False
         # 名称冲突检测
         existing = os.path.exists(wav_path) or os.path.exists(os.path.join(PERSONA_DIR, f"{name}.pt"))
         if existing and not overwrite:
-            return f"⚠️ 音色 [{name}] 已存在，再次点击保存将覆盖原有音色", gr.update(visible=True)
+            return f"⚠️ 音色 [{name}] 已存在，再次点击保存将覆盖原有音色", True
         tmp_p, sr_p, wav_p = preprocess_and_save_temp(audio_input, f"{name}.wav")
         os.replace(tmp_p, wav_path)
-        with open(txt_path, "w", encoding="utf-8") as f:
-            f.write(ref_text if ref_text else "")
-        model = load_model("语音克隆", "1.7B")
-        # 修正：FasterQwen3TTS 内部使用 .model 访问原始方法
-        items = model.model.create_voice_clone_prompt(ref_audio=(wav_p, sr_p), ref_text=ref_text if ref_text else "", x_vector_only_mode=False)
+        
+        # Create and save metadata
+        meta = PersonaMetadata(
+            name=name,
+            description=ref_text if ref_text else "",
+            voice_type="",
+            traits="",
+            created_at=datetime.now().isoformat(),
+        )
+        save_persona_metadata(PERSONA_DIR, name, meta)
+        
+        # VoxCPM2 内部使用 .model 访问原始方法
+        items = voxcpm_model.model.create_voice_clone_prompt(ref_audio=(wav_p, sr_p), ref_text=ref_text if ref_text else "", x_vector_only_mode=False)
         payload = {"items": [{"ref_code": it.ref_code, "ref_spk_embedding": it.ref_spk_embedding, "x_vector_only_mode": it.x_vector_only_mode, "icl_mode": it.icl_mode, "ref_text": it.ref_text} for it in items]}
         torch.save(payload, os.path.join(PERSONA_DIR, f"{name}.pt"))
-        return f"✅ 音色 [{name}] 已成功固化！", gr.update(visible=False)
+        return f"✅ 音色 [{name}] 已成功固化！", False
     except Exception as e:
         logger.error(f"音色固化失败: {e}")
-        return f"❌ 固化失败: {str(e)}", gr.update(visible=False)
+        return f"❌ 固化失败: {str(e)}", False
 
 
-def get_persona_list(include_official=False, search_keyword=""):
+def get_persona_list(include_official: bool = False, search_keyword: str = "") -> List[str]:
     """获取音色列表，可选择包含官方音色，支持搜索过滤"""
     wav_files = [f[:-4] for f in os.listdir(PERSONA_DIR) if f.endswith(".wav")]
     custom = sorted(wav_files) if wav_files else []
@@ -82,13 +94,13 @@ def get_persona_list(include_official=False, search_keyword=""):
     return custom if custom else ["(暂无音色)"]
 
 
-def get_total_persona_count():
+def get_total_persona_count() -> int:
     """获取音色总数"""
     files = [f for f in os.listdir(PERSONA_DIR) if f.endswith(".wav")]
     return len(files)
 
 
-def get_persona_detail_table(search_keyword=""):
+def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
     """获取音色详情表格数据"""
     files = [f.replace(".wav", "") for f in os.listdir(PERSONA_DIR) if f.endswith(".wav")]
     files = sorted(files)
@@ -127,7 +139,7 @@ def get_persona_detail_table(search_keyword=""):
     return table if table else [["暂无音色", "-", "-", "-", "-"]]
 
 
-def get_persona_desc(name):
+def get_persona_desc(name: str) -> str:
     """获取音色描述信息"""
     if name in OFFICIAL_SPEAKERS:
         info = OFFICIAL_SPEAKER_INFO.get(name, ("", "", "", ""))
@@ -138,7 +150,7 @@ def get_persona_desc(name):
     return ""
 
 
-def load_persona_embedding(name):
+def load_persona_embedding(name: str) -> Optional[Tuple]:
     """加载已保存音色的预计算嵌入数据，支持官方音色"""
     cached = _persona_embedding_cache.get(name)
     if cached is not None:
@@ -163,7 +175,7 @@ def load_persona_embedding(name):
             ref_text = f.read()
 
     if pt_exists and wav_exists:
-        vcp_data = torch.load(pt_path, map_location="cpu", weights_only=False)
+        vcp_data = torch.load(pt_path, map_location="cpu", weights_only=True)
         result = (vcp_data, wav_path, ref_text)
     elif wav_exists:
         result = (None, wav_path, ref_text)
@@ -174,7 +186,7 @@ def load_persona_embedding(name):
     return result
 
 
-def get_persona_map():
+def get_persona_map() -> dict:
     """获取音色名称到 wav 路径的映射"""
     persona_map = {}
     if not os.path.exists(PERSONA_DIR):

@@ -1,19 +1,41 @@
+version: "2.0.0"
+
 server:
   host: "127.0.0.1"
   port: 7869
+  # SSL configuration (currently not active - server runs on HTTP)
+  # To enable HTTPS, configure uvicorn in clean_launch.py with ssl_certfile/ssl_keyfile
   ssl:
     certfile: "bin/cert.pem"
     keyfile: "bin/key.pem"
 
 models:
-  voice_design:
-    1.7B: "Qwen3-TTS-12Hz-1.7B-VoiceDesign"
-  voice_clone:
-    1.7B: "Qwen3-TTS-12Hz-1.7B-Base"
-    0.6B: "Qwen3-TTS-12Hz-0.6B-Base"
-  custom_voice:
-    1.7B: "Qwen3-TTS-12Hz-1.7B-CustomVoice"
-    0.6B: "Qwen3-TTS-12Hz-0.6B-CustomVoice"
+  voxcpm2:
+    model_path: "pretrained_models/VoxCPM2"
+    asr_path: "pretrained_models/SenseVoiceSmall"
+    denoiser_path: "pretrained_models/speech_zipenhancer"
+
+generation:
+  cfg_value: 2.0
+  inference_timesteps: 10
+  normalize: true
+  denoise: true
+  retry_badcase: true
+  retry_badcase_max_times: 3
+  retry_badcase_ratio_threshold: 6.0
+  min_len: 2
+  max_len: 4096
+  split_max_chars: 200
+
+cache:
+  persona_max_size: 50
+  persona_max_vram_mb: 512
+  idle_timeout_s: 300
+
+environment:
+  TRANSFORMERS_OFFLINE: "1"
+  HF_HUB_OFFLINE: "1"
+  MODELSCOPE_OFFLINE: "1"
 
 speakers:
   official:
@@ -63,22 +85,6 @@ speakers:
       traits: 甜美可爱，青春活力
       description: 甜美可爱的少女音色，青春洋溢，适合动漫少女角色和青春题材。
 
-generation:
-  default_size: "1.7B"
-  max_seq_len: 2048
-  split_max_chars: 200
-  default_temperature: 0.9
-  default_top_k: 50
-  default_top_p: 1.0
-  repetition_penalty: 1.05
-
-cache:
-  persona_max_size: 50
-  persona_max_vram_mb: 512
-  idle_timeout_s: 300
-
-environment:
-  TRANSFORMERS_OFFLINE: "1"
-  HF_HUB_OFFLINE: "1"
-  MODELSCOPE_OFFLINE: "1"
-  PYTHONHTTPSVERIFY: "0"
+api_auth:
+  enabled: false
+  token: ""

@@ -8,6 +8,10 @@ outputs/
 ._____temp/
 *.tmp
 *.log
+error.txt
+
+# Static generated files
+static/
 
 # IDE
 .vscode/
@@ -15,9 +19,13 @@ outputs/
 *.swp
 *.swo
 
+# Trae IDE documents (local development)
+.trae/
+
 # OS
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # Python
 __pycache__/
@@ -41,3 +49,37 @@ build/
 
 # HuggingFace cache
 .huggingface/
+
+# Bundled Python environment (too large for Git)
+WPy64-*/
+python/
+
+# VC Redistributable (large binary)
+VC运行库/
+
+# Audio outputs
+outputs/
+*.wav
+*.mp3
+*.flac
+
+# LoRA trained models
+lora/
+
+# Database files
+*.db
+*.sqlite
+
+# Environment variables
+.env
+.env.local
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Pytest
+.pytest_cache/
+
+# Coverage
+htmlcov/
+.coverage

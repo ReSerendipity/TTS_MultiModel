@@ -1,0 +1,157 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></span>
+        <h3 class="card-header-title">{{ "tab_ultimate_clone"|t(lang) }}</h3>
+        <span class="card-header-badge">{{ "advanced_params"|t(lang) }}</span>
+    </div>
+    <form id="uc-form" hx-post="/api/generate/voxcpm_ultimate" hx-target="#uc-result" hx-swap="innerHTML" hx-indicator="#uc-spinner">
+        <label>{{ "synthesis_text"|t(lang) }}</label>
+        <textarea name="text" class="tts-input-textarea" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}"></textarea>
+        <label style="margin-top:8px;">{{ "language"|t(lang) }}</label>
+        <select name="lang" class="tts-input-dropdown" style="width:100%;">
+            {% for l in langs %}
+            <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+            <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
+                {% for dialect in dialects %}
+                <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
+                {% endfor %}
+            </optgroup>
+        </select>
+
+        <div style="margin:16px 0;">
+            <label>{{ "ref_audio"|t(lang) }}</label>
+            <div class="inner-tabs" style="margin-top:8px;">
+                <div class="sub-tab-nav">
+                    <button type="button" class="sub-tab-btn active" onclick="switchUcRefTab('saved', this)">{{ "saved_voices"|t(lang) }}</button>
+                    <button type="button" class="sub-tab-btn" onclick="switchUcRefTab('upload', this)">{{ "upload_reference"|t(lang) }}</button>
+                </div>
+                <div id="uc-tab-saved" class="inner-tab-panel">
+                    <select name="persona_name" class="tts-input-dropdown" style="width:100%;margin-bottom:8px;">
+                        {% for p in persona_list %}
+                        <option value="{{ p }}">{{ p }}</option>
+                        {% endfor %}
+                    </select>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" class="secondary-btn" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML" style="flex:1;">{{ "refresh_list"|t(lang) }}</button>
+                    </div>
+                </div>
+                <div id="uc-tab-upload" class="inner-tab-panel" style="display:none;">
+                    <input type="file" name="ref_audio_path" class="tts-input-file" accept=".wav,.mp3,.ogg,.flac" style="width:100%;">
+                </div>
+            </div>
+        </div>
+
+        <details class="advanced-params" style="margin:16px 0;">
+            <summary style="cursor:pointer;color:var(--text-secondary);font-size:14px;padding:8px 0;border-bottom:1px solid rgba(139,92,246,0.2);">
+                <span data-icon="settings" style="width:16px;height:16px;margin-right:8px;vertical-align:middle;"></span>
+                {{ "advanced_params"|t(lang) }}
+            </summary>
+            <div style="padding:16px 0;">
+                <div class="grid-2col" style="gap:16px;">
+                    <div>
+                        <label title="{{ 'cfg_tooltip'|t(lang) }}">{{ "cfg_value"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <div class="param-slider">
+                            <input type="range" name="cfg" min="0.1" max="10" step="0.1" value="2.0" oninput="this.nextElementSibling.textContent=this.value">
+                            <span class="param-value">2.0</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label title="{{ 'steps_tooltip'|t(lang) }}">{{ "inference_steps"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <div class="param-slider">
+                            <input type="range" name="steps" min="1" max="30" step="1" value="10" oninput="this.nextElementSibling.textContent=this.value">
+                            <span class="param-value">10</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label title="{{ 'denoise_tooltip'|t(lang) }}">{{ "denoise"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <select name="denoise" class="tts-input-dropdown">
+                            <option value="true" selected>{{ "denoise_on"|t(lang) }}</option>
+                            <option value="false">{{ "denoise_off"|t(lang) }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label title="{{ 'normalize_tooltip'|t(lang) }}">{{ "text_normalize"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <select name="norm" class="tts-input-dropdown">
+                            <option value="true" selected>{{ "normalize_on"|t(lang) }}</option>
+                            <option value="false">{{ "normalize_off"|t(lang) }}</option>
+                        </select>
+                    </div>
+                    <div style="grid-column: span 2;">
+                        <label title="{{ 'seed_tooltip'|t(lang) }}">{{ "random_seed"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="checkbox" name="use_random_seed" id="uc-random-seed" checked style="margin:0;">
+                            <label for="uc-random-seed" style="margin:0;cursor:pointer;">{{ "use_random_seed"|t(lang) }}</label>
+                        </div>
+                        <input type="number" name="seed" id="uc-seed-input" class="tts-input-text" style="margin-top:8px;display:none;" placeholder="{{ 'seed_placeholder'|t(lang) }}" min="0" max="2147483647">
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <div style="margin-top:12px;">
+            <label>{{ "control_instruction"|t(lang) }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">({{ 'optional'|t(lang) }})</span></label>
+            <input type="text" name="instruction" class="tts-input-textbox" placeholder="{{ 'instruction_placeholder'|t(lang) }}" style="width:100%;">
+        </div>
+
+        <button type="submit" class="primary-btn generate-btn" style="width:100%;">{{ "generate_ultimate"|t(lang) }}</button>
+    </form>
+</div>
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
+    </div>
+    <div id="uc-result">
+        <div id="uc-spinner" class="htmx-indicator" style="display:none;text-align:center;padding:24px;">
+            <div class="tts-loading-spinner" style="margin:0 auto 8px;"></div>
+            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
+        </div>
+        <div class="status-message" id="uc-status"></div>
+    </div>
+    <audio class="tts-audio-player" id="uc-audio" controls style="width:100%;display:none;"></audio>
+</div>
+<script>
+(function(){
+    // Frontend validation: prevent empty text submission
+    document.getElementById('uc-form').addEventListener('submit', function(e) {
+        var textarea = this.querySelector('textarea[name="text"]');
+        if (textarea && !textarea.value.trim()) {
+            e.preventDefault();
+            var statusEl = document.getElementById('uc-status');
+            if (statusEl) {
+                statusEl.className = 'status-message error';
+                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
+            }
+            return false;
+        }
+    });
+    document.getElementById('uc-form').addEventListener('htmx:afterRequest', function(e){
+        if (e.detail.successful) {
+            var audioEl = document.getElementById('uc-audio');
+            var audioSrc = document.querySelector('#uc-result audio');
+            if (audioSrc) {
+                audioEl.src = audioSrc.src;
+                audioEl.style.display = '';
+                try { audioEl.play(); } catch(ex) {}
+            }
+        }
+    });
+
+    var randomSeedCheckbox = document.getElementById('uc-random-seed');
+    var seedInput = document.getElementById('uc-seed-input');
+    if (randomSeedCheckbox && seedInput) {
+        randomSeedCheckbox.addEventListener('change', function(){
+            seedInput.style.display = this.checked ? 'none' : '';
+        });
+    }
+
+    // Switch reference audio tabs
+    window.switchUcRefTab = function(tab, btn) {
+        document.querySelectorAll('#uc-form .inner-tab-panel').forEach(function(p){ p.style.display = 'none'; });
+        document.querySelectorAll('#uc-form .sub-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.getElementById('uc-tab-' + tab).style.display = '';
+        btn.classList.add('active');
+    };
+})();
+</script>
