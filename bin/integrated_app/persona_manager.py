@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 import torch
 
 from .config import (
-    PERSONA_DIR, OFFICIAL_SPEAKERS, OFFICIAL_SPEAKER_INFO, _PERSONA_NAME_RE,
+    PERSONA_DIR, OFFICIAL_SPEAKERS, OFFICIAL_SPEAKER_INFO, _OFFICIAL_SPEAKERS_ORDERED, _PERSONA_NAME_RE,
 )
 from .exceptions import PersonaError
 from .model_manager import voxcpm_model, _persona_embedding_cache
@@ -95,13 +95,40 @@ def get_persona_list(include_official: bool = False, search_keyword: str = "") -
 
 
 def get_total_persona_count() -> int:
-    """获取音色总数"""
+    """获取自定义音色总数"""
     files = [f for f in os.listdir(PERSONA_DIR) if f.endswith(".wav")]
     return len(files)
 
 
+def get_official_speaker_count() -> int:
+    """获取官方音色数量"""
+    return len(OFFICIAL_SPEAKERS)
+
+
+def get_combined_persona_count() -> int:
+    """获取总音色数（自定义 + 官方）"""
+    return get_total_persona_count() + get_official_speaker_count()
+
+
 def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
-    """获取音色详情表格数据"""
+    """获取音色详情表格数据（含官方音色）"""
+    table = []
+
+    for sid in _OFFICIAL_SPEAKERS_ORDERED:
+        info = OFFICIAL_SPEAKER_INFO.get(sid, (sid, "", "", ""))
+        display_name = f"[官方] {info[0]} ({sid})"
+        if search_keyword:
+            kw = search_keyword.lower()
+            if kw not in display_name.lower() and kw not in sid.lower():
+                continue
+        table.append([
+            display_name,
+            "✅ 官方",
+            "-",
+            "-",
+            f"音色类型：{info[2]} | 特点：{info[3]}",
+        ])
+
     files = [f.replace(".wav", "") for f in os.listdir(PERSONA_DIR) if f.endswith(".wav")]
     files = sorted(files)
 
@@ -109,7 +136,6 @@ def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
         kw = search_keyword.lower()
         files = [f for f in files if kw in f.lower()]
 
-    table = []
     for name in files:
         pt_path = os.path.join(PERSONA_DIR, f"{name}.pt")
         wav_path = os.path.join(PERSONA_DIR, f"{name}.wav")
@@ -136,7 +162,10 @@ def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
             wav_time,
             ref_text if ref_text else "-"
         ])
-    return table if table else [["暂无音色", "-", "-", "-", "-"]]
+
+    if not table:
+        table = [["暂无音色", "-", "-", "-", "-"]]
+    return table
 
 
 def get_persona_desc(name: str) -> str:

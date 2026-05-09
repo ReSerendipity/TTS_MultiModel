@@ -8,6 +8,10 @@ os.environ['TRANSFORMERS_OFFLINE'] = '1'
 os.environ['HF_HUB_OFFLINE'] = '1'
 os.environ['MODELSCOPE_OFFLINE'] = '1'
 
+# 修复 OpenMP 重复加载错误 (libiomp5md.dll conflict)
+# 当多个库（如 numpy、torch、funasr）各自携带 libiomp5md.dll 时会触发此错误
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
 # VoxCPM2 缓存路径
 _root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _bin_dir = os.path.dirname(os.path.abspath(__file__))

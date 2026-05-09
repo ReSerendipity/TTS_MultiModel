@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+    <!-- Immediate theme initialization - runs before render to prevent flash -->
+    <script>
+        (function() {
+            // Restore theme from localStorage (separate from language)
+            var savedTheme = localStorage.getItem('app_theme');
+            if (savedTheme === 'light' || savedTheme === 'dark') {
+                document.documentElement.classList.add(savedTheme);
+            }
+            // Restore language from localStorage and apply to html element
+            var savedLang = localStorage.getItem('app_lang');
+            if (savedLang) {
+                document.documentElement.setAttribute('lang', savedLang);
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ "app_title"|t(lang) }}</title>
@@ -2193,6 +2208,12 @@
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                         <span class="sidebar-label-text">{{ "tab_script" | t(lang) }}</span>
                     </button>
+                    <button class="sidebar-item" data-tab="prompt_continue" data-engine="voxcpm2"
+                            hx-get="/tab/prompt_continue?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
+                            onclick="activateSidebarTab(this)">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_prompt_continue" | t(lang) }}</span>
+                    </button>
                     <button class="sidebar-item" data-tab="voxcpm2" data-engine="voxcpm2"
                             hx-get="/tab/voxcpm2?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
                             onclick="activateSidebarTab(this)">
@@ -2300,7 +2321,7 @@
                 <div class="progress-container" id="progress-container">
                     <div class="progress-wrapper">
                         <div class="progress-main-row">
-                            <div class="progress-bar-area" id="progress-bar" hx-ext="sse" sse-connect="/sse/progress" sse-swap="progress"></div>
+                            <div class="progress-bar-area" id="progress-bar"></div>
                             <button class="progress-cancel-btn" id="progress-cancel-btn" onclick="cancelGeneration()" title="{{ "cancel_generation"|t(lang) }}">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 <span>{{ "cancel"|t(lang) }}</span>
@@ -2647,11 +2668,52 @@
             if (isDark) {
                 html.classList.remove('dark');
                 html.classList.add('light');
+                localStorage.setItem('app_theme', 'light');
             } else {
                 html.classList.remove('light');
                 html.classList.add('dark');
+                localStorage.setItem('app_theme', 'dark');
+            }
+            // Update icon visibility
+            var sunIcon = document.getElementById('theme-icon-sun');
+            var moonIcon = document.getElementById('theme-icon-moon');
+            if (sunIcon && moonIcon) {
+                sunIcon.style.display = html.classList.contains('dark') ? 'block' : 'none';
+                moonIcon.style.display = html.classList.contains('light') ? 'block' : 'none';
             }
         };
+
+        // Theme initialization from localStorage
+        function initTheme() {
+            var html = document.documentElement;
+            var savedTheme = localStorage.getItem('app_theme');
+            var isDark;
+            
+            if (savedTheme === 'light' || savedTheme === 'dark') {
+                isDark = savedTheme === 'dark';
+            } else {
+                // Default to dark if no saved preference
+                isDark = html.classList.contains('dark') || !html.classList.contains('light');
+                localStorage.setItem('app_theme', isDark ? 'dark' : 'light');
+            }
+            
+            // Ensure correct classes are set
+            if (isDark) {
+                html.classList.add('dark');
+                html.classList.remove('light');
+            } else {
+                html.classList.add('light');
+                html.classList.remove('dark');
+            }
+            
+            // Update icon visibility
+            var sunIcon = document.getElementById('theme-icon-sun');
+            var moonIcon = document.getElementById('theme-icon-moon');
+            if (sunIcon && moonIcon) {
+                sunIcon.style.display = isDark ? 'block' : 'none';
+                moonIcon.style.display = isDark ? 'none' : 'block';
+            }
+        }
 
         // ============================================================
         // Language Toggle
@@ -2661,11 +2723,9 @@
         window._langLabels = { 'zh-CN': '中', 'en': 'EN', 'ja': '日', 'ko': '한' };
         
         window.toggleLang = function() {
-            var btn = document.getElementById('lang-toggle-btn');
-            var label = document.getElementById('lang-current-label');
-            // Get current language from URL param, cookie, or html lang attribute
+            // Get current language from URL param, localStorage, cookie, or html lang attribute
             var urlParams = new URLSearchParams(window.location.search);
-            var currentLang = urlParams.get('lang') || document.cookie.match(/lang=([^;]+)/)?.[1] || document.documentElement.getAttribute('lang') || 'zh-CN';
+            var currentLang = urlParams.get('lang') || localStorage.getItem('app_lang') || document.cookie.match(/lang=([^;]+)/)?.[1] || document.documentElement.getAttribute('lang') || 'zh-CN';
 
             // Normalize language code
             if (currentLang.startsWith('zh')) currentLang = 'zh-CN';
@@ -2675,11 +2735,18 @@
             if (currentIndex === -1) currentIndex = 0;
             var newLang = window._supportedLangs[(currentIndex + 1) % window._supportedLangs.length];
 
+            // Save to localStorage (separate from theme)
+            localStorage.setItem('app_lang', newLang);
+            
+            // Update UI
             document.documentElement.setAttribute('lang', newLang);
+            var label = document.getElementById('lang-current-label');
             if (label) label.textContent = window._langLabels[newLang];
-            // Set cookie for persistence
+            
+            // Set cookie for server-side compatibility
             document.cookie = 'lang=' + newLang + '; path=/; max-age=31536000';
-            // Reload page with new language
+            
+            // Reload page with new language - theme state preserved in localStorage
             var url = new URL(window.location.href);
             url.searchParams.set('lang', newLang);
             window.location.href = url.toString();
@@ -2687,16 +2754,41 @@
         
         window.setLang = function(lang) {
             if (!window._supportedLangs.includes(lang)) return;
-            var btn = document.getElementById('lang-toggle-btn');
+            
+            // Save to localStorage (separate from theme)
+            localStorage.setItem('app_lang', lang);
+            
+            // Update UI
             document.documentElement.setAttribute('lang', lang);
+            var btn = document.getElementById('lang-toggle-btn');
+            var label = document.getElementById('lang-current-label');
             if (btn) btn.textContent = window._langLabels[lang];
+            if (label) label.textContent = window._langLabels[lang];
+            
+            // Set cookie for server-side compatibility
             document.cookie = 'lang=' + lang + '; path=/; max-age=31536000';
+            
+            // Reload page with new language - theme state preserved in localStorage
             var url = new URL(window.location.href);
             url.searchParams.set('lang', lang);
             window.location.href = url.toString();
         };
+        
+        // Language initialization from localStorage
+        function initLanguage() {
+            var savedLang = localStorage.getItem('app_lang');
+            if (savedLang && window._supportedLangs.includes(savedLang)) {
+                document.documentElement.setAttribute('lang', savedLang);
+                var label = document.getElementById('lang-current-label');
+                if (label) label.textContent = window._langLabels[savedLang];
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize theme and language from localStorage
+            initTheme();
+            initLanguage();
+            
             var firstTab = document.querySelector('.sidebar-item.active');
             if (firstTab) {
                 htmx.trigger(firstTab, 'click');

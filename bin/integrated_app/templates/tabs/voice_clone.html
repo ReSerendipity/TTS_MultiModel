@@ -85,6 +85,7 @@
         <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
         <h3 class="card-header-title">{{ "tab_voice_clone"|t(lang) }}</h3>
     </div>
+    <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "voice_clone_desc"|t(lang) }}</div>
     <form id="vc-form" hx-post="/api/generate/voxcpm_clone" hx-target="#vc-result" hx-swap="innerHTML" hx-indicator="#vc-spinner">
         <input type="hidden" name="mode" value="voxcpm_clone">
         <label>{{ "synthesis_text"|t(lang) }}</label>
@@ -135,25 +136,25 @@
             <summary>{{ "advanced_params"|t(lang) }}</summary>
             <div class="advanced-params-body">
                 <div>
-                    <label>{{ "cfg_value"|t(lang) }}</label>
+                    <label title="{{ 'tooltip_cfg'|t(lang) }}">{{ "cfg_value"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
                     <input type="range" name="cfg_value" min="0.1" max="10" step="0.1" value="2.0" class="vc-param-range" oninput="document.getElementById('vc-cfg-val').textContent=this.value">
                     <span id="vc-cfg-val" class="vc-param-value">2.0</span>
                 </div>
                 <div>
-                    <label>{{ "inference_steps"|t(lang) }}</label>
+                    <label title="{{ 'tooltip_steps'|t(lang) }}">{{ "inference_steps"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
                     <input type="range" name="inference_timesteps" min="1" max="30" step="1" value="10" class="vc-param-range" oninput="document.getElementById('vc-step-val').textContent=this.value">
                     <span id="vc-step-val" class="vc-param-value">10</span>
                 </div>
                 <div>
                     <label class="vc-checkbox-label">
                         <input type="checkbox" name="normalize" checked>
-                        <span>{{ "text_normalize"|t(lang) }}</span>
+                        <span title="{{ 'tooltip_normalize'|t(lang) }}">{{ "text_normalize"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></span>
                     </label>
                 </div>
                 <div>
                     <label class="vc-checkbox-label">
                         <input type="checkbox" name="denoise" checked>
-                        <span>{{ "denoise"|t(lang) }}</span>
+                        <span title="{{ 'tooltip_denoise'|t(lang) }}">{{ "denoise"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></span>
                     </label>
                 </div>
             </div>
@@ -177,6 +178,27 @@
         <div class="status-message" id="vc-status"></div>
     </div>
     <audio class="tts-audio-player vc-full-width" id="vc-audio" controls style="display:none;"></audio>
+    <details class="pp-section" id="vc-pp-section" style="display:none;margin-top:8px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;">
+        <summary style="cursor:pointer;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text-secondary);background:var(--bg-tertiary);">{{ "post_processing"|t(lang) }}</summary>
+        <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">
+            <div>
+                <label style="font-size:12px;">{{ "speed_factor"|t(lang) }}</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="range" id="vc-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;" oninput="document.getElementById('vc-pp-tempo-val').textContent=this.value">
+                    <span id="vc-pp-tempo-val" style="font-size:12px;min-width:28px;text-align:right;">1.0</span>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="vc-pp-enhance">
+                    {{ "voice_enhancement"|t(lang) }}
+                </label>
+            </div>
+        </div>
+        <div style="padding:0 12px 10px;text-align:right;">
+            <button type="button" class="secondary-btn" style="font-size:12px;padding:4px 14px;" onclick="vcReprocess()">{{ "reprocess"|t(lang) }}</button>
+        </div>
+    </details>
 </div>
 <script>
 (function(){
@@ -208,8 +230,45 @@
                 audioEl.style.display = '';
                 try { audioEl.play(); } catch(ex) {}
             }
+            // Show post-processing section when audio is available
+            var wrapper = document.querySelector('#vc-result [data-audio-filename]');
+            var ppSection = document.getElementById('vc-pp-section');
+            if (wrapper && ppSection) {
+                ppSection.style.display = '';
+            }
         }
     });
+
+    // Post-processing re-process
+    window.vcReprocess = async function() {
+        var resultEl = document.getElementById('vc-result');
+        if (!resultEl) return;
+        var wrapper = resultEl.querySelector('[data-audio-filename]');
+        if (!wrapper) return;
+        var audioPath = wrapper.getAttribute('data-audio-filename');
+        var tempo = document.getElementById('vc-pp-tempo').value;
+        var enhance = document.getElementById('vc-pp-enhance').checked ? 'true' : 'false';
+        var statusEl = document.getElementById('vc-status');
+        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Processing...</div>';
+        try {
+            var resp = await fetch('/api/generate/post-process', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'audio_path=' + encodeURIComponent(audioPath) + '&tempo_factor=' + tempo + '&voice_enhancement=' + enhance + '&target_lufs=-16.0'
+            });
+            var html = await resp.text();
+            resultEl.innerHTML = html;
+            var audioSrc = resultEl.querySelector('audio');
+            var audioEl = document.getElementById('vc-audio');
+            if (audioSrc && audioEl) {
+                audioEl.src = audioSrc.src;
+                audioEl.style.display = '';
+                audioEl.play().catch(function(ex) {});
+            }
+        } catch(err) {
+            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';
+        }
+    };
 
     // File upload feedback
     var fileInput = document.querySelector('input[type="file"][name="ref_audio_path"]');

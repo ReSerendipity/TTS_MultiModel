@@ -17,6 +17,7 @@ from ..engines.voxcpm2_engine import (
     fn_voxcpm_ultimate_clone,
     fn_voxcpm_script_studio,
     fn_voxcpm_streaming,
+    fn_voxcpm_prompt_continue,
 )
 from ..exceptions import TTSError
 from .system import log_operation, increment_generation
@@ -95,9 +96,11 @@ def _partial_success_html(filename, message, degraded_note):
     """Return HTML for partially successful generation with degradation note."""
     safe_filename = quote(filename, safe='')
     return HTMLResponse(
+        f'<div data-audio-filename="{html.escape(filename)}">'
         f'<audio controls src="/api/audio/{safe_filename}" style="width:100%;margin:8px 0;"></audio>'
         f'<div class="status-message success">{html.escape(message)}</div>'
         f'<div class="status-message warning" style="margin-top:8px;color:#f59e0b;">{html.escape(degraded_note)}</div>'
+        f'</div>'
     )
 
 
@@ -130,6 +133,61 @@ def _log_generation(endpoint_name, text, engine, voice_or_persona, success, dura
         log_operation("generation", f"{endpoint_name} failed ({duration:.1f}s)", details)
 
 
+def _apply_post_processing_to_file(filename, tempo_factor, voice_enhancement, target_lufs):
+    """Apply post-processing to a saved audio file and return the new filename.
+
+    If all parameters are defaults, returns the original filename unchanged.
+    """
+    if tempo_factor == 1.0 and not voice_enhancement and target_lufs == -16.0:
+        return filename
+
+    from scipy.io import wavfile
+
+    audio_path = os.path.join(SAVE_DIR, filename) if not os.path.isabs(filename) else filename
+    if not os.path.isfile(audio_path):
+        logger.warning(f"Post-processing: audio file not found: {audio_path}")
+        return filename
+
+    try:
+        sr, data = wavfile.read(audio_path)
+        # Convert to float32 for processing
+        if data.dtype == np.int16:
+            audio = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            audio = data.astype(np.float32) / 2147483648.0
+        elif data.dtype == np.float32:
+            audio = data.copy()
+        else:
+            audio = data.astype(np.float32)
+
+        # Make mono if stereo
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+
+        processed = enhance_audio(
+            audio, sr,
+            normalize=True,
+            tempo_factor=tempo_factor,
+            voice_enhancement=voice_enhancement,
+            target_lufs=target_lufs,
+        )
+
+        # Save to new file
+        base, ext = os.path.splitext(filename)
+        new_filename = f"{base}_pp{ext}"
+        new_path = os.path.join(SAVE_DIR, new_filename) if not os.path.isabs(new_filename) else new_filename
+
+        # Convert back to int16 for saving
+        output = (processed * 32768.0).clip(-32768, 32767).astype(np.int16)
+        wavfile.write(new_path, sr, output)
+
+        logger.info(f"Post-processing applied: {filename} -> {new_filename}")
+        return new_filename
+    except Exception as e:
+        logger.error(f"Post-processing failed for {filename}: {e}")
+        return filename
+
+
 def _error_html(error_message):
     return HTMLResponse(
         f'<div class="tts-error-block">'
@@ -142,8 +200,10 @@ def _error_html(error_message):
 def _success_html(filename, status_message):
     safe_filename = quote(filename, safe='')
     return HTMLResponse(
+        f'<div data-audio-filename="{html.escape(filename)}">'
         f'<audio controls src="/api/audio/{safe_filename}" style="width:100%;margin:8px 0;"></audio>'
         f'<div class="status-message success">{html.escape(status_message)}</div>'
+        f'</div>'
     )
 
 
@@ -196,6 +256,12 @@ async def generate_voxcpm_design(
     text: str = Form(""),
     instruction: str = Form(""),
     lang: str = Form("Auto"),
+    cfg: float = Form(2.0),
+    steps: int = Form(10),
+    denoise: str = Form("true"),
+    tempo_factor: float = Form(1.0),
+    voice_enhancement: str = Form("false"),
+    target_lufs: float = Form(-16.0),
 ):
     model_not_ready = _check_model_ready()
     if model_not_ready:
@@ -208,10 +274,12 @@ async def generate_voxcpm_design(
     if lang in _DIALECT_NAMES:
         instruction = (lang + "，" + instruction) if instruction.strip() else lang
 
+    advanced_denoise = denoise.lower() in ("true", "1", "yes")
+
     loop = asyncio.get_running_loop()
 
     def _run():
-        return fn_voxcpm_design(text, instruction)
+        return fn_voxcpm_design(text, instruction, cfg_value=cfg, inference_timesteps=steps, denoise=advanced_denoise)
 
     start_time = time.monotonic()
     try:
@@ -236,6 +304,9 @@ async def generate_voxcpm_design(
         monitor = get_health_monitor()
         monitor.record_generation(success=True)
         filename = result[2]
+        # Apply post-processing if parameters differ from defaults
+        pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
+        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
         if degraded_note:
             return _partial_success_html(filename, msg, degraded_note)
         return _success_html(filename, msg)
@@ -253,6 +324,10 @@ async def streaming_sse_generation(
     instruction: str = Form(""),
     ref_audio_path: str = Form(""),
     lang: str = Form("Auto"),
+    cfg_value: float = Form(2.0),
+    inference_timesteps: int = Form(10),
+    denoise: str = Form("true"),
+    seed: int = Form(-1),
 ):
     """True streaming generation via SSE - sends audio chunks as they are generated."""
     from ..model_manager import voxcpm_model as _voxcpm_model
@@ -264,6 +339,9 @@ async def streaming_sse_generation(
         return model_not_ready
     if not text.strip():
         return _error_html("文本不能为空")
+
+    # Convert string form values to proper types
+    stream_denoise = denoise.lower() in ("true", "1", "yes")
 
     # Merge dialect into instruction
     _DIALECT_NAMES = {"四川话", "粤语", "吴语", "东北话", "河南话", "闽南语", "湖南话", "湖北话", "客家话"}
@@ -306,8 +384,8 @@ async def streaming_sse_generation(
                         for chunk in _voxcpm_model.generate_streaming(
                             text=gen_text,
                             reference_wav_path=ref_audio_path if ref_audio_path else None,
-                            normalize=True, cfg_value=2.0, inference_timesteps=10,
-                            denoise=True, min_len=2, max_len=4096,
+                            normalize=True, cfg_value=cfg_value, inference_timesteps=inference_timesteps,
+                            denoise=stream_denoise, seed=seed, min_len=2, max_len=4096,
                         ):
                             chunks.append(chunk)
                         return np.concatenate(chunks) if chunks else np.array([], dtype=np.float32)
@@ -320,8 +398,8 @@ async def streaming_sse_generation(
                         lambda t=gen_text: _voxcpm_model.generate(
                             text=t,
                             reference_wav_path=ref_audio_path if ref_audio_path else None,
-                            normalize=True, cfg_value=2.0, inference_timesteps=10,
-                            denoise=True, min_len=2, max_len=4096,
+                            normalize=True, cfg_value=cfg_value, inference_timesteps=inference_timesteps,
+                            denoise=stream_denoise, seed=seed, min_len=2, max_len=4096,
                         )
                     )
 
@@ -385,6 +463,9 @@ async def generate_voxcpm_clone(
     steps: int = Form(10),
     ref_audio_upload: Optional[UploadFile] = File(None),
     lang: str = Form("Auto"),
+    tempo_factor: float = Form(1.0),
+    voice_enhancement: str = Form("false"),
+    target_lufs: float = Form(-16.0),
 ):
     model_not_ready = _check_model_ready()
     if model_not_ready:
@@ -429,8 +510,14 @@ async def generate_voxcpm_clone(
 
     loop = asyncio.get_running_loop()
 
+    # Convert string form values to proper types for engine
+    clone_norm = norm.lower() in ("true", "1", "yes")
+    clone_denoise = denoise.lower() in ("true", "1", "yes")
+
     def _run():
-        return fn_voxcpm_clone(text, instruction, actual_ref_path)
+        return fn_voxcpm_clone(text, instruction, actual_ref_path,
+                               cfg_value=cfg, inference_timesteps=steps,
+                               denoise=clone_denoise, normalize=clone_norm)
 
     start_time = time.monotonic()
     try:
@@ -455,6 +542,9 @@ async def generate_voxcpm_clone(
         monitor = get_health_monitor()
         monitor.record_generation(success=True)
         filename = result[2]
+        # Apply post-processing if parameters differ from defaults
+        pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
+        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
         if degraded_note:
             return _partial_success_html(filename, msg, degraded_note)
         return _success_html(filename, msg)
@@ -478,6 +568,9 @@ async def generate_voxcpm_ultimate(
     steps: int = Form(10),
     seed: int = Form(-1),
     lang: str = Form("Auto"),
+    tempo_factor: float = Form(1.0),
+    voice_enhancement: str = Form("false"),
+    target_lufs: float = Form(-16.0),
 ):
     model_not_ready = _check_model_ready()
     if model_not_ready:
@@ -539,6 +632,9 @@ async def generate_voxcpm_ultimate(
         monitor = get_health_monitor()
         monitor.record_generation(success=True)
         filename = result[2]
+        # Apply post-processing if parameters differ from defaults
+        pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
+        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
         if degraded_note:
             return _partial_success_html(filename, msg, degraded_note)
         return _success_html(filename, msg)
@@ -560,6 +656,9 @@ async def generate_voxcpm_script(
     denoise: str = Form("true"),
     steps: int = Form(10),
     seed: int = Form(-1),
+    tempo_factor: float = Form(1.0),
+    voice_enhancement: str = Form("false"),
+    target_lufs: float = Form(-16.0),
 ):
     model_not_ready = _check_model_ready()
     if model_not_ready:
@@ -597,12 +696,55 @@ async def generate_voxcpm_script(
         monitor = get_health_monitor()
         monitor.record_generation(success=True)
         filename = result[2]
+        # Apply post-processing if parameters differ from defaults
+        pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
+        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
         return _success_html(filename, msg)
     except Exception as e:
         duration = time.monotonic() - start_time
         logger.error(f"VoxCPM script generation failed: {e}")
         _log_generation("VoxCPM script", text, "voxcpm2", "script", False, duration, error_msg=str(e))
         return _error_html(_safe_error_msg(e))
+
+
+@router.post("/post-process")
+async def post_process_audio(
+    request: Request,
+    audio_path: str = Form(""),
+    tempo_factor: float = Form(1.0),
+    voice_enhancement: str = Form("false"),
+    target_lufs: float = Form(-16.0),
+):
+    """Apply post-processing to an existing audio file and return the result."""
+    if not audio_path.strip():
+        return _error_html("audio_path is required")
+
+    # Security: only allow filenames (not absolute paths) and prevent path traversal
+    safe_name = os.path.basename(audio_path)
+    if safe_name != audio_path:
+        return _error_html("Invalid audio path")
+
+    full_path = os.path.join(SAVE_DIR, safe_name)
+    real_path = os.path.realpath(full_path)
+    if not real_path.startswith(os.path.realpath(SAVE_DIR)):
+        return _error_html("Invalid audio path")
+
+    if not os.path.isfile(real_path):
+        return _error_html("Audio file not found")
+
+    pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
+    new_filename = _apply_post_processing_to_file(safe_name, tempo_factor, pp_voice_enhancement, target_lufs)
+
+    if new_filename == safe_name and tempo_factor == 1.0 and not pp_voice_enhancement and target_lufs == -16.0:
+        return _error_html("No post-processing changes requested")
+
+    safe_new = quote(new_filename, safe='')
+    return HTMLResponse(
+        f'<div data-audio-filename="{html.escape(new_filename)}">'
+        f'<audio controls src="/api/audio/{safe_new}" style="width:100%;margin:8px 0;"></audio>'
+        f'<div class="status-message success">Post-processing applied</div>'
+        f'</div>'
+    )
 
 
 @router.post("/cancel")
@@ -621,6 +763,10 @@ async def streaming_generation(
     request: Request,
     text: str = Form(""),
     ref_audio_path: str = Form(""),
+    cfg_value: float = Form(2.0),
+    inference_timesteps: int = Form(10),
+    denoise: str = Form("true"),
+    seed: int = Form(-1),
 ):
     model_not_ready = _check_model_ready()
     if model_not_ready:
@@ -628,10 +774,15 @@ async def streaming_generation(
     if not text.strip():
         return _error_html("\u6587\u672c\u4e0d\u80fd\u4e3a\u7a7a")
 
+    # Convert string form values to proper types
+    stream_denoise = denoise.lower() in ("true", "1", "yes")
+
     loop = asyncio.get_running_loop()
 
     def _run():
-        return fn_voxcpm_streaming(text, ref_audio_path if ref_audio_path else None)
+        return fn_voxcpm_streaming(text, ref_audio_path if ref_audio_path else None,
+                                   cfg_value=cfg_value, inference_timesteps=inference_timesteps,
+                                   denoise=stream_denoise, seed=seed)
 
     start_time = time.monotonic()
     try:
@@ -661,6 +812,10 @@ async def streaming_audio_generation(
     request: Request,
     text: str = Form(""),
     ref_audio_path: str = Form(""),
+    cfg_value: float = Form(2.0),
+    inference_timesteps: int = Form(10),
+    denoise: str = Form("true"),
+    seed: int = Form(-1),
 ):
     """Streaming audio generation - generates audio progressively and returns playable result."""
     from ..model_manager import voxcpm_model as _voxcpm_model
@@ -670,6 +825,9 @@ async def streaming_audio_generation(
         return model_not_ready
     if not text.strip():
         return _error_html("\u6587\u672c\u4e0d\u80fd\u4e3a\u7a7a")
+    
+    # Convert string form values to proper types
+    stream_denoise = denoise.lower() in ("true", "1", "yes")
     
     start_time = time.monotonic()
     try:
@@ -691,9 +849,10 @@ async def streaming_audio_generation(
                     text=s,
                     reference_wav_path=ref_audio_path if ref_audio_path else None,
                     normalize=True,
-                    cfg_value=2.0,
-                    inference_timesteps=10,
-                    denoise=True,
+                    cfg_value=cfg_value,
+                    inference_timesteps=inference_timesteps,
+                    denoise=stream_denoise,
+                    seed=seed,
                     min_len=2,
                     max_len=4096,
                 )
@@ -760,4 +919,83 @@ async def streaming_audio_generation(
         duration = time.monotonic() - start_time
         logger.error(f"Streaming audio generation failed: {e}")
         _log_generation("Streaming", text, "voxcpm2", "streaming", False, duration, error_msg=str(e))
+        return _error_html(_safe_error_msg(e))
+
+
+@router.post("/voxcpm_prompt_continue")
+async def generate_voxcpm_prompt_continue(
+    request: Request,
+    text: str = Form(""),
+    prompt_wav: Optional[UploadFile] = File(None),
+    prompt_text: str = Form(""),
+    lang: str = Form("Auto"),
+    tempo_factor: float = Form(1.0),
+    voice_enhancement: bool = Form(False),
+    target_lufs: Optional[float] = Form(None),
+):
+    model_not_ready = _check_model_ready()
+    if model_not_ready:
+        return model_not_ready
+    if not text.strip():
+        return _error_html("文本不能为空")
+    if not prompt_text.strip():
+        return _error_html("引导文本不能为空")
+
+    # Handle prompt audio upload
+    prompt_wav_path = None
+    if prompt_wav and prompt_wav.filename:
+        from ..config import SAVE_DIR
+        upload_dir = os.path.join(SAVE_DIR, "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        safe_name = os.path.basename(prompt_wav.filename)
+        _, ext = os.path.splitext(safe_name)
+        if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
+            return _error_html(f"Unsupported audio format: {ext}")
+        upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
+        content = await prompt_wav.read()
+        with open(upload_path, "wb") as f:
+            f.write(content)
+        prompt_wav_path = upload_path
+
+    if not prompt_wav_path:
+        return _error_html("请上传引导音频文件")
+
+    loop = asyncio.get_running_loop()
+
+    def _run():
+        return fn_voxcpm_prompt_continue(text, prompt_wav_path, prompt_text)
+
+    start_time = time.monotonic()
+    try:
+        result, msg, degraded_note = await loop.run_in_executor(
+            None, lambda: _run_with_oom_retry(_run, "VoxCPM prompt continue")
+        )
+        duration = time.monotonic() - start_time
+        if result is None:
+            _log_generation("VoxCPM prompt continue", text, "voxcpm2", prompt_text[:50], False, duration, error_msg=msg)
+            return _error_html(msg)
+        is_degraded = degraded_note is not None
+        _log_generation("VoxCPM prompt continue", text, "voxcpm2", prompt_text[:50], True, duration, is_degraded=is_degraded)
+        _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
+        from ..config import SAVE_DIR
+        if isinstance(result, tuple) and len(result) >= 3:
+            audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
+            _record_to_history_db(
+                filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
+                model_type="Prompt延续", output_format="wav",
+                is_success=True,
+            )
+        monitor = get_health_monitor()
+        monitor.record_generation(success=True)
+        filename = result[2]
+        # Apply post-processing if parameters differ from defaults
+        pp_target_lufs = target_lufs if target_lufs is not None else -16.0
+        filename = _apply_post_processing_to_file(filename, tempo_factor, voice_enhancement, pp_target_lufs)
+        if degraded_note:
+            return _partial_success_html(filename, msg, degraded_note)
+        return _success_html(filename, msg)
+    except Exception as e:
+        duration = time.monotonic() - start_time
+        logger.error(f"VoxCPM prompt continue generation failed: {e}")
+        _log_generation("VoxCPM prompt continue", text, "voxcpm2", prompt_text[:50], False, duration, error_msg=str(e))
         return _error_html(_safe_error_msg(e))

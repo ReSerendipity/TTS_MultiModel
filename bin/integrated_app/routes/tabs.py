@@ -19,6 +19,7 @@ _TAB_TEMPLATES = {
     "voice_design": "tabs/voice_design.html",
     "voice_clone": "tabs/voice_clone.html",
     "ultimate_clone": "tabs/ultimate_clone.html",
+    "prompt_continue": "tabs/prompt_continue.html",
     "script": "tabs/script.html",
     "voxcpm2": "tabs/voxcpm2.html",
     "lora": "tabs/lora_manager.html",
@@ -58,7 +59,7 @@ async def get_tab(request: Request, tab_name: str):
     ctx = _common_context(request)
 
     if tab_name == "voice_design":
-        ctx["persona_list"] = get_persona_list(include_official=False)
+        ctx["persona_list"] = get_persona_list(include_official=True)
     elif tab_name == "voice_clone":
         ctx["persona_list"] = get_persona_list(include_official=True)
     elif tab_name == "ultimate_clone":
@@ -84,5 +85,7 @@ async def get_tab(request: Request, tab_name: str):
         ctx["persona_count"] = get_total_persona_count()
         ctx["total_persona_count"] = ctx["persona_count"]
         ctx["persona_table_data"] = get_persona_detail_table()
+        ctx["_official_speakers_ordered"] = _OFFICIAL_SPEAKERS_ORDERED
+        ctx["_official_speaker_info"] = OFFICIAL_SPEAKER_INFO
 
     return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})

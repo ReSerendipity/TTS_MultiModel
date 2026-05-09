@@ -24,18 +24,27 @@ async def serve_audio(filename: str):
     if not real_path.startswith(os.path.realpath(SAVE_DIR)):
         return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=400)
     if os.path.isfile(real_path):
-        return FileResponse(real_path, media_type="audio/wav", filename=filename)
+        # Audio files are user-generated, use moderate caching
+        headers = {
+            "Cache-Control": "public, max-age=3600",  # 1 hour
+            "Accept-Ranges": "bytes",
+        }
+        return FileResponse(real_path, media_type="audio/wav", filename=filename, headers=headers)
     return JSONResponse({"status": "error", "message": f"File not found: {filename}"}, status_code=404)
 
 
 @router.get("/persona/audio/{name}")
-async def serve_persona_audio(name: str):
+async def serve_persona_audio(name: str, request: Request):
     file_path = os.path.join(PERSONA_DIR, f"{name}.wav")
     real_path = os.path.realpath(file_path)
     if not real_path.startswith(os.path.realpath(PERSONA_DIR)):
         return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=400)
     if os.path.isfile(real_path):
-        return FileResponse(real_path, media_type="audio/wav", filename=f"{name}.wav")
+        headers = {
+            "Cache-Control": "public, max-age=3600",
+            "Accept-Ranges": "bytes",
+        }
+        return FileResponse(real_path, media_type="audio/wav", filename=f"{name}.wav", headers=headers)
     return JSONResponse({"status": "error", "message": f"Persona audio not found: {name}"}, status_code=404)
 
 
@@ -75,7 +84,11 @@ async def speaker_sample(key: str):
     pattern = os.path.join(samples_dir, f"*{key.lower()}*.wav")
     matches = glob.glob(pattern)
     if matches:
-        return FileResponse(matches[0], media_type="audio/wav", filename=os.path.basename(matches[0]))
+        headers = {
+            "Cache-Control": "public, max-age=86400, immutable",  # 1 day, static samples
+            "Accept-Ranges": "bytes",
+        }
+        return FileResponse(matches[0], media_type="audio/wav", filename=os.path.basename(matches[0]), headers=headers)
     return JSONResponse({"status": "error", "message": f"No sample found for speaker: {key}"}, status_code=404)
 
 

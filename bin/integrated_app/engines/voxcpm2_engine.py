@@ -18,10 +18,38 @@ from ..utils import cleanup_temp_files
 
 logger = logging.getLogger("tts_multimodel")
 
+# ==================== 高级生成参数（可运行时修改） ====================
+_ADVANCED_PARAMS = {
+    "max_len": 4096,
+    "retry_badcase": True,
+    "retry_badcase_max_times": 3,
+    "retry_badcase_ratio_threshold": 6.0,
+    "trim_silence_vad": True,
+}
+
+
+def get_advanced_params():
+    """Return a copy of the current advanced generation parameters."""
+    return dict(_ADVANCED_PARAMS)
+
+
+def update_advanced_params(params_dict):
+    """Update the global advanced generation parameters dict.
+
+    Only known keys are accepted; unknown keys are silently ignored.
+    """
+    global _ADVANCED_PARAMS
+    for key in _ADVANCED_PARAMS:
+        if key in params_dict:
+            _ADVANCED_PARAMS[key] = params_dict[key]
+    logger.info(f"[VoxCPM2] Advanced params updated: {_ADVANCED_PARAMS}")
+
 
 # ==================== 声音设计 ====================
 
-def fn_voxcpm_design(text: str, instruction: str) -> Tuple[Optional[Tuple], str]:
+def fn_voxcpm_design(text: str, instruction: str,
+                     cfg_value: float = 2.0, inference_timesteps: int = 10,
+                     denoise: bool = True) -> Tuple[Optional[Tuple], str]:
     """VoxCPM2 声音设计"""
     from ..model_manager import voxcpm_model as _voxcpm_model
     from ..model_manager import _check_model_ready
@@ -29,24 +57,28 @@ def fn_voxcpm_design(text: str, instruction: str) -> Tuple[Optional[Tuple], str]
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
     @tts_error_handler
-    def _wrapped(text, instruction):
+    def _wrapped(text, instruction, cfg_value, inference_timesteps, denoise):
         if not _check_model_ready():
             raise GenerationError("模型正在加载或切换中，请稍后再试")
         _gen_tracker.start_generation()
         _progress_mgr.start(total_segments=1, phase="准备中...")
         start_time = time.time()
         try:
-            return _fn_voxcpm_design_impl(text, instruction, start_time)
+            return _fn_voxcpm_design_impl(text, instruction, start_time,
+                                          cfg_value=cfg_value, inference_timesteps=inference_timesteps,
+                                          denoise=denoise)
         finally:
             elapsed = time.time() - start_time
             _gen_tracker.end_generation(elapsed)
             _progress_mgr.schedule_reset(delay_seconds=120)
             logger.info(f"[VoxCPM声音设计] 生成耗时 {elapsed:.1f} 秒")
 
-    return _wrapped(text, instruction)
+    return _wrapped(text, instruction, cfg_value, inference_timesteps, denoise)
 
 
-def _fn_voxcpm_design_impl(text: str, instruction: str, start_time: float = 0) -> Tuple[Optional[Tuple], str]:
+def _fn_voxcpm_design_impl(text: str, instruction: str, start_time: float = 0,
+                           cfg_value: float = 2.0, inference_timesteps: int = 10,
+                           denoise: bool = True) -> Tuple[Optional[Tuple], str]:
     """VoxCPM2 声音设计核心实现，支持长文本分割"""
     from ..model_manager import voxcpm_model as _voxcpm_model
 
@@ -67,14 +99,14 @@ def _fn_voxcpm_design_impl(text: str, instruction: str, start_time: float = 0) -
         wav = _voxcpm_model.generate(
             text=_build_text(segments[0]),
             normalize=True,
-            cfg_value=2.0,
-            inference_timesteps=10,
-            denoise=True,
+            cfg_value=cfg_value,
+            inference_timesteps=inference_timesteps,
+            denoise=denoise,
             min_len=2,
-            max_len=4096,
-            retry_badcase=True,
-            retry_badcase_max_times=3,
-            retry_badcase_ratio_threshold=6.0,
+            max_len=_ADVANCED_PARAMS["max_len"],
+            retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+            retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+            retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
         )
         duration_sec = len(wav) / 48000 if len(wav) > 0 else 0
         timestamp = int(time.time())
@@ -103,14 +135,14 @@ def _fn_voxcpm_design_impl(text: str, instruction: str, start_time: float = 0) -
         wav = _voxcpm_model.generate(
             text=_build_text(seg),
             normalize=True,
-            cfg_value=2.0,
-            inference_timesteps=10,
-            denoise=True,
+            cfg_value=cfg_value,
+            inference_timesteps=inference_timesteps,
+            denoise=denoise,
             min_len=2,
-            max_len=4096,
-            retry_badcase=True,
-            retry_badcase_max_times=3,
-            retry_badcase_ratio_threshold=6.0,
+            max_len=_ADVANCED_PARAMS["max_len"],
+            retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+            retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+            retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
         )
         audio_segments.append(wav)
 
@@ -131,7 +163,9 @@ def _fn_voxcpm_design_impl(text: str, instruction: str, start_time: float = 0) -
 
 # ==================== 可控克隆 ====================
 
-def fn_voxcpm_clone(text: str, instruction: str, ref_audio_path: Optional[str]) -> Tuple[Optional[Tuple], str]:
+def fn_voxcpm_clone(text: str, instruction: str, ref_audio_path: Optional[str],
+                    cfg_value: float = 2.0, inference_timesteps: int = 10,
+                    denoise: bool = True, normalize: bool = True) -> Tuple[Optional[Tuple], str]:
     """VoxCPM2 可控克隆"""
     from ..model_manager import voxcpm_model as _voxcpm_model
     from ..model_manager import _check_model_ready
@@ -139,24 +173,28 @@ def fn_voxcpm_clone(text: str, instruction: str, ref_audio_path: Optional[str]) 
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
     @tts_error_handler
-    def _wrapped(text, instruction, ref_audio_path):
+    def _wrapped(text, instruction, ref_audio_path, cfg_value, inference_timesteps, denoise, normalize):
         if not _check_model_ready():
             raise GenerationError("模型正在加载或切换中，请稍后再试")
         _gen_tracker.start_generation()
         _progress_mgr.start(total_segments=1, phase="准备中...")
         start_time = time.time()
         try:
-            return _fn_voxcpm_clone_impl(text, instruction, ref_audio_path, start_time)
+            return _fn_voxcpm_clone_impl(text, instruction, ref_audio_path, start_time,
+                                         cfg_value=cfg_value, inference_timesteps=inference_timesteps,
+                                         denoise=denoise, normalize=normalize)
         finally:
             elapsed = time.time() - start_time
             _gen_tracker.end_generation(elapsed)
             _progress_mgr.schedule_reset(delay_seconds=120)
             logger.info(f"[VoxCPM可控克隆] 生成耗时 {elapsed:.1f} 秒")
 
-    return _wrapped(text, instruction, ref_audio_path)
+    return _wrapped(text, instruction, ref_audio_path, cfg_value, inference_timesteps, denoise, normalize)
 
 
-def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[str], start_time: float = 0) -> Tuple[Optional[Tuple], str]:
+def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[str], start_time: float = 0,
+                           cfg_value: float = 2.0, inference_timesteps: int = 10,
+                           denoise: bool = True, normalize: bool = True) -> Tuple[Optional[Tuple], str]:
     """VoxCPM2 可控克隆核心实现，支持长文本分割 + Prompt Cache + VAD + ZipEnhancer"""
     from ..model_manager import voxcpm_model as _voxcpm_model
     import tempfile
@@ -190,7 +228,7 @@ def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[
         _progress_mgr.update_phase("构建音色缓存...")
         prompt_cache = _voxcpm_model.build_prompt_cache(
             reference_wav_path=processed_ref_path,
-            trim_silence_vad=True,
+            trim_silence_vad=_ADVANCED_PARAMS["trim_silence_vad"],
         )
     else:
         prompt_cache = None
@@ -202,30 +240,30 @@ def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[
             wav, _, _ = _voxcpm_model.generate_with_prompt_cache(
                 text=_build_text(segments[0]),
                 prompt_cache=prompt_cache,
-                normalize=True,
-                cfg_value=2.0,
-                inference_timesteps=10,
-                denoise=True,
+                normalize=normalize,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                denoise=denoise,
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
         else:
             wav = _voxcpm_model.generate(
                 text=_build_text(segments[0]),
                 reference_wav_path=processed_ref_path if processed_ref_path else None,
-                normalize=True,
-                cfg_value=2.0,
-                inference_timesteps=10,
-                denoise=True,
+                normalize=normalize,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                denoise=denoise,
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
-                trim_silence_vad=True,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
+                trim_silence_vad=_ADVANCED_PARAMS["trim_silence_vad"],
             )
         duration_sec = len(wav) / 48000 if len(wav) > 0 else 0
         timestamp = int(time.time())
@@ -261,31 +299,31 @@ def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[
             wav, _, new_feat = _voxcpm_model.generate_with_prompt_cache(
                 text=_build_text(seg),
                 prompt_cache=prompt_cache,
-                normalize=True,
-                cfg_value=2.0,
-                inference_timesteps=10,
-                denoise=True,
+                normalize=normalize,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                denoise=denoise,
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
             prompt_cache = _voxcpm_model.merge_prompt_cache(prompt_cache, seg, new_feat)
         else:
             wav = _voxcpm_model.generate(
                 text=_build_text(seg),
                 reference_wav_path=processed_ref_path if processed_ref_path else None,
-                normalize=True,
-                cfg_value=2.0,
-                inference_timesteps=10,
-                denoise=True,
+                normalize=normalize,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                denoise=denoise,
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
-                trim_silence_vad=True,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
+                trim_silence_vad=_ADVANCED_PARAMS["trim_silence_vad"],
             )
         audio_segments.append(wav)
 
@@ -386,12 +424,12 @@ def _fn_voxcpm_ultimate_clone_impl(
             reference_wav_path=processed_ref_path,
             prompt_text=ref_text,
             prompt_wav_path=processed_ref_path,
-            trim_silence_vad=True,
+            trim_silence_vad=_ADVANCED_PARAMS["trim_silence_vad"],
         )
     elif processed_ref_path:
         prompt_cache = _voxcpm_model.build_prompt_cache(
             reference_wav_path=processed_ref_path,
-            trim_silence_vad=True,
+            trim_silence_vad=_ADVANCED_PARAMS["trim_silence_vad"],
         )
     else:
         prompt_cache = None
@@ -419,10 +457,10 @@ def _fn_voxcpm_ultimate_clone_impl(
                 inference_timesteps=advanced_steps,
                 denoise=bool(advanced_denoise),
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
         else:
             # ref_continuation 组合模式：同时传入 reference_wav_path + prompt_wav_path
@@ -436,10 +474,10 @@ def _fn_voxcpm_ultimate_clone_impl(
                 inference_timesteps=advanced_steps,
                 denoise=bool(advanced_denoise),
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
         timestamp = int(time.time())
         out_path = os.path.join(SAVE_DIR, f"voxcpm_ultimate_{timestamp}.wav")
@@ -479,10 +517,10 @@ def _fn_voxcpm_ultimate_clone_impl(
                 inference_timesteps=advanced_steps,
                 denoise=bool(advanced_denoise),
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
             prompt_cache = _voxcpm_model.merge_prompt_cache(prompt_cache, seg, new_feat)
         else:
@@ -496,10 +534,10 @@ def _fn_voxcpm_ultimate_clone_impl(
                 inference_timesteps=advanced_steps,
                 denoise=bool(advanced_denoise),
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
         audio_segments.append(wav)
 
@@ -616,10 +654,10 @@ def _fn_voxcpm_script_studio_impl(
             inference_timesteps=advanced_steps,
             denoise=bool(advanced_denoise),
             min_len=2,
-            max_len=4096,
-            retry_badcase=True,
-            retry_badcase_max_times=3,
-            retry_badcase_ratio_threshold=6.0,
+            max_len=_ADVANCED_PARAMS["max_len"],
+            retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+            retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+            retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
         )
         combined_wav.append(wav)
         combined_wav.append(np.zeros(int(48000 * 0.3)))
@@ -642,7 +680,9 @@ def _fn_voxcpm_script_studio_impl(
 
 # ==================== Streaming 生成 ====================
 
-def fn_voxcpm_streaming(text: str, ref_audio_path: Optional[str] = None):
+def fn_voxcpm_streaming(text: str, ref_audio_path: Optional[str] = None,
+                        cfg_value: float = 2.0, inference_timesteps: int = 10,
+                        denoise: bool = True, seed: int = -1):
     """VoxCPM2 流式生成"""
     from ..model_manager import voxcpm_model as _voxcpm_model
     from ..model_manager import _check_model_ready
@@ -650,24 +690,28 @@ def fn_voxcpm_streaming(text: str, ref_audio_path: Optional[str] = None):
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
     @tts_error_handler
-    def _wrapped(text, ref_audio_path):
+    def _wrapped(text, ref_audio_path, cfg_value, inference_timesteps, denoise, seed):
         if not _check_model_ready():
             raise GenerationError("模型正在加载或切换中，请稍后再试")
         _gen_tracker.start_generation()
         _progress_mgr.start(total_segments=1, phase="流式准备中...")
         start_time = time.time()
         try:
-            return _fn_voxcpm_streaming_impl(text, ref_audio_path, start_time)
+            return _fn_voxcpm_streaming_impl(text, ref_audio_path, start_time,
+                                              cfg_value=cfg_value, inference_timesteps=inference_timesteps,
+                                              denoise=denoise, seed=seed)
         finally:
             elapsed = time.time() - start_time
             _gen_tracker.end_generation(elapsed)
             _progress_mgr.schedule_reset(delay_seconds=120)
             logger.info(f"[VoxCPM流式生成] 生成耗时 {elapsed:.1f} 秒")
 
-    return _wrapped(text, ref_audio_path)
+    return _wrapped(text, ref_audio_path, cfg_value, inference_timesteps, denoise, seed)
 
 
-def _fn_voxcpm_streaming_impl(text: str, ref_audio_path: Optional[str], start_time: float = 0):
+def _fn_voxcpm_streaming_impl(text: str, ref_audio_path: Optional[str], start_time: float = 0,
+                               cfg_value: float = 2.0, inference_timesteps: int = 10,
+                               denoise: bool = True, seed: int = -1):
     """VoxCPM2 流式生成核心实现"""
     from ..model_manager import voxcpm_model as _voxcpm_model
 
@@ -685,14 +729,15 @@ def _fn_voxcpm_streaming_impl(text: str, ref_audio_path: Optional[str], start_ti
                 text=segments[0],
                 reference_wav_path=ref_audio_path if ref_audio_path else None,
                 normalize=True,
-                cfg_value=2.0,
-                inference_timesteps=10,
-                denoise=True,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                denoise=denoise,
+                seed=seed,
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
         else:
             logger.warning("[VoxCPM流式生成] 模型不支持 streaming，回退到常规生成")
@@ -700,14 +745,15 @@ def _fn_voxcpm_streaming_impl(text: str, ref_audio_path: Optional[str], start_ti
                 text=segments[0],
                 reference_wav_path=ref_audio_path if ref_audio_path else None,
                 normalize=True,
-                cfg_value=2.0,
-                inference_timesteps=10,
-                denoise=True,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                denoise=denoise,
+                seed=seed,
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
             _progress_mgr.complete()
             return wav
@@ -725,21 +771,22 @@ def _fn_voxcpm_streaming_impl(text: str, ref_audio_path: Optional[str], start_ti
             remaining = avg * (total - idx)
             logger.info(f"[VoxCPM流式生成] 第 {idx+1}/{total} 段，已耗时 {elapsed:.1f}s，预计剩余 {remaining:.1f}s")
         else:
-            logger.info(f"[VoxCPM流式生成] 第 1/{total} 段...")
+            logger.info(f"[VoxCPM流式生成] 第 {idx+1}/{total} 段...")
 
         if hasattr(_voxcpm_model, 'generate_streaming'):
             for chunk in _voxcpm_model.generate_streaming(
                 text=seg,
                 reference_wav_path=ref_audio_path if ref_audio_path else None,
                 normalize=True,
-                cfg_value=2.0,
-                inference_timesteps=10,
-                denoise=True,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                denoise=denoise,
+                seed=seed,
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             ):
                 all_chunks.append(chunk)
         else:
@@ -747,14 +794,15 @@ def _fn_voxcpm_streaming_impl(text: str, ref_audio_path: Optional[str], start_ti
                 text=seg,
                 reference_wav_path=ref_audio_path if ref_audio_path else None,
                 normalize=True,
-                cfg_value=2.0,
-                inference_timesteps=10,
-                denoise=True,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                denoise=denoise,
+                seed=seed,
                 min_len=2,
-                max_len=4096,
-                retry_badcase=True,
-                retry_badcase_max_times=3,
-                retry_badcase_ratio_threshold=6.0,
+                max_len=_ADVANCED_PARAMS["max_len"],
+                retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+                retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+                retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
             )
             all_chunks.append(wav)
 
@@ -855,10 +903,10 @@ def _fn_voxcpm_prompt_continue_impl(text: str, prompt_wav_path: str, prompt_text
         inference_timesteps=10,
         denoise=True,
         min_len=2,
-        max_len=4096,
-        retry_badcase=True,
-        retry_badcase_max_times=3,
-        retry_badcase_ratio_threshold=6.0,
+        max_len=_ADVANCED_PARAMS["max_len"],
+        retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
+        retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
+        retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
     )
 
     duration_sec = len(wav) / 48000 if len(wav) > 0 else 0

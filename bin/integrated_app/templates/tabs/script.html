@@ -4,6 +4,7 @@
         <h3 class="card-header-title">{{ "script_workshop"|t(lang) }}</h3>
         <span class="card-header-badge">{{ "multi_dialogue"|t(lang) }}</span>
     </div>
+    <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "script_desc"|t(lang) }}</div>
     <form id="script-form" hx-post="/api/generate/voxcpm_script" hx-target="#script-result" hx-swap="innerHTML" hx-indicator="#script-spinner">
         <label>{{ "script_content"|t(lang) }}</label>
         <div class="tts-textarea-wrapper" style="margin:12px 0;">
@@ -19,6 +20,53 @@
             <label>{{ "control_instruction"|t(lang) }}（{{ 'optional'|t(lang) }}）</label>
             <input type="text" name="instruction" class="tts-input-text" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
         </div>
+
+        <details class="advanced-params" style="margin:16px 0;">
+            <summary style="cursor:pointer;color:var(--text-secondary);font-size:14px;padding:8px 0;border-bottom:1px solid rgba(139,92,246,0.2);">
+                <span data-icon="settings" style="width:16px;height:16px;margin-right:8px;vertical-align:middle;"></span>
+                {{ "advanced_params"|t(lang) }}
+            </summary>
+            <div style="padding:16px 0;">
+                <div class="grid-2col" style="gap:16px;">
+                    <div>
+                        <label title="{{ 'tooltip_cfg'|t(lang) }}">{{ "cfg_value"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <div class="param-slider">
+                            <input type="range" name="cfg" min="0.1" max="10" step="0.1" value="2.0" oninput="this.nextElementSibling.textContent=this.value">
+                            <span class="param-value">2.0</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label title="{{ 'tooltip_steps'|t(lang) }}">{{ "inference_steps"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <div class="param-slider">
+                            <input type="range" name="steps" min="1" max="30" step="1" value="10" oninput="this.nextElementSibling.textContent=this.value">
+                            <span class="param-value">10</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label title="{{ 'tooltip_denoise'|t(lang) }}">{{ "denoise"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <select name="denoise" class="tts-input-dropdown">
+                            <option value="true" selected>{{ "denoise_on"|t(lang) }}</option>
+                            <option value="false">{{ "denoise_off"|t(lang) }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label title="{{ 'tooltip_normalize'|t(lang) }}">{{ "text_normalize"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <select name="norm" class="tts-input-dropdown">
+                            <option value="true" selected>{{ "normalize_on"|t(lang) }}</option>
+                            <option value="false">{{ "normalize_off"|t(lang) }}</option>
+                        </select>
+                    </div>
+                    <div style="grid-column: span 2;">
+                        <label title="{{ 'tooltip_seed'|t(lang) }}">{{ "random_seed"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="checkbox" name="use_random_seed" id="script-random-seed" checked style="margin:0;">
+                            <label for="script-random-seed" style="margin:0;cursor:pointer;">{{ "use_random_seed"|t(lang) }}</label>
+                        </div>
+                        <input type="number" name="seed" id="script-seed-input" class="tts-input-text" style="margin-top:8px;display:none;" placeholder="{{ 'seed_placeholder'|t(lang) }}" min="0" max="2147483647">
+                    </div>
+                </div>
+            </div>
+        </details>
 
         <button type="submit" class="primary-btn generate-btn" style="width:100%;">{{ "generate_dialogue"|t(lang) }}</button>
     </form>
@@ -36,6 +84,27 @@
         <audio class="tts-audio-player" id="script-audio" controls style="width:100%;display:none;"></audio>
         <div class="status-message" id="script-status"></div>
     </div>
+    <details class="pp-section" id="script-pp-section" style="display:none;margin-top:8px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;">
+        <summary style="cursor:pointer;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text-secondary);background:var(--bg-tertiary);">{{ "post_processing"|t(lang) }}</summary>
+        <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">
+            <div>
+                <label style="font-size:12px;">{{ "speed_factor"|t(lang) }}</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="range" id="script-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;" oninput="document.getElementById('script-pp-tempo-val').textContent=this.value">
+                    <span id="script-pp-tempo-val" style="font-size:12px;min-width:28px;text-align:right;">1.0</span>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="script-pp-enhance">
+                    {{ "voice_enhancement"|t(lang) }}
+                </label>
+            </div>
+        </div>
+        <div style="padding:0 12px 10px;text-align:right;">
+            <button type="button" class="secondary-btn" style="font-size:12px;padding:4px 14px;" onclick="scriptReprocess()">{{ "reprocess"|t(lang) }}</button>
+        </div>
+    </details>
 </div>
 <script>
 (function(){
@@ -48,7 +117,52 @@
                 audioEl.style.display = '';
                 try { audioEl.play(); } catch(ex) {}
             }
+            // Show post-processing section when audio is available
+            var wrapper = document.querySelector('#script-result [data-audio-filename]');
+            var ppSection = document.getElementById('script-pp-section');
+            if (wrapper && ppSection) {
+                ppSection.style.display = '';
+            }
         }
     });
+
+    var randomSeedCheckbox = document.getElementById('script-random-seed');
+    var seedInput = document.getElementById('script-seed-input');
+    if (randomSeedCheckbox && seedInput) {
+        randomSeedCheckbox.addEventListener('change', function(){
+            seedInput.style.display = this.checked ? 'none' : '';
+        });
+    }
+
+    // Post-processing re-process
+    window.scriptReprocess = async function() {
+        var resultEl = document.getElementById('script-result');
+        if (!resultEl) return;
+        var wrapper = resultEl.querySelector('[data-audio-filename]');
+        if (!wrapper) return;
+        var audioPath = wrapper.getAttribute('data-audio-filename');
+        var tempo = document.getElementById('script-pp-tempo').value;
+        var enhance = document.getElementById('script-pp-enhance').checked ? 'true' : 'false';
+        var statusEl = document.getElementById('script-status');
+        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Processing...</div>';
+        try {
+            var resp = await fetch('/api/generate/post-process', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'audio_path=' + encodeURIComponent(audioPath) + '&tempo_factor=' + tempo + '&voice_enhancement=' + enhance + '&target_lufs=-16.0'
+            });
+            var html = await resp.text();
+            resultEl.innerHTML = html;
+            var audioSrc = resultEl.querySelector('audio');
+            var audioEl = document.getElementById('script-audio');
+            if (audioSrc && audioEl) {
+                audioEl.src = audioSrc.src;
+                audioEl.style.display = '';
+                audioEl.play().catch(function(ex) {});
+            }
+        } catch(err) {
+            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';
+        }
+    };
 })();
 </script>

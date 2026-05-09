@@ -115,31 +115,33 @@ def apply_voice_enhancement(audio: np.ndarray, sample_rate: int = 24000) -> np.n
     return compressed.astype(np.float32)
 
 
-def enhance_audio(audio: np.ndarray, sample_rate: int, 
-                  normalize: bool = True, 
+def enhance_audio(audio: np.ndarray, sample_rate: int,
+                  normalize: bool = True,
                   tempo_factor: float = 1.0,
-                  voice_enhancement: bool = False) -> np.ndarray:
+                  voice_enhancement: bool = False,
+                  target_lufs: float = -16.0) -> np.ndarray:
     """Apply all post-processing steps in sequence.
-    
+
     Args:
         audio: Input audio array.
         sample_rate: Sample rate in Hz.
         normalize: Whether to apply loudness normalization.
         tempo_factor: Tempo adjustment factor (1.0 = no change).
         voice_enhancement: Whether to apply voice enhancement (EQ + compression).
-    
+        target_lufs: Target loudness in LUFS for normalization (default -16.0).
+
     Returns:
         Processed audio array.
     """
     result = audio.copy()
-    
+
     if voice_enhancement:
         result = apply_voice_enhancement(result, sample_rate)
-    
+
     if normalize:
-        result = normalize_loudness(result, sample_rate)
-    
+        result = normalize_loudness(result, sample_rate, target_lufs)
+
     if tempo_factor != 1.0:
         result, _ = adjust_tempo(result, sample_rate, tempo_factor)
-    
+
     return result

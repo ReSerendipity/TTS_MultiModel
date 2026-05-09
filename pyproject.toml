@@ -4,20 +4,36 @@ version = "2.0.0"
 description = "TTS MultiModel - VoxCPM2 based Text-to-Speech application"
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi>=0.104.0",
-    "uvicorn>=0.24.0",
-    "jinja2>=3.1.0",
-    "python-multipart>=0.0.6",
-    "numpy>=1.24.0",
-    "soundfile>=0.12.0",
-    "torch>=2.1.0",
+    # === 深度学习框架 ===
+    "torch>=2.5.1",
+    "torchvision>=0.16.0",
     "torchaudio>=2.1.0",
-    "transformers>=4.36.0",
+    "transformers>=4.57.0",
+    "tokenizers>=0.19.0",
+    # === AI 生态 ===
     "funasr>=1.0.0",
     "modelscope>=1.9.0",
+    # === Web 框架 ===
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+    # === 音频处理 ===
+    "soundfile>=0.12.1",
+    "pydub>=0.25.1",
+    # === 数值计算 ===
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    # === 工具库 ===
     "pyyaml>=6.0",
+    "httpx>=0.24.0",
     "aiofiles>=23.0",
+    "cryptography>=41.0.0",
 ]
+
+[project.optional-dependencies]
+# 旧版 Gradio 界面（向后兼容）
+gradio = ["gradio>=4.44.0"]
 
 [project.scripts]
 tts-multimodel = "integrated_app.cli:main"

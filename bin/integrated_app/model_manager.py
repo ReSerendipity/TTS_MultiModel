@@ -553,11 +553,21 @@ def load_voxcpm2() -> Generator:
                 optimize=True,
                 local_files_only=True,
             )
-            # Note: voxcpm.VoxCPM wrapper class doesn't have .to() method
-            # The internal model handles dtype automatically
+            # 显式将模型子组件移至 GPU（与引擎切换逻辑保持一致）
+            cuda_device = f"cuda:{get_nvidia_gpu_device()}"
+            if torch.cuda.is_available():
+                for attr in ('tts_model', 'model', 'codecs', 'vocoder'):
+                    sub = getattr(voxcpm_model, attr, None)
+                    if sub is not None and hasattr(sub, 'to'):
+                        sub.to(cuda_device)
+                        logger.info(f"  VoxCPM2.{attr} -> {cuda_device}")
+                # 确保 CUDA 缓存同步
+                torch.cuda.synchronize()
+                allocated_mb = torch.cuda.memory_allocated() / (1024 ** 2)
+                logger.info(f"  VoxCPM2 加载完成，GPU 显存已分配: {allocated_mb:.0f} MB")
+
             status_text = "正在加载 ASR 模型..."
             yield status_text, None, None, None
-            cuda_device = f"cuda:{get_nvidia_gpu_device()}"
             voxcpm_asr = AutoModel(
                 model=VOXCPM2_ASR_PATH,
                 disable_pbar=True,
