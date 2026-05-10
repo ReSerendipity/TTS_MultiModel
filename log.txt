@@ -1,1091 +1,161 @@
-
-======================================================
-         VoxCPM Studio Console
-======================================================
-
-  Hotkeys:
-    [R] - Load Model
-    [U] - Unload Model
-    [Q] - Quit Application
-    [H] - Show Help
-
-======================================================
-
-[START] Launching TTS MultiModel application...
-[OK] Application started, PID: 9052
-[INFO] Waiting for server to be ready...
-[INFO] 正在等待引擎加载...
-INFO:     Started server process [9052]
-INFO:     Waiting for application startup.
-[INFO] [启动] 正在加载 VoxCPM2 模型...
-[INFO] [启动] 正在加载 VoxCPM2 模型...
-voxcpm_model_path: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\VoxCPM2, zipenhancer_model_path: iic/speech_zipenhancer_ans_multiloss_16k_base, enable_denoiser: True
-Loading AudioVAE from pytorch: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\VoxCPM2\audiovae.pth
-Running on device: cuda, dtype: bfloat16
-Loading model from safetensors: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\VoxCPM2\model.safetensors
-Warning: torch.compile disabled - triton is not installed
-Loaded VoxCPM2Model
-[INFO] PyTorch version 2.8.0+cu128 available.
-2026-05-09 14:30:33,593 - modelscope - INFO - initiate model from C:\Users\FREE\.trae-cn\TTS_MultiModel\cache\modelscope\models\iic\speech_zipenhancer_ans_multiloss_16k_base
-2026-05-09 14:30:33,593 - modelscope - INFO - initiate model from location C:\Users\FREE\.trae-cn\TTS_MultiModel\cache\modelscope\models\iic\speech_zipenhancer_ans_multiloss_16k_base.
-2026-05-09 14:30:33,595 - modelscope - INFO - initialize model from C:\Users\FREE\.trae-cn\TTS_MultiModel\cache\modelscope\models\iic\speech_zipenhancer_ans_multiloss_16k_base
-2026-05-09 14:30:33,696 - modelscope - WARNING - No val key and type key found in preprocessor domain of configuration.json file.
-2026-05-09 14:30:33,696 - modelscope - WARNING - Cannot find available config to build preprocessor at mode inference, current config: {'model_dir': 'C:\\Users\\FREE\\.trae-cn\\TTS_MultiModel\\cache\\modelscope\\models\\iic\\speech_zipenhancer_ans_multiloss_16k_base'}. trying to build by task and model information.
-2026-05-09 14:30:33,696 - modelscope - WARNING - No preprocessor field found in cfg.
-2026-05-09 14:30:33,696 - modelscope - INFO - No preprocessor key ('speech_zipenhancer_ans_multiloss_16k_base', 'acoustic-noise-suppression') found in PREPROCESSOR_MAP, skip building preprocessor. If the pipeline runs normally, please ignore this log.
-Warm up VoxCPMModel...
-[OK] Server is ready!
-
-Downloading Model from https://www.modelscope.cn to directory: C:\Users\FREE\.trae-cn\TTS_MultiModel\cache\modelscope\models\iic\speech_zipenhancer_ans_multiloss_16k_base
-  0%|          | 0/10 [00:00<?, ?it/s]
- 10%|█         | 1/10 [00:00<00:01,  5.96it/s]
-[INFO] Press hotkeys to control the application...
- 20%|██        | 2/10 [00:00<00:01,  6.91it/s]
- 30%|███       | 3/10 [00:00<00:00,  7.21it/s]
-
- 40%|████      | 4/10 [00:00<00:00,  7.39it/s]
- 50%|█████     | 5/10 [00:00<00:00,  7.52it/s]
- 60%|██████    | 6/10 [00:00<00:00,  7.64it/s]
- 70%|███████   | 7/10 [00:00<00:00,  7.67it/s]
- 80%|████████  | 8/10 [00:01<00:00,  7.65it/s]
- 90%|█████████ | 9/10 [00:01<00:00,  7.70it/s]
-100%|██████████| 10/10 [00:01<00:00,  7.71it/s]
-100%|██████████| 10/10 [00:01<00:00,  7.51it/s]
-[INFO]   VoxCPM2.tts_model -> cuda:0
-[INFO]   VoxCPM2 加载完成，GPU 显存已分配: 5247 MB
-[INFO] [启动] 正在加载 ASR 模型...
-[INFO] download models from model hub: ms
-[WARNING] trust_remote_code: False
-[INFO] Loading pretrained params from C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\SenseVoiceSmall\model.pt
-[INFO] ckpt: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\SenseVoiceSmall\model.pt
-[INFO] scope_map: ['module.', 'None']
-[INFO] excludes: None
-[INFO] Loading ckpt: C:\Users\FREE\.trae-cn\TTS_MultiModel\pretrained_models\SenseVoiceSmall\model.pt, status: <All keys matched successfully>
-[INFO] [启动] VoxCPM2 引擎就绪
-[INFO] [启动] VoxCPM2 模型已就绪，服务完全启动
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:7869 (Press CTRL+C to quit)
-funasr version: 1.3.1.
-Check update of funasr, and it would cost few times. You may disable it by set `disable_update=True` in AutoModel
-You are using the latest version of funasr-1.3.1
-INFO:     127.0.0.1:9951 - "GET /sse/status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1318 - "GET /sse/progress HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8732 - "GET /sse/cancel HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14203 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-[INFO] 服务就绪，正在弹出网页...
-INFO:     127.0.0.1:9788 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9788 - "GET /sse/status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5934 - "GET /sse/progress HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13764 - "GET /sse/cancel HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5822 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2459 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:14895 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5822 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5822 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5822 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5822 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5822 - "GET /sse/status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4554 - "GET /sse/progress HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13363 - "GET /sse/cancel HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8478 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9313 - "GET /favicon.ico HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14895 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14895 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14895 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8308 - "GET /sse/status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14895 - "GET /sse/progress HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13109 - "GET /sse/cancel HTTP/1.1" 200 OK
-INFO:     127.0.0.1:12294 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7965 - "GET /favicon.ico HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9313 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9313 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9313 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7965 - "GET /sse/status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1676 - "GET /sse/progress HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4761 - "GET /sse/cancel HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6067 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9313 - "GET /favicon.ico HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1242 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1242 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1242 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14162 - "GET /sse/status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1242 - "GET /sse/progress HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13065 - "GET /sse/cancel HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8602 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14604 - "GET /favicon.ico HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9313 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4273 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4911 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1762 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6666 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:12334 - "GET /api/system/health HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:10364 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9671 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7956 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6415 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7111 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9970 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2031 - "GET /api/system/health HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:6495 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7529 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2131 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:12567 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9254 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14254 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11511 - "GET /api/system/health HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:3343 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7912 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13504 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3334 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7978 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9742 - "GET /api/system/health HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:8707 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10749 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7792 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3844 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6793 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8602 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6257 - "GET /api/system/health HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:8984 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4838 - "GET /api/system/health HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:4060 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4060 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4060 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2624 - "GET /sse/status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4060 - "GET /favicon.ico HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2105 - "GET /sse/progress HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2398 - "GET /sse/cancel HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8624 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/voice_clone?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/ultimate_clone?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/prompt_continue?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/script?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/ultimate_clone?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/script?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/prompt_continue?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/voxcpm2?lang=zh-CN HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /tab/lora?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/model/lora/state HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/model/lora/list HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /tab/voxcpm2?lang=zh-CN HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14047 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14047 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14047 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14047 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14047 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14047 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14047 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3106 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3106 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3106 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:3106 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3106 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3106 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8049 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3106 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3106 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3106 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3106 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3106 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3106 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3106 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11208 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:11208 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:11208 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:11208 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13899 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13899 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13899 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13899 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13899 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5973 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5973 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5973 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5973 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4454 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4454 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4454 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4454 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4454 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4454 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4454 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4454 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4454 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:8864 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4454 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4975 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4975 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4975 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4975 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8421 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8421 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8421 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8421 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8864 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8421 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8421 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4262 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4262 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4262 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4262 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4262 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4262 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4262 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8421 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8421 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6242 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6242 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6242 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6242 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6242 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13388 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5580 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5580 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5580 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:3188 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9424 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3188 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14714 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8054 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8054 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14714 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8054 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14714 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14714 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14714 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8054 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8054 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14714 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8054 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14714 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8054 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14714 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14714 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14714 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8054 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8054 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14714 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14714 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8054 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8054 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8054 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8054 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8054 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13879 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13879 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13879 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13879 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13879 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2016 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13879 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13879 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13879 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2016 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13879 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13879 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13879 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2016 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2016 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7805 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7805 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2016 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2016 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3391 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3391 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3391 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2016 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3391 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:3391 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3391 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2016 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3391 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3391 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3391 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3391 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3391 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3391 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4055 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4055 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4055 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4055 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4055 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4055 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4055 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8470 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7002 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7002 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7002 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7002 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7002 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8886 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8886 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8886 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8886 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8886 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8886 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8886 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8886 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:8652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:8652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6652 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6652 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10317 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13635 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3415 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3415 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3415 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13635 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7628 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2831 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2831 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:2831 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7628 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6023 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6023 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6023 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6023 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /tab/voice_design?lang=zh-CN HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6023 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6023 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6023 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6023 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:13238 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6023 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6023 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6023 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6023 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6023 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6023 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13238 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13238 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:10855 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:10855 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:10855 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:10855 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1966 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10855 - "GET /sse/cancel HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1966 - "GET /sse/progress HTTP/1.1" 200 OK
-INFO:     127.0.0.1:10301 - "GET /sse/status HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1786 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7002 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7002 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9827 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9827 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9827 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9827 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9827 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9827 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9827 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9827 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9827 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9827 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9827 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9827 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:5447 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:5447 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:1985 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3194 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1985 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:3194 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3194 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6875 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6875 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6875 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6875 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6875 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6875 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6875 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6875 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6875 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:6875 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:6875 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:9075 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13368 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13368 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:3121 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9075 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2089 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:2089 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:2089 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:1932 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7356 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7356 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7356 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:7356 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:1932 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:14007 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4630 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4630 - "GET /api/system/settings HTTP/1.1" 200 OK
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:4630 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:14007 - "GET /api/system/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:7002 - "GET /sse/engine_switch HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9097 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13171 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:9097 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13171 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[INFO] Retrying NVML initialization after cooldown period...
-[WARNING] pynvml not installed, GPU monitoring unavailable
-INFO:     127.0.0.1:9097 - "GET /api/system/health HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:4551 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13456 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-[WARNING] Failed to import modules for settings: cannot import name 'PRETRAINED_MODEL_DIR' from 'integrated_app.config' (C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\config.py)
-INFO:     127.0.0.1:13456 - "GET /api/system/settings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:13456 - "GET /api/system/advanced_params HTTP/1.1" 200 OK
-INFO:     127.0.0.1:4551 - "GET /api/system/health HTTP/1.1" 200 OK
+Traceback (most recent call last):
+    return await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    result = await app(  # type: ignore[func-returns-value]
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 95, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 153, in simple_response
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.app(scope, receive, send)
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    raise exc
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    pt_data, wav_path, ref_text = persona_data
+ValueError: not enough values to unpack (expected 3, got 2)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\generate.py", line 289, in generate_voxcpm_design
+INFO:     127.0.0.1:4885 - "GET /api/system/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4885 - "POST /api/generate/voxcpm_design HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 95, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 153, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\generate.py", line 289, in generate_voxcpm_design
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 3, got 2)
+    return await dependant.call(**values)
+    pt_data, wav_path, ref_text = persona_data
+INFO:     127.0.0.1:11994 - "POST /api/generate/voxcpm_design HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 95, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\middleware\cors.py", line 153, in simple_response
+    raise exc
+    await self.app(scope, receive, send)
+    await self.middleware_stack(scope, receive, send)
+    await app(scope, receive, sender)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 716, in __call__
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    await route.handle(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\routing.py", line 736, in app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 130, in app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 116, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 670, in app
+    await app(scope, receive, sender)
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\WPy64-312101\python\Lib\site-packages\fastapi\routing.py", line 324, in run_endpoint_function
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    return await dependant.call(**values)
+    pt_data, wav_path, ref_text = persona_data
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 3, got 2)
+  File "C:\Users\FREE\.trae-cn\TTS_MultiModel\bin\integrated_app\routes\generate.py", line 289, in generate_voxcpm_design
+INFO:     127.0.0.1:2736 - "GET /api/system/health HTTP/1.1" 200 OK

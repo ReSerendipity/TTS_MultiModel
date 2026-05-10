@@ -31,10 +31,6 @@ dependencies = [
     "cryptography>=41.0.0",
 ]
 
-[project.optional-dependencies]
-# 旧版 Gradio 界面（向后兼容）
-gradio = ["gradio>=4.44.0"]
-
 [project.scripts]
 tts-multimodel = "integrated_app.cli:main"
 

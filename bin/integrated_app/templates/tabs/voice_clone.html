@@ -69,6 +69,44 @@
         flex: 1;
     }
 
+    /* Textarea auto-resize */
+    .vc-auto-resize {
+        resize: none;
+        overflow: hidden;
+        min-height: 60px;
+        max-height: 400px;
+        line-height: 1.6;
+    }
+
+    /* Character counter */
+    .vc-char-counter {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 6px;
+        margin-bottom: 2px;
+        padding: 4px 8px;
+        background: rgba(139, 92, 246, 0.05);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .vc-char-counter .counter-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .vc-char-counter .counter-segments {
+        color: var(--accent-primary);
+        font-weight: 600;
+    }
+    .vc-char-counter .counter-detail {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
     /* Spinner */
     .vc-spinner-center {
         display: none;
@@ -86,10 +124,11 @@
         <h3 class="card-header-title">{{ "tab_voice_clone"|t(lang) }}</h3>
     </div>
     <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "voice_clone_desc"|t(lang) }}</div>
-    <form id="vc-form" hx-post="/api/generate/voxcpm_clone" hx-target="#vc-result" hx-swap="innerHTML" hx-indicator="#vc-spinner">
+    <form id="vc-form" hx-post="/api/generate/voxcpm_clone" hx-target="#vc-result" hx-swap="innerHTML" hx-indicator="#vc-spinner" hx-encoding="multipart/form-data">
         <input type="hidden" name="mode" value="voxcpm_clone">
         <label>{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" class="tts-input-textarea" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}">{{ "default_clone_text"|t(lang) }}</textarea>
+        <textarea name="text" class="tts-input-textarea vc-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" oninput="updateVcCharCounter(this)">{{ "default_clone_text"|t(lang) }}</textarea>
+        <div id="vc-char-counter" class="vc-char-counter">0/500</div>
         <label>{{ "language"|t(lang) }}</label>
         <select name="lang" class="tts-input-dropdown">
             {% for l in langs %}
@@ -208,7 +247,47 @@
         document.getElementById('vc-tab-' + tab).style.display = '';
         btn.classList.add('active');
     };
-    // Frontend validation: prevent empty text submission
+    window.autoResizeTextarea = window.autoResizeTextarea || function(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
+    };
+
+    window.updateVcCharCounter = function(textarea) {
+        var counter = document.getElementById('vc-char-counter');
+        var submitBtn = document.querySelector('#vc-form button[type="submit"]');
+        if (counter) {
+            var len = textarea.value.length;
+            var maxLen = 500;
+            var segments = len > 0 ? Math.ceil(len / maxLen) : 0;
+
+            var counterMain = '<span class="counter-main">' + len + '/' + maxLen + '</span>';
+            var counterDetail = '';
+            if (len > maxLen) {
+                counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            } else if (len > maxLen * 0.8) {
+                var remaining = maxLen - len;
+                counterDetail = '<span class="counter-detail">{{ "remaining"|t(lang) }}' + remaining + '{{ "chars"|t(lang) }}</span>';
+            } else if (len > 0) {
+                counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            }
+
+            counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    };
+
+    window.getVcSegmentInfo = function() {
+        var form = document.getElementById('vc-form');
+        if (!form) return null;
+        var textarea = form.querySelector('textarea[name=text]');
+        if (!textarea || !textarea.value.trim()) return null;
+        var len = textarea.value.length;
+        var maxLen = 500;
+        var segments = Math.ceil(len / maxLen);
+        return { textLength: len, segmentCount: segments, maxLen: maxLen };
+    };
+
+    // Frontend validation: prevent empty text submission + segment confirmation
     document.getElementById('vc-form').addEventListener('submit', function(e) {
         var textarea = this.querySelector('textarea[name="text"]');
         if (textarea && !textarea.value.trim()) {
@@ -220,15 +299,27 @@
             }
             return false;
         }
+
+        var info = window.getVcSegmentInfo();
+        if (info && info.segmentCount > 1) {
+            e.preventDefault();
+            var confirmed = confirm(
+                '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}\n' +
+                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}\n' +
+                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}\n\n' +
+                '{{ "confirm_continue"|t(lang) }}'
+            );
+            if (!confirmed) return false;
+        }
     });
-    document.getElementById('vc-form').addEventListener('htmx:afterRequest', function(e) {
+    document.getElementById('vc-form').addEventListener('htmx:afterSettle', function(e) {
         if (e.detail.successful) {
             var audioEl = document.getElementById('vc-audio');
             var audioSrc = document.querySelector('#vc-result audio');
             if (audioSrc) {
                 audioEl.src = audioSrc.src;
                 audioEl.style.display = '';
-                try { audioEl.play(); } catch(ex) {}
+                audioEl.play().catch(function(ex) {});
             }
             // Show post-processing section when audio is available
             var wrapper = document.querySelector('#vc-result [data-audio-filename]');

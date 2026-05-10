@@ -108,14 +108,28 @@
 </div>
 <script>
 (function(){
-    document.getElementById('script-form').addEventListener('htmx:afterRequest', function(e){
+    // Frontend validation: prevent empty text submission
+    document.getElementById('script-form').addEventListener('submit', function(e) {
+        var textarea = this.querySelector('textarea[name="text"]');
+        if (textarea && !textarea.value.trim()) {
+            e.preventDefault();
+            var statusEl = document.getElementById('script-status');
+            if (statusEl) {
+                statusEl.className = 'status-message error';
+                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
+            }
+            return false;
+        }
+    });
+
+    document.getElementById('script-form').addEventListener('htmx:afterSettle', function(e){
         if (e.detail.successful) {
             var audioEl = document.getElementById('script-audio');
             var audioSrc = document.querySelector('#script-result audio');
             if (audioSrc) {
                 audioEl.src = audioSrc.src;
                 audioEl.style.display = '';
-                try { audioEl.play(); } catch(ex) {}
+                audioEl.play().catch(function(ex) {});
             }
             // Show post-processing section when audio is available
             var wrapper = document.querySelector('#script-result [data-audio-filename]');

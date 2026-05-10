@@ -1,3 +1,30 @@
+<style>
+    .pc-auto-resize {
+        resize: none;
+        overflow: hidden;
+        min-height: 60px;
+        max-height: 400px;
+        line-height: 1.6;
+    }
+    .pc-char-counter {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 6px;
+        margin-bottom: 2px;
+        padding: 4px 8px;
+        background: rgba(139, 92, 246, 0.05);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .pc-char-counter.warning { color: #f59e0b; font-weight: 600; }
+    .pc-char-counter .counter-main { display: inline-flex; align-items: center; gap: 4px; }
+    .pc-char-counter .counter-segments { color: var(--accent-primary); font-weight: 600; }
+    .pc-char-counter .counter-detail { font-size: 11px; color: var(--text-muted); }
+</style>
 <div class="card">
     <div class="card-header">
         <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M5 3l14 9-14 9V3z"/></svg></span>
@@ -6,7 +33,8 @@
     <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "prompt_continue_desc"|t(lang) }}</div>
     <form id="pc-form" hx-post="/api/generate/voxcpm_prompt_continue" hx-target="#pc-result" hx-swap="innerHTML" hx-indicator="#pc-spinner" hx-encoding="multipart/form-data">
         <label>{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" class="tts-input-textarea" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}"></textarea>
+        <textarea name="text" class="tts-input-textarea pc-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" oninput="updatePcCharCounter(this)"></textarea>
+        <div id="pc-char-counter" class="pc-char-counter">0/500</div>
         <label style="margin-top:8px;">{{ "language"|t(lang) }}</label>
         <select name="lang" class="tts-input-dropdown" style="width:100%;">
             {% for l in langs %}
@@ -69,6 +97,42 @@
 </div>
 <script>
 (function(){
+    window.autoResizeTextarea = window.autoResizeTextarea || function(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
+    };
+
+    window.updatePcCharCounter = function(textarea) {
+        var counter = document.getElementById('pc-char-counter');
+        if (counter) {
+            var len = textarea.value.length;
+            var maxLen = 500;
+            var segments = len > 0 ? Math.ceil(len / maxLen) : 0;
+            var counterMain = '<span class="counter-main">' + len + '/' + maxLen + '</span>';
+            var counterDetail = '';
+            if (len > maxLen) {
+                counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            } else if (len > maxLen * 0.8) {
+                var remaining = maxLen - len;
+                counterDetail = '<span class="counter-detail">{{ "remaining"|t(lang) }}' + remaining + '{{ "chars"|t(lang) }}</span>';
+            } else if (len > 0) {
+                counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            }
+            counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
+            counter.classList.remove('warning');
+            if (len >= maxLen || len >= maxLen * 0.8) counter.classList.add('warning');
+        }
+    };
+
+    window.getPcSegmentInfo = function() {
+        var form = document.getElementById('pc-form');
+        if (!form) return null;
+        var textarea = form.querySelector('textarea[name=text]');
+        if (!textarea || !textarea.value.trim()) return null;
+        var len = textarea.value.length;
+        return { textLength: len, segmentCount: Math.ceil(len / 500), maxLen: 500 };
+    };
+
     // Frontend validation: prevent empty text submission
     document.getElementById('pc-form').addEventListener('submit', function(e) {
         var textarea = this.querySelector('textarea[name="text"]');
@@ -101,15 +165,27 @@
             }
             return false;
         }
+
+        var info = window.getPcSegmentInfo();
+        if (info && info.segmentCount > 1) {
+            e.preventDefault();
+            var confirmed = confirm(
+                '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}\n' +
+                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}\n' +
+                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}\n\n' +
+                '{{ "confirm_continue"|t(lang) }}'
+            );
+            if (!confirmed) return false;
+        }
     });
-    document.getElementById('pc-form').addEventListener('htmx:afterRequest', function(e){
+    document.getElementById('pc-form').addEventListener('htmx:afterSettle', function(e){
         if (e.detail.successful) {
             var audioEl = document.getElementById('pc-audio');
             var audioSrc = document.querySelector('#pc-result audio');
             if (audioSrc) {
                 audioEl.src = audioSrc.src;
                 audioEl.style.display = '';
-                try { audioEl.play(); } catch(ex) {}
+                audioEl.play().catch(function(ex) {});
             }
             // Show post-processing section when audio is available
             var wrapper = document.querySelector('#pc-result [data-audio-filename]');

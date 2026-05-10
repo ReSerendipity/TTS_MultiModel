@@ -1,13 +1,13 @@
 # TTS MultiModel
 
-A powerful multi-model Text-to-Speech (TTS) web application with Gradio interface, supporting voice cloning, model training, and high-quality speech synthesis.
+A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAPI-based web interface, supporting voice cloning, model training, and high-quality speech synthesis.
 
 ## Features
 
 - **Multiple TTS Models**: Support for VoxCPM2 and other advanced TTS models
 - **Voice Cloning**: Create custom voice personas with minimal audio samples
 - **Model Training**: Fine-tune models with your own datasets
-- **Web Interface**: User-friendly Gradio-based web UI
+- **Web Interface**: Responsive and modern web UI built with FastAPI + HTMX + Jinja2
 - **Batch Processing**: Support for batch audio generation
 - **History Management**: Track and manage your generation history
 - **Multi-language**: Internationalization support (i18n)
@@ -113,7 +113,7 @@ TTS_MultiModel/
 ├── docs/                        # Documentation
 │   ├── MODEL_DOWNLOAD_GUIDE.md      # Model download and configuration guide
 │   ├── MODEL_EXTENSION_GUIDE.md     # How to add new TTS engines
-│   └── UI开发指南_README.md         # Gradio UI development guide
+│   └── UI开发指南_README.md         # UI development guide
 ├── install.bat                  # Windows installation script
 ├── start.bat                    # Windows startup script
 └── LICENSE                      # MIT License
@@ -242,12 +242,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Model Download Guide](docs/MODEL_DOWNLOAD_GUIDE.md) - How to download and configure models
 - [Model Extension Guide](docs/MODEL_EXTENSION_GUIDE.md) - How to add new TTS engines
-- [UI Development Guide](docs/UI开发指南_README.md) - Gradio UI development guide
+- [UI Development Guide](docs/UI开发指南_README.md) - Web UI development guide
 
 ## Acknowledgments
 
 - VoxCPM2 model and related technologies
-- Gradio for the web interface framework
+- FastAPI and HTMX for the web interface framework
 - All open-source contributors
 
 ## Contact

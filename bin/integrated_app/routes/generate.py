@@ -255,6 +255,7 @@ async def generate_voxcpm_design(
     request: Request,
     text: str = Form(""),
     instruction: str = Form(""),
+    persona_name: str = Form(""),
     lang: str = Form("Auto"),
     cfg: float = Form(2.0),
     steps: int = Form(10),
@@ -276,10 +277,28 @@ async def generate_voxcpm_design(
 
     advanced_denoise = denoise.lower() in ("true", "1", "yes")
 
+    # Load persona WAV path if persona_name is provided
+    actual_ref_path = None
+    if persona_name:
+        from ..persona_manager import load_persona_embedding
+        safe_name = os.path.basename(persona_name)
+        
+        persona_data = load_persona_embedding(safe_name)
+        if persona_data is not None:
+            wav_path, ref_text = persona_data
+            if wav_path and os.path.isfile(wav_path):
+                actual_ref_path = wav_path
+                logger.info(f"[VoxCPM声音设计] 已加载音色 '{safe_name}' 的参考音频")
+            else:
+                return _error_html(f"音色文件不存在: {safe_name}")
+        else:
+            logger.warning(f"[VoxCPM声音设计] 音色 '{safe_name}' 不存在，将使用默认音色")
+
     loop = asyncio.get_running_loop()
 
     def _run():
-        return fn_voxcpm_design(text, instruction, cfg_value=cfg, inference_timesteps=steps, denoise=advanced_denoise)
+        return fn_voxcpm_design(text, instruction, cfg_value=cfg, inference_timesteps=steps, denoise=advanced_denoise,
+                                ref_audio_path=actual_ref_path)
 
     start_time = time.monotonic()
     try:
@@ -479,6 +498,7 @@ async def generate_voxcpm_clone(
         instruction = (lang + "，" + instruction) if instruction.strip() else lang
 
     actual_ref_path = ref_audio_path if ref_audio_path else None
+    actual_pt_data = None
 
     # Handle file upload
     if ref_audio_upload and ref_audio_upload.filename:
@@ -497,20 +517,22 @@ async def generate_voxcpm_clone(
         actual_ref_path = upload_path
 
     if not actual_ref_path and persona_name:
-        from ..config import PERSONA_DIR
+        from ..persona_manager import load_persona_embedding
         safe_name = os.path.basename(persona_name)
-        candidate = os.path.join(PERSONA_DIR, f"{safe_name}.wav")
-        real_path = os.path.realpath(candidate)
-        if not real_path.startswith(os.path.realpath(PERSONA_DIR)):
-            return _error_html("非法路径")
-        if os.path.isfile(candidate):
-            actual_ref_path = candidate
+        
+        persona_data = load_persona_embedding(safe_name)
+        if persona_data is not None:
+            wav_path, ref_text = persona_data
+            if wav_path and os.path.isfile(wav_path):
+                actual_ref_path = wav_path
+                logger.info(f"[VoxCPM克隆] 已加载音色 '{safe_name}' 的参考音频")
+            else:
+                return _error_html(f"音色文件不存在: {safe_name}")
         else:
-            return _error_html(f"音色文件不存�? {safe_name}")
+            return _error_html(f"音色不存在: {safe_name}")
 
     loop = asyncio.get_running_loop()
 
-    # Convert string form values to proper types for engine
     clone_norm = norm.lower() in ("true", "1", "yes")
     clone_denoise = denoise.lower() in ("true", "1", "yes")
 
@@ -583,19 +605,22 @@ async def generate_voxcpm_ultimate(
     if lang in _DIALECT_NAMES:
         instruction = (lang + "，" + instruction) if instruction.strip() else lang
 
-    # Resolve persona_name to actual audio file path if provided
     actual_ref_path = ref_audio_path if ref_audio_path else None
+
     if not actual_ref_path and persona_name:
-        from ..config import PERSONA_DIR
+        from ..persona_manager import load_persona_embedding
         safe_name = os.path.basename(persona_name)
-        candidate = os.path.join(PERSONA_DIR, f"{safe_name}.wav")
-        real_path = os.path.realpath(candidate)
-        if not real_path.startswith(os.path.realpath(PERSONA_DIR)):
-            return _error_html("非法路径")
-        if os.path.isfile(candidate):
-            actual_ref_path = candidate
+        
+        persona_data = load_persona_embedding(safe_name)
+        if persona_data is not None:
+            wav_path, ref_text = persona_data
+            if wav_path and os.path.isfile(wav_path):
+                actual_ref_path = wav_path
+                logger.info(f"[VoxCPM极致克隆] 已加载音色 '{safe_name}' 的参考音频")
+            else:
+                return _error_html(f"音色文件不存在: {safe_name}")
         else:
-            return _error_html(f"音色文件不存�? {safe_name}")
+            return _error_html(f"音色不存在: {safe_name}")
 
     advanced_norm = norm.lower() in ("true", "1", "yes")
     advanced_denoise = 1.0 if denoise.lower() in ("true", "1", "yes") else 0.0
@@ -656,6 +681,7 @@ async def generate_voxcpm_script(
     denoise: str = Form("true"),
     steps: int = Form(10),
     seed: int = Form(-1),
+    persona_names: str = Form(""),  # Comma-separated persona names
     tempo_factor: float = Form(1.0),
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
@@ -669,11 +695,30 @@ async def generate_voxcpm_script(
     advanced_norm = norm.lower() in ("true", "1", "yes")
     advanced_denoise = 1.0 if denoise.lower() in ("true", "1", "yes") else 0.0
 
+    # Load persona WAV paths for specified personas
+    persona_map_with_wav = {}
+    if persona_names.strip():
+        from ..persona_manager import load_persona_embedding
+        persona_name_list = [n.strip() for n in persona_names.split(",") if n.strip()]
+        for pname in persona_name_list:
+            safe_name = os.path.basename(pname)
+            persona_data = load_persona_embedding(safe_name)
+            if persona_data is not None:
+                wav_path, ref_text = persona_data
+                if wav_path and os.path.isfile(wav_path):
+                    persona_map_with_wav[safe_name] = wav_path
+                    logger.info(f"[VoxCPM剧本工坊] 已加载音色 '{safe_name}' 的参考音频")
+                else:
+                    logger.warning(f"[VoxCPM剧本工坊] 音色 '{safe_name}' 无WAV文件")
+            else:
+                logger.warning(f"[VoxCPM剧本工坊] 音色 '{safe_name}' 不存在")
+
     loop = asyncio.get_running_loop()
 
     def _run():
         return fn_voxcpm_script_studio(
             text, cfg, advanced_norm, advanced_denoise, steps, seed, lang,
+            persona_map_with_wav=persona_map_with_wav if persona_map_with_wav else None,
         )
 
     start_time = time.monotonic()
@@ -763,6 +808,7 @@ async def streaming_generation(
     request: Request,
     text: str = Form(""),
     ref_audio_path: str = Form(""),
+    persona_name: str = Form(""),
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
     denoise: str = Form("true"),
@@ -777,10 +823,26 @@ async def streaming_generation(
     # Convert string form values to proper types
     stream_denoise = denoise.lower() in ("true", "1", "yes")
 
+    actual_ref_path = ref_audio_path if ref_audio_path else None
+    if persona_name:
+        from ..persona_manager import load_persona_embedding
+        safe_name = os.path.basename(persona_name)
+        
+        persona_data = load_persona_embedding(safe_name)
+        if persona_data is not None:
+            wav_path, ref_text = persona_data
+            if wav_path and os.path.isfile(wav_path):
+                actual_ref_path = wav_path
+                logger.info(f"[VoxCPM流式生成] 已加载音色 '{safe_name}' 的参考音频")
+            else:
+                return _error_html(f"音色文件不存在: {safe_name}")
+        else:
+            logger.warning(f"[VoxCPM流式生成] 音色 '{safe_name}' 不存在")
+
     loop = asyncio.get_running_loop()
 
     def _run():
-        return fn_voxcpm_streaming(text, ref_audio_path if ref_audio_path else None,
+        return fn_voxcpm_streaming(text, actual_ref_path,
                                    cfg_value=cfg_value, inference_timesteps=inference_timesteps,
                                    denoise=stream_denoise, seed=seed)
 

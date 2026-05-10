@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 import torch
 
 from .config import (
-    PERSONA_DIR, OFFICIAL_SPEAKERS, OFFICIAL_SPEAKER_INFO, _OFFICIAL_SPEAKERS_ORDERED, _PERSONA_NAME_RE,
+    PERSONA_DIR, _PERSONA_NAME_RE,
 )
 from .exceptions import PersonaError
 from .model_manager import voxcpm_model, _persona_embedding_cache
@@ -33,30 +33,28 @@ def _validate_persona_name(name: str) -> Tuple[bool, str]:
 
 
 def fn_save_persona(name: str, audio_input, ref_text: str, overwrite: bool = False) -> Tuple[str, bool]:
-    """保存音色到音色库（固化）"""
+    """保存音色到音色库（固化）- 使用官方 VoxCPM2 API"""
     if not name or audio_input is None:
         return "❌ 失败：需输入名称及音频", False
 
-    # 输入验证
     valid, err_msg = _validate_persona_name(name)
     if not valid:
         return f"❌ {err_msg}", False
 
     try:
-        # 使用 realpath 防止路径遍历
         wav_path = os.path.join(PERSONA_DIR, f"{name}.wav")
         txt_path = os.path.join(PERSONA_DIR, f"{name}.txt")
         wav_real = os.path.realpath(wav_path)
         if not wav_real.startswith(os.path.realpath(PERSONA_DIR)):
             return "❌ 非法路径", False
-        # 名称冲突检测
-        existing = os.path.exists(wav_path) or os.path.exists(os.path.join(PERSONA_DIR, f"{name}.pt"))
+
+        existing = os.path.exists(wav_path) or os.path.exists(txt_path)
         if existing and not overwrite:
             return f"⚠️ 音色 [{name}] 已存在，再次点击保存将覆盖原有音色", True
+
         tmp_p, sr_p, wav_p = preprocess_and_save_temp(audio_input, f"{name}.wav")
         os.replace(tmp_p, wav_path)
-        
-        # Create and save metadata
+
         meta = PersonaMetadata(
             name=name,
             description=ref_text if ref_text else "",
@@ -65,19 +63,46 @@ def fn_save_persona(name: str, audio_input, ref_text: str, overwrite: bool = Fal
             created_at=datetime.now().isoformat(),
         )
         save_persona_metadata(PERSONA_DIR, name, meta)
-        
-        # VoxCPM2 内部使用 .model 访问原始方法
-        items = voxcpm_model.model.create_voice_clone_prompt(ref_audio=(wav_p, sr_p), ref_text=ref_text if ref_text else "", x_vector_only_mode=False)
-        payload = {"items": [{"ref_code": it.ref_code, "ref_spk_embedding": it.ref_spk_embedding, "x_vector_only_mode": it.x_vector_only_mode, "icl_mode": it.icl_mode, "ref_text": it.ref_text} for it in items]}
-        torch.save(payload, os.path.join(PERSONA_DIR, f"{name}.pt"))
+
+        # 保存参考文本
+        if ref_text:
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write(ref_text)
+
+        # 非阻塞音色验证（对齐官方行为：官方仅保存，不验证）
+        if ref_text and ref_text.strip():
+            import threading
+            def _verify_persona_async():
+                try:
+                    logger.info(f"[音色固化] 后台验证音色 [{name}] 通过官方 generate(reference_wav_path=...)")
+                    _ = voxcpm_model.generate(
+                        text=ref_text.strip(),
+                        reference_wav_path=wav_path,
+                        normalize=True,
+                        cfg_value=2.0,
+                        inference_timesteps=10,
+                        denoise=True,
+                        min_len=2,
+                        max_len=100,
+                    )
+                    logger.info(f"[音色固化] 音色 [{name}] 后台验证成功")
+                except Exception as e:
+                    logger.error(f"[音色固化] 音色 [{name}] 后台验证失败: {e}")
+
+            threading.Thread(target=_verify_persona_async, daemon=True).start()
+
+        # 清除缓存中的旧数据
+        if name in _persona_embedding_cache:
+            del _persona_embedding_cache[name]
+
         return f"✅ 音色 [{name}] 已成功固化！", False
     except Exception as e:
         logger.error(f"音色固化失败: {e}")
         return f"❌ 固化失败: {str(e)}", False
 
 
-def get_persona_list(include_official: bool = False, search_keyword: str = "") -> List[str]:
-    """获取音色列表，可选择包含官方音色，支持搜索过滤"""
+def get_persona_list(search_keyword: str = "") -> List[str]:
+    """获取自定义音色列表，支持搜索过滤"""
     wav_files = [f[:-4] for f in os.listdir(PERSONA_DIR) if f.endswith(".wav")]
     custom = sorted(wav_files) if wav_files else []
 
@@ -85,12 +110,6 @@ def get_persona_list(include_official: bool = False, search_keyword: str = "") -
         kw = search_keyword.lower()
         custom = [c for c in custom if kw in c.lower()]
 
-    if include_official:
-        official_list = ["[官方] " + OFFICIAL_SPEAKER_INFO.get(s, (s, "", "", ""))[0] + " (" + s + ")" for s in OFFICIAL_SPEAKERS]
-        if search_keyword:
-            kw = search_keyword.lower()
-            official_list = [o for o in official_list if kw in o.lower()]
-        return official_list + (custom if custom else [])
     return custom if custom else ["(暂无音色)"]
 
 
@@ -100,34 +119,9 @@ def get_total_persona_count() -> int:
     return len(files)
 
 
-def get_official_speaker_count() -> int:
-    """获取官方音色数量"""
-    return len(OFFICIAL_SPEAKERS)
-
-
-def get_combined_persona_count() -> int:
-    """获取总音色数（自定义 + 官方）"""
-    return get_total_persona_count() + get_official_speaker_count()
-
-
 def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
-    """获取音色详情表格数据（含官方音色）"""
+    """获取自定义音色详情表格数据"""
     table = []
-
-    for sid in _OFFICIAL_SPEAKERS_ORDERED:
-        info = OFFICIAL_SPEAKER_INFO.get(sid, (sid, "", "", ""))
-        display_name = f"[官方] {info[0]} ({sid})"
-        if search_keyword:
-            kw = search_keyword.lower()
-            if kw not in display_name.lower() and kw not in sid.lower():
-                continue
-        table.append([
-            display_name,
-            "✅ 官方",
-            "-",
-            "-",
-            f"音色类型：{info[2]} | 特点：{info[3]}",
-        ])
 
     files = [f.replace(".wav", "") for f in os.listdir(PERSONA_DIR) if f.endswith(".wav")]
     files = sorted(files)
@@ -137,11 +131,9 @@ def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
         files = [f for f in files if kw in f.lower()]
 
     for name in files:
-        pt_path = os.path.join(PERSONA_DIR, f"{name}.pt")
         wav_path = os.path.join(PERSONA_DIR, f"{name}.wav")
         txt_path = os.path.join(PERSONA_DIR, f"{name}.txt")
 
-        has_pt = "✅ 已固化" if os.path.exists(pt_path) else "❌ 未固化"
         has_wav = "✅" if os.path.exists(wav_path) else "❌"
 
         ref_text = ""
@@ -157,7 +149,7 @@ def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
 
         table.append([
             name,
-            has_pt,
+            "✅ 已固化",
             wav_size,
             wav_time,
             ref_text if ref_text else "-"
@@ -170,9 +162,6 @@ def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
 
 def get_persona_desc(name: str) -> str:
     """获取音色描述信息"""
-    if name in OFFICIAL_SPEAKERS:
-        info = OFFICIAL_SPEAKER_INFO.get(name, ("", "", "", ""))
-        return f"🎙️ **{info[0]} ({name})**\n\n**音色类型**：{info[2]}\n**声音特点**：{info[3]}\n\n**详细说明**：{info[1]}"
     wav_path = os.path.join(PERSONA_DIR, f"{name}.wav")
     if os.path.exists(wav_path):
         return f"🎵 **{name}**（自定义音色）\n\n自定义音色，适用于个性化语音合成。"
@@ -180,22 +169,15 @@ def get_persona_desc(name: str) -> str:
 
 
 def load_persona_embedding(name: str) -> Optional[Tuple]:
-    """加载已保存音色的预计算嵌入数据，支持官方音色"""
+    """加载已保存音色的 WAV 路径和参考文本（由官方 API 在生成时计算嵌入）"""
     cached = _persona_embedding_cache.get(name)
     if cached is not None:
         return cached
 
-    if name in OFFICIAL_SPEAKERS:
-        result = (None, "__official__", name)
-        _persona_embedding_cache.put(name, result)
-        return result
-
-    pt_path = os.path.join(PERSONA_DIR, f"{name}.pt")
     wav_path = os.path.join(PERSONA_DIR, f"{name}.wav")
     txt_path = os.path.join(PERSONA_DIR, f"{name}.txt")
 
     wav_exists = os.path.exists(wav_path)
-    pt_exists = os.path.exists(pt_path)
     txt_exists = os.path.exists(txt_path)
 
     ref_text = ""
@@ -203,11 +185,8 @@ def load_persona_embedding(name: str) -> Optional[Tuple]:
         with open(txt_path, "r", encoding="utf-8") as f:
             ref_text = f.read()
 
-    if pt_exists and wav_exists:
-        vcp_data = torch.load(pt_path, map_location="cpu", weights_only=True)
-        result = (vcp_data, wav_path, ref_text)
-    elif wav_exists:
-        result = (None, wav_path, ref_text)
+    if wav_exists:
+        result = (wav_path, ref_text)
     else:
         return None
 

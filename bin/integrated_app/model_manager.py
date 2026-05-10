@@ -431,6 +431,7 @@ current_engine = "voxcpm2"
 current_type = "voxcpm2"
 current_size = "voxcpm2"
 
+# 音色缓存：存储 (wav_path, ref_text)，由官方 API 在每次生成时计算嵌入
 _persona_embedding_cache = AdaptiveLRUCache(default_maxsize=15)
 _gen_tracker = GenerationTracker()
 _progress_mgr = ProgressManager()

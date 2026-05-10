@@ -71,13 +71,16 @@ async def delete_persona(name: str):
     if not re.match(r'^[a-zA-Z0-9_\-\u4e00-\u9fff]+$', name):
         return JSONResponse({"status": "error", "message": "Invalid persona name"}, status_code=400)
     try:
-        for ext in [".wav", ".txt", ".pt"]:
+        for ext in [".wav", ".txt"]:
             p = os.path.join(PERSONA_DIR, f"{name}{ext}")
             real_path = os.path.realpath(p)
             if not real_path.startswith(os.path.realpath(PERSONA_DIR)):
                 return JSONResponse({"status": "error", "message": "Path traversal detected"}, status_code=400)
             if os.path.exists(p):
                 os.remove(p)
+        meta_path = os.path.join(PERSONA_DIR, f"{name}.meta.json")
+        if os.path.exists(meta_path):
+            os.remove(meta_path)
         if name in _persona_embedding_cache:
             del _persona_embedding_cache[name]
         return JSONResponse({"status": "ok", "message": f"音色 [{name}] 已删除"})

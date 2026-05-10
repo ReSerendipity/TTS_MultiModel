@@ -363,4 +363,4 @@ os.environ['MODELSCOPE_OFFLINE'] = '1'
 
 - [模型扩展指南](MODEL_EXTENSION_GUIDE.md) - 如何添加新的 TTS 引擎
 - [README.md](../README.md) - 项目概述和快速入门
-- [UI 开发指南](UI开发指南_README.md) - Gradio UI 开发指南
+- [UI 开发指南](UI开发指南_README.md) - Web UI 开发指南

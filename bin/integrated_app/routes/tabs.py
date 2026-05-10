@@ -4,8 +4,8 @@ from fastapi.responses import HTMLResponse
 import os
 
 from ..persona_manager import get_persona_list, get_total_persona_count, get_persona_detail_table
-from ..utils import generate_speaker_card_grid, get_generation_history_enhanced, get_total_history_count, get_history_table_data_paginated
-from ..config import OFFICIAL_SPEAKER_INFO, _OFFICIAL_SPEAKERS_ORDERED, _LANGS, _DIALECTS
+from ..utils import get_generation_history_enhanced, get_total_history_count, get_history_table_data_paginated
+from ..config import _LANGS, _DIALECTS
 from ..model_manager import current_engine
 from ..i18n import t, get_lang, register_i18n_filters
 
@@ -59,13 +59,13 @@ async def get_tab(request: Request, tab_name: str):
     ctx = _common_context(request)
 
     if tab_name == "voice_design":
-        ctx["persona_list"] = get_persona_list(include_official=True)
+        ctx["persona_list"] = get_persona_list()
     elif tab_name == "voice_clone":
-        ctx["persona_list"] = get_persona_list(include_official=True)
+        ctx["persona_list"] = get_persona_list()
     elif tab_name == "ultimate_clone":
-        ctx["persona_list"] = get_persona_list(include_official=True)
+        ctx["persona_list"] = get_persona_list()
     elif tab_name == "voxcpm2":
-        ctx["persona_list"] = get_persona_list(include_official=True)
+        ctx["persona_list"] = get_persona_list()
     elif tab_name == "history":
         search = request.query_params.get("search_keyword", "")
         time_filter = request.query_params.get("time_filter", "all")
@@ -85,7 +85,5 @@ async def get_tab(request: Request, tab_name: str):
         ctx["persona_count"] = get_total_persona_count()
         ctx["total_persona_count"] = ctx["persona_count"]
         ctx["persona_table_data"] = get_persona_detail_table()
-        ctx["_official_speakers_ordered"] = _OFFICIAL_SPEAKERS_ORDERED
-        ctx["_official_speaker_info"] = OFFICIAL_SPEAKER_INFO
 
     return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})

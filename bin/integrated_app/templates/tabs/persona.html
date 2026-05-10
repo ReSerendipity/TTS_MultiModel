@@ -4,33 +4,6 @@
         <h3 class="card-header-title">{{ "voice_library"|t(lang) }}</h3>
     </div>
 
-    <!-- Official Speaker Info Cards (Collapsible) -->
-    <div class="official-speaker-section" style="margin-bottom: 16px;">
-        <button class="collapsible-btn" onclick="toggleOfficialSpeakers()" style="width:100%;padding:12px 16px;background:var(--primary-bg);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-            <span>⭐ {{ "official_voice"|t(lang) }}</span>
-            <span id="official-speaker-chevron" style="transition: transform 0.2s;">▼</span>
-        </button>
-        <div id="official-speaker-content" style="display:none;padding:12px;">
-            <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px 0;line-height:1.6;">
-                {{ "official_voice"|t(lang) }}适用于快速语音生成，无需上传参考音频。直接在"声音设计"或"语音克隆"标签页中选择即可使用。
-            </p>
-            <div class="official-speaker-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:8px;">
-                {% for sid in _official_speakers_ordered %}
-                {% set info = _official_speaker_info.get(sid, ("", "", "", "")) %}
-                <div class="official-speaker-card" style="background:var(--card-bg);border:1px solid var(--border-color);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:4px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <strong style="color:var(--text-primary);font-size:14px;">{{ info[0] }}</strong>
-                        <span style="font-size:11px;color:var(--text-muted);">({{ sid }})</span>
-                    </div>
-                    <div style="font-size:12px;color:var(--accent-primary);">{{ info[2] }}</div>
-                    <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">{{ info[3] }}</div>
-                    <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:4px;">{{ info[1] }}</div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
     {% if total_persona_count == 0 %}
     <div class="empty-state" style="text-align:center;padding:48px 24px;">
         <div class="empty-state-icon" style="font-size:64px;margin-bottom:16px;opacity:0.5;">🎙️</div>
@@ -600,17 +573,7 @@
         window.showToast('{{ "voice_selected"|t(lang) }}: ' + name, 'success', 2000);
     };
 
-    // Toggle official speaker section
-    window.toggleOfficialSpeakers = function() {
-        var content = document.getElementById('official-speaker-content');
-        var chevron = document.getElementById('official-speaker-chevron');
-        if (content.style.display === 'none' || content.style.display === '') {
-            content.style.display = 'block';
-            chevron.style.transform = 'rotate(180deg)';
-        } else {
-            content.style.display = 'none';
-            chevron.style.transform = 'rotate(0deg)';
-        }
     };
+
 })();
 </script>
