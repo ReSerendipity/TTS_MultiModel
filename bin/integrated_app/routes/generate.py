@@ -341,16 +341,16 @@ async def streaming_sse_generation(
     request: Request,
     text: str = Form(""),
     instruction: str = Form(""),
-    ref_audio_path: str = Form(""),
+    persona_name: str = Form(""),
     lang: str = Form("Auto"),
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
     denoise: str = Form("true"),
-    seed: int = Form(-1),
 ):
     """True streaming generation via SSE - sends audio chunks as they are generated."""
     from ..model_manager import voxcpm_model as _voxcpm_model
     from ..generation import split_text_for_tts
+    from ..persona_manager import load_persona_embedding
     import struct
 
     model_not_ready = _check_model_ready()
@@ -366,6 +366,21 @@ async def streaming_sse_generation(
     _DIALECT_NAMES = {"四川话", "粤语", "吴语", "东北话", "河南话", "闽南语", "湖南话", "湖北话", "客家话"}
     if lang in _DIALECT_NAMES:
         instruction = (lang + "，" + instruction) if instruction.strip() else lang
+
+    # Load persona WAV path if persona_name is provided
+    actual_ref_path = None
+    if persona_name:
+        safe_name = os.path.basename(persona_name)
+        persona_data = load_persona_embedding(safe_name)
+        if persona_data is not None:
+            wav_path, ref_text = persona_data
+            if wav_path and os.path.isfile(wav_path):
+                actual_ref_path = wav_path
+                logger.info(f"[VoxCPM流式生成] 已加载音色 '{safe_name}' 的参考音频")
+            else:
+                logger.warning(f"[VoxCPM流式生成] 音色文件不存在: {safe_name}")
+        else:
+            logger.warning(f"[VoxCPM流式生成] 音色 '{safe_name}' 不存在，将使用默认音色")
 
     async def audio_chunk_generator():
         """Generate audio chunks and yield SSE events with base64-encoded PCM data."""
@@ -402,9 +417,9 @@ async def streaming_sse_generation(
                         chunks = []
                         for chunk in _voxcpm_model.generate_streaming(
                             text=gen_text,
-                            reference_wav_path=ref_audio_path if ref_audio_path else None,
+                            reference_wav_path=actual_ref_path if actual_ref_path else None,
                             normalize=True, cfg_value=cfg_value, inference_timesteps=inference_timesteps,
-                            denoise=stream_denoise, seed=seed, min_len=2, max_len=4096,
+                            denoise=stream_denoise, min_len=2, max_len=4096,
                         ):
                             chunks.append(chunk)
                         return np.concatenate(chunks) if chunks else np.array([], dtype=np.float32)
@@ -416,9 +431,9 @@ async def streaming_sse_generation(
                         None,
                         lambda t=gen_text: _voxcpm_model.generate(
                             text=t,
-                            reference_wav_path=ref_audio_path if ref_audio_path else None,
+                            reference_wav_path=actual_ref_path if actual_ref_path else None,
                             normalize=True, cfg_value=cfg_value, inference_timesteps=inference_timesteps,
-                            denoise=stream_denoise, seed=seed, min_len=2, max_len=4096,
+                            denoise=stream_denoise, min_len=2, max_len=4096,
                         )
                     )
 
@@ -873,14 +888,14 @@ async def streaming_generation(
 async def streaming_audio_generation(
     request: Request,
     text: str = Form(""),
-    ref_audio_path: str = Form(""),
+    persona_name: str = Form(""),
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
     denoise: str = Form("true"),
-    seed: int = Form(-1),
 ):
     """Streaming audio generation - generates audio progressively and returns playable result."""
     from ..model_manager import voxcpm_model as _voxcpm_model
+    from ..persona_manager import load_persona_embedding
     
     model_not_ready = _check_model_ready()
     if model_not_ready:
@@ -890,6 +905,21 @@ async def streaming_audio_generation(
     
     # Convert string form values to proper types
     stream_denoise = denoise.lower() in ("true", "1", "yes")
+    
+    # Load persona WAV path if persona_name is provided
+    actual_ref_path = None
+    if persona_name:
+        safe_name = os.path.basename(persona_name)
+        persona_data = load_persona_embedding(safe_name)
+        if persona_data is not None:
+            wav_path, ref_text = persona_data
+            if wav_path and os.path.isfile(wav_path):
+                actual_ref_path = wav_path
+                logger.info(f"[VoxCPM流式生成] 已加载音色 '{safe_name}' 的参考音频")
+            else:
+                logger.warning(f"[VoxCPM流式生成] 音色文件不存在: {safe_name}")
+        else:
+            logger.warning(f"[VoxCPM流式生成] 音色 '{safe_name}' 不存在，将使用默认音色")
     
     start_time = time.monotonic()
     try:
@@ -909,12 +939,11 @@ async def streaming_audio_generation(
                 None,
                 lambda s=seg: _voxcpm_model.generate(
                     text=s,
-                    reference_wav_path=ref_audio_path if ref_audio_path else None,
+                    reference_wav_path=actual_ref_path if actual_ref_path else None,
                     normalize=True,
                     cfg_value=cfg_value,
                     inference_timesteps=inference_timesteps,
                     denoise=stream_denoise,
-                    seed=seed,
                     min_len=2,
                     max_len=4096,
                 )

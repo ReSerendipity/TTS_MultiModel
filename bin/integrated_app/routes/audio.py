@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from ..config import SAVE_DIR, PERSONA_DIR, PROJECT_ROOT
 from ..utils import get_history_table_data, get_history_table_data_paginated, get_total_history_count
+from ..history_manager import get_history_manager
 
 router = APIRouter(prefix="/api", tags=["audio"])
 
@@ -96,38 +97,59 @@ async def speaker_sample(key: str):
 async def history_table(request: Request):
     keyword = request.query_params.get("keyword", "")
     time_filter = request.query_params.get("time_filter", "all")
-    # Pagination parameters
+    include_hidden = request.query_params.get("include_hidden", "false").lower() == "true"
     try:
-        limit = int(request.query_params.get("limit", 0))
+        limit = int(request.query_params.get("limit", 20))
     except (ValueError, TypeError):
-        limit = 0
+        limit = 20
     try:
         offset = int(request.query_params.get("offset", 0))
     except (ValueError, TypeError):
         offset = 0
-
-    # If limit/offset are provided, use paginated response
-    if limit > 0:
-        # Clamp limit to max 50
-        if limit > 50:
-            limit = 50
-        result = get_history_table_data_paginated(
-            search_keyword=keyword,
-            time_filter=time_filter,
-            limit=limit,
-            offset=offset,
-        )
-        return JSONResponse({
-            "status": "ok",
-            "records": result["items"],
-            "total": result["total"],
-            "hasMore": result["hasMore"],
-            "loaded": result["loaded"],
-        })
-
-    # Legacy non-paginated response (for backward compatibility)
-    table_data = get_history_table_data(search_keyword=keyword, time_filter=time_filter)
-    return JSONResponse({"status": "ok", "records": table_data, "total": get_total_history_count()})
+    
+    # 使用新的历史记录管理器
+    history_manager = get_history_manager()
+    
+    # 首先尝试从文件系统同步
+    try:
+        history_manager.sync_from_filesystem()
+    except Exception as e:
+        logger.error(f"Failed to sync history from filesystem: {e}")
+    
+    # 限制每页最大数量
+    if limit > 100:
+        limit = 100
+    elif limit <= 0:
+        limit = 20
+    
+    result = history_manager.get_paginated_records(
+        limit=limit,
+        offset=offset,
+        search_keyword=keyword,
+        time_filter=time_filter,
+        include_hidden=include_hidden
+    )
+    
+    # 转换为与之前兼容的格式
+    records = []
+    for rec in result["items"]:
+        size_mb = rec.file_size / (1024 * 1024) if rec.file_size > 0 else 0
+        size_str = f"{size_mb:.1f} MB"
+        duration_str = f"{rec.duration_seconds:.1f}s" if rec.duration_seconds > 0 else "<1s"
+        records.append([
+            rec.filename,
+            rec.created_at,
+            duration_str,
+            size_str
+        ])
+    
+    return JSONResponse({
+        "status": "ok",
+        "records": records,
+        "total": result["total"],
+        "hasMore": result["hasMore"],
+        "loaded": result["loaded"],
+    })
 
 
 @router.post("/batch_export_history")
@@ -141,17 +163,78 @@ async def batch_export_history(request: Request):
 
 @router.post("/batch_delete_history")
 async def batch_delete_history(request: Request):
-    from ..utils import invalidate_history_cache
+    """批量隐藏历史记录（不删除实际文件）"""
+    payload = await request.json()
+    ids = payload.get("ids", [])
+    delete_files = payload.get("delete_files", False)
+    
+    if not ids:
+        return JSONResponse({"status": "error", "error": "No records selected"}, status_code=400)
+    
+    history_manager = get_history_manager()
+    
+    if delete_files:
+        # 彻底删除文件和记录
+        count = history_manager.delete_multiple_records(ids, delete_files=True)
+        action = "deleted"
+    else:
+        # 只隐藏记录
+        count = history_manager.hide_multiple_records(ids)
+        action = "hidden"
+    
+    return JSONResponse({"status": "ok", "count": count, "action": action})
+
+
+@router.post("/history/hide")
+async def hide_history_records(request: Request):
+    """隐藏历史记录"""
     payload = await request.json()
     ids = payload.get("ids", [])
     if not ids:
         return JSONResponse({"status": "error", "error": "No records selected"}, status_code=400)
-    deleted = 0
-    for filename in ids:
-        filepath = os.path.join(SAVE_DIR, filename)
-        real_path = os.path.realpath(filepath)
-        if real_path.startswith(os.path.realpath(SAVE_DIR)) and os.path.isfile(real_path):
-            os.remove(real_path)
-            deleted += 1
-    invalidate_history_cache()
-    return JSONResponse({"status": "ok", "deleted": deleted})
+    
+    history_manager = get_history_manager()
+    count = history_manager.hide_multiple_records(ids)
+    return JSONResponse({"status": "ok", "count": count})
+
+
+@router.post("/history/clear_all")
+async def clear_all_history(request: Request):
+    """清除所有历史记录（默认只隐藏）"""
+    payload = await request.json()
+    hide_only = payload.get("hide_only", True)
+    
+    history_manager = get_history_manager()
+    count = history_manager.clear_all_records(hide_only=hide_only)
+    
+    action = "hidden" if hide_only else "cleared"
+    return JSONResponse({"status": "ok", "count": count, "action": action})
+
+
+@router.post("/history/show")
+async def show_history_records(request: Request):
+    """恢复显示被隐藏的历史记录"""
+    payload = await request.json()
+    ids = payload.get("ids", [])
+    if not ids:
+        return JSONResponse({"status": "error", "error": "未选择记录"}, status_code=400)
+    
+    history_manager = get_history_manager()
+    count = history_manager.show_multiple_records(ids)
+    return JSONResponse({"status": "ok", "count": count})
+
+
+@router.post("/history/show_all")
+async def show_all_history(request: Request):
+    """恢复显示所有被隐藏的历史记录"""
+    history_manager = get_history_manager()
+    count = history_manager.show_all_records()
+    return JSONResponse({"status": "ok", "count": count})
+
+
+@router.post("/history/sync")
+async def sync_history():
+    """从文件系统同步历史记录"""
+    history_manager = get_history_manager()
+    count = history_manager.sync_from_filesystem()
+    return JSONResponse({"status": "ok", "added_count": count})

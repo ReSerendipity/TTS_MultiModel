@@ -87,11 +87,7 @@
         padding: 4px 8px;
         background: rgba(139, 92, 246, 0.05);
         border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 4px;
+        white-space: nowrap;
     }
     .vc-char-counter .counter-main {
         display: inline-flex;
@@ -127,8 +123,8 @@
     <form id="vc-form" hx-post="/api/generate/voxcpm_clone" hx-target="#vc-result" hx-swap="innerHTML" hx-indicator="#vc-spinner" hx-encoding="multipart/form-data">
         <input type="hidden" name="mode" value="voxcpm_clone">
         <label>{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" class="tts-input-textarea vc-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" oninput="updateVcCharCounter(this)">{{ "default_clone_text"|t(lang) }}</textarea>
-        <div id="vc-char-counter" class="vc-char-counter">0/500</div>
+        <textarea name="text" class="tts-input-textarea vc-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" oninput="updateVcCharCounter(this); autoResizeTextarea(this)">{{ "default_clone_text"|t(lang) }}</textarea>
+        <div id="vc-char-counter" class="vc-char-counter">0/200</div>
         <label>{{ "language"|t(lang) }}</label>
         <select name="lang" class="tts-input-dropdown">
             {% for l in langs %}
@@ -253,20 +249,17 @@
     };
 
     window.updateVcCharCounter = function(textarea) {
+        var SPLIT_MAX_CHARS = 200;
         var counter = document.getElementById('vc-char-counter');
         var submitBtn = document.querySelector('#vc-form button[type="submit"]');
         if (counter) {
             var len = textarea.value.length;
-            var maxLen = 500;
-            var segments = len > 0 ? Math.ceil(len / maxLen) : 0;
+            var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
 
-            var counterMain = '<span class="counter-main">' + len + '/' + maxLen + '</span>';
+            var counterMain = '<span class="counter-main">' + len + '/' + SPLIT_MAX_CHARS + '</span>';
             var counterDetail = '';
-            if (len > maxLen) {
+            if (len > SPLIT_MAX_CHARS) {
                 counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
-            } else if (len > maxLen * 0.8) {
-                var remaining = maxLen - len;
-                counterDetail = '<span class="counter-detail">{{ "remaining"|t(lang) }}' + remaining + '{{ "chars"|t(lang) }}</span>';
             } else if (len > 0) {
                 counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
             }
@@ -282,7 +275,7 @@
         var textarea = form.querySelector('textarea[name=text]');
         if (!textarea || !textarea.value.trim()) return null;
         var len = textarea.value.length;
-        var maxLen = 500;
+        var maxLen = 200;
         var segments = Math.ceil(len / maxLen);
         return { textLength: len, segmentCount: segments, maxLen: maxLen };
     };
@@ -317,9 +310,11 @@
             var audioEl = document.getElementById('vc-audio');
             var audioSrc = document.querySelector('#vc-result audio');
             if (audioSrc) {
-                audioEl.src = audioSrc.src;
+                if (window.globalAudioPlayer) {
+                    var filename = audioSrc.src.split('/').pop().split('?')[0];
+                    window.globalAudioPlayer.play(audioSrc.src, filename);
+                }
                 audioEl.style.display = '';
-                audioEl.play().catch(function(ex) {});
             }
             // Show post-processing section when audio is available
             var wrapper = document.querySelector('#vc-result [data-audio-filename]');
@@ -352,9 +347,11 @@
             var audioSrc = resultEl.querySelector('audio');
             var audioEl = document.getElementById('vc-audio');
             if (audioSrc && audioEl) {
-                audioEl.src = audioSrc.src;
+                if (window.globalAudioPlayer) {
+                    var filename2 = audioSrc.src.split('/').pop().split('?')[0];
+                    window.globalAudioPlayer.play(audioSrc.src, filename2);
+                }
                 audioEl.style.display = '';
-                audioEl.play().catch(function(ex) {});
             }
         } catch(err) {
             statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';

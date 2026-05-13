@@ -3,30 +3,39 @@
         <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>
         <h3 class="card-header-title">{{ "history"|t(lang) }}</h3>
     </div>
-    {% if history_count == 0 %}
-    <div class="empty-state" style="text-align:center;padding:48px 24px;">
-        <div class="empty-state-icon" style="font-size:64px;margin-bottom:16px;opacity:0.5;">📭</div>
-        <h3 style="margin:0 0 8px 0;color:var(--text-primary);">{{ "no_records"|t(lang) }}</h3>
-        <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "records_auto_show"|t(lang) }}</p>
-        <button class="primary-btn" onclick="window.activateTab && window.activateTab('voice_design')">{{ "start_first"|t(lang) }}</button>
+    
+    <!-- 空状态容器，在 history_count == 0 时默认显示 -->
+    <div id="history-empty-state" style="{{ 'display:block;' if history_count == 0 else 'display:none;' }}">
+        <div class="empty-state" style="text-align:center;padding:48px 24px;">
+            <div class="empty-state-icon" style="font-size:64px;margin-bottom:16px;opacity:0.5;">📭</div>
+            <h3 style="margin:0 0 8px 0;color:var(--text-primary);">{{ "no_records"|t(lang) }}</h3>
+            <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "records_auto_show"|t(lang) }}</p>
+            <button class="primary-btn" onclick="window.activateTab && window.activateTab('voice_design')">{{ "start_first"|t(lang) }}</button>
+        </div>
     </div>
-    {% else %}
-    <div class="stat-card">
+    
+    <!-- 统计卡片，始终渲染但根据数量显示 -->
+    <div class="stat-card" id="history-stat-card" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
         <span class="stat-card-icon">📜</span>
         <div>
             <div class="stat-card-value">{{ history_count }}</div>
             <div class="stat-card-label">{{ "records_count"|t(lang) }}</div>
         </div>
     </div>
-    {% endif %}
-    <div class="history-filters">
+    
+    <!-- 搜索栏和过滤器，始终渲染 -->
+    <div class="history-filters" id="history-filters" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
         <span class="filter-bar-label">{{ "time"|t(lang) }}:</span>
         <span class="time-filter-chip active" data-time="all" onclick="filterHistoryTime('all')">{{ "all"|t(lang) }}</span>
         <span class="time-filter-chip" data-time="today" onclick="filterHistoryTime('today')">{{ "today"|t(lang) }}</span>
         <span class="time-filter-chip" data-time="week" onclick="filterHistoryTime('week')">{{ "week"|t(lang) }}</span>
         <span class="time-filter-chip" data-time="month" onclick="filterHistoryTime('month')">{{ "month"|t(lang) }}</span>
+        <label class="hidden-toggle-label" style="margin-left:12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
+            <input type="checkbox" id="show-hidden-checkbox" onchange="toggleHiddenRecords()">
+            <span id="show-hidden-label-text">{{ "show_hidden"|t(lang, default="显示隐藏记录") }}</span>
+        </label>
     </div>
-    <div class="history-search-bar">
+    <div class="history-search-bar" id="history-search-bar" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
         <input type="text" id="hist-search" class="history-search-input" placeholder="{{ 'keyword_search'|t(lang) }}">
         <input type="hidden" id="hist-time-filter" value="all">
         <div class="history-search-actions">
@@ -353,12 +362,19 @@
         <span class="batch-spacer"></span>
         <button class="secondary-btn batch-btn" onclick="batchExportHistory()">{{ "batch_export"|t(lang) }}</button>
         <button class="stop-btn batch-btn" onclick="batchDeleteHistory()">{{ "batch_delete"|t(lang) }}</button>
+        <button class="secondary-btn batch-btn" onclick="batchShowHistory()" id="show-selected-btn" style="display:none;">恢复显示</button>
+        <button class="secondary-btn batch-btn" onclick="showAllHistory()" id="show-all-btn" style="display:none;">恢复全部</button>
     </div>
 </div>
 <script>
 (function(){
     var skeleton = document.getElementById('history-skeleton');
     var contentEls = document.querySelectorAll('#history-batch-actions, #hist-table-container');
+    var emptyState = document.getElementById('history-empty-state');
+    var filterBar = document.getElementById('history-filters');
+    var searchBar = document.getElementById('history-search-bar');
+    var statCard = document.getElementById('history-stat-card');
+    var batchActions = document.getElementById('history-batch-actions');
     // Pagination state
     var totalRecords = {{ history_count | default(0) }};
     var hasMore = {{ 'true' if history_has_more else 'false' }};
@@ -374,6 +390,34 @@
             if (keyword) return; // Don't override during search
             infoEl.innerHTML = '{{ "total"|t(lang) }} <strong>' + totalRecords + '</strong> {{ "records"|t(lang) }}, {{ "loaded"|t(lang) }} <strong>' + loadedRecords + '</strong> {{ "records"|t(lang) }}';
         }
+    }
+
+    // 显示搜索相关UI（过滤器、搜索栏、统计卡片、批量操作）
+    function showSearchUI() {
+        if (filterBar) filterBar.style.display = 'flex';
+        if (searchBar) searchBar.style.display = 'flex';
+        if (statCard) statCard.style.display = 'flex';
+        if (batchActions) batchActions.style.display = 'flex';
+    }
+
+    // 隐藏搜索相关UI
+    function hideSearchUI() {
+        if (filterBar) filterBar.style.display = 'none';
+        if (searchBar) searchBar.style.display = 'none';
+        if (statCard) statCard.style.display = 'none';
+        if (batchActions) batchActions.style.display = 'none';
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        if (emptyState) emptyState.style.display = 'block';
+        hideSearchUI();
+    }
+
+    // 隐藏空状态
+    function hideEmptyState() {
+        if (emptyState) emptyState.style.display = 'none';
+        showSearchUI();
     }
 
     // Helper: show content elements and clean up skeleton artifacts
@@ -498,19 +542,33 @@
             .then(function(r){ return r.json(); })
             .then(function(data){
                 if (data.records && data.records.length > 0) {
+                    // 有搜索结果，隐藏空状态，显示表格
+                    hideEmptyState();
                     renderRows(data.records, false);
                     totalRecords = data.total;
                     loadedRecords = data.loaded;
                     hasMore = data.hasMore;
                     updateInfoText();
+                    showContent();
                 } else {
+                    // 搜索无结果，显示空状态
+                    showEmptyState();
                     var tbody = document.getElementById('hist-table-body');
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">{{ "no_records"|t(lang) }}</td></tr>';
                     var infoEl = document.getElementById('hist-info');
                     infoEl.innerHTML = keyword ? '{{ "no_matches"|t(lang) }}' : '';
+                    if (skeleton) skeleton.classList.remove('active');
+                    // 确保表格容器隐藏
+                    var tableContainer = document.getElementById('hist-table-container');
+                    if (tableContainer) tableContainer.classList.add('hidden');
+                    // 显示空状态提示
+                    if (emptyState) {
+                        var hintEl = emptyState.querySelector('p');
+                        if (hintEl) {
+                            hintEl.textContent = keyword ? '{{ "no_matches"|t(lang) }}' : '{{ "records_auto_show"|t(lang) }}';
+                        }
+                    }
                 }
-                if (skeleton) skeleton.classList.remove('active');
-                showContent();
             }).catch(function(){
                 if (skeleton) skeleton.classList.remove('active');
                 showContent();
@@ -682,6 +740,136 @@
     updateInfoText = function() {
         originalUpdateInfoText();
         updatePagination();
+    };
+
+    // === Hidden Records Management ===
+    var includeHidden = false;
+
+    window.toggleHiddenRecords = function() {
+        var checkbox = document.getElementById('show-hidden-checkbox');
+        if (!checkbox) return;
+        
+        includeHidden = checkbox.checked;
+        var showAllBtn = document.getElementById('show-all-btn');
+        if (showAllBtn) {
+            showAllBtn.style.display = includeHidden ? 'inline-block' : 'none';
+        }
+        
+        // Refresh history data with new include_hidden setting
+        refreshHistoryWithHidden(includeHidden);
+    };
+
+    function refreshHistoryWithHidden(showHidden) {
+        var keyword = document.getElementById('hist-search').value;
+        var timeFilter = document.getElementById('hist-time-filter').value;
+        loadedRecords = 0;
+        hasMore = true;
+        totalRecords = 0;
+        hideLoading();
+        var noMore = document.getElementById('hist-no-more-indicator');
+        if (noMore) noMore.style.display = 'none';
+
+        if (skeleton) skeleton.classList.add('active');
+        contentEls.forEach(function(el) { el.classList.add('hidden'); });
+        
+        var url = '/api/history/table?keyword=' + encodeURIComponent(keyword) +
+            '&time_filter=' + encodeURIComponent(timeFilter) +
+            '&include_hidden=' + (showHidden ? 'true' : 'false') +
+            '&limit=' + PAGE_SIZE +
+            '&offset=0';
+
+        fetch(url)
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if (data.records && data.records.length > 0) {
+                    renderRows(data.records, false);
+                    totalRecords = data.total;
+                    loadedRecords = data.loaded;
+                    hasMore = data.hasMore;
+                    updateInfoText();
+                } else {
+                    var tbody = document.getElementById('hist-table-body');
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">{{ "no_records"|t(lang) }}</td></tr>';
+                    var infoEl = document.getElementById('hist-info');
+                    infoEl.innerHTML = keyword ? '{{ "no_matches"|t(lang) }}' : '';
+                }
+                if (skeleton) skeleton.classList.remove('active');
+                showContent();
+            }).catch(function(){
+                if (skeleton) skeleton.classList.remove('active');
+                showContent();
+            });
+    }
+
+    window.batchShowHistory = function() {
+        var selected = document.querySelectorAll('.history-row-checkbox:checked');
+        if (selected.length === 0) {
+            alert('{{ "select_rows_alert"|t(lang, default="请先选择要恢复显示的记录") }}');
+            return;
+        }
+
+        var ids = [];
+        selected.forEach(function(cb) {
+            ids.push(cb.getAttribute('data-history-id'));
+        });
+
+        fetch('/api/history/show', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if (data.status === 'ok') {
+                alert(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}');
+                // Uncheck all checkboxes
+                document.querySelectorAll('.history-row-checkbox').forEach(function(cb) {
+                    cb.checked = false;
+                });
+                var headerCheckbox = document.querySelector('.history-header-checkbox');
+                if (headerCheckbox) headerCheckbox.checked = false;
+                
+                // Refresh current view
+                if (includeHidden) {
+                    refreshHistoryWithHidden(true);
+                } else {
+                    refreshHistory();
+                }
+            } else {
+                alert(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}');
+            }
+        })
+        .catch(function(){
+            alert('{{ "network_error"|t(lang, default="网络错误，请重试") }}');
+        });
+    };
+
+    window.showAllHistory = function() {
+        if (!confirm('{{ "confirm_show_all"|t(lang, default="确定要恢复显示所有被隐藏的记录吗？") }}')) {
+            return;
+        }
+
+        fetch('/api/history/show_all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if (data.status === 'ok') {
+                alert(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}');
+                // Refresh current view
+                if (includeHidden) {
+                    refreshHistoryWithHidden(true);
+                } else {
+                    refreshHistory();
+                }
+            } else {
+                alert(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}');
+            }
+        })
+        .catch(function(){
+            alert('{{ "network_error"|t(lang, default="网络错误，请重试") }}');
+        });
     };
 })();
 </script>

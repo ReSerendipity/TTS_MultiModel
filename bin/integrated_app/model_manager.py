@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Model management: load, unload, engine switch, global state, LRU cache, progress tracking, preloading.
+"""Model management module.
+
+Provides model loading, unloading, engine switching, LRU caching,
+progress tracking, GPU memory monitoring, and persona cache warmup.
+
 Refactored for VoxCPM2-only architecture.
 """
 
@@ -46,6 +50,18 @@ _preload_lock = threading.Lock()
 
 # --- LRU Cache ---
 class LRUCache:
+    """Least Recently Used cache with fixed capacity.
+
+    Uses OrderedDict to track access order. When capacity is exceeded,
+    the least recently accessed item is evicted first.
+
+    Attributes:
+        _cache: OrderedDict storing cached items.
+        _maxsize: Maximum number of items the cache can hold.
+        _hits: Number of successful cache lookups.
+        _misses: Number of failed cache lookups.
+    """
+
     def __init__(self, maxsize: int = 50) -> None:
         self._cache: OrderedDict = OrderedDict()
         self._maxsize = maxsize
@@ -53,6 +69,16 @@ class LRUCache:
         self._misses = 0
 
     def get(self, key: str) -> Optional[Any]:
+        """Retrieve a cached item by key.
+
+        Moves the accessed item to the end (most recently used position).
+
+        Args:
+            key: Cache key to look up.
+
+        Returns:
+            Cached value if found, None otherwise.
+        """
         if key in self._cache:
             self._cache.move_to_end(key)
             self._hits += 1
@@ -61,6 +87,15 @@ class LRUCache:
         return None
 
     def put(self, key: str, value: Any) -> None:
+        """Insert or update a cached item.
+
+        Moves existing key to the end. If cache exceeds maxsize,
+        evicts least recently used items until within capacity.
+
+        Args:
+            key: Cache key.
+            value: Value to cache.
+        """
         if key in self._cache:
             self._cache.move_to_end(key)
         self._cache[key] = value
@@ -75,6 +110,12 @@ class LRUCache:
             del self._cache[key]
 
     def get_stats(self) -> dict:
+        """Return cache performance statistics.
+
+        Returns:
+            Dictionary with hits, misses, hit_rate (percentage),
+            current size and maxsize.
+        """
         total = self._hits + self._misses
         hit_rate = (self._hits / total * 100) if total > 0 else 0.0
         return {
@@ -86,12 +127,28 @@ class LRUCache:
         }
 
     def reset_stats(self) -> None:
+        """Reset hit and miss counters to zero."""
         self._hits = 0
         self._misses = 0
 
 
 class AdaptiveLRUCache(LRUCache):
-    """LRU cache with adaptive capacity based on GPU memory usage."""
+    """LRU cache with adaptive capacity based on GPU memory usage.
+
+    Automatically adjusts cache size inversely proportional to GPU
+    memory utilization. High GPU usage triggers cache shrinkage
+    to free system memory, low usage allows cache expansion.
+
+    Capacity mapping:
+        GPU > 90% -> 5 items
+        GPU > 75% -> 10 items
+        GPU > 50% -> 15 items
+        Otherwise  -> 20 items
+
+    Attributes:
+        _CAPACITY_MAP: List of (gpu_threshold, cache_capacity) tuples.
+        _adapt_lock: Thread lock for capacity adjustment.
+    """
 
     _CAPACITY_MAP = [
         (90, 5),
@@ -106,6 +163,11 @@ class AdaptiveLRUCache(LRUCache):
 
     @staticmethod
     def _get_gpu_memory_percent() -> float:
+        """Query current GPU memory allocation percentage.
+
+        Returns:
+            Memory usage percentage (0.0 to 100.0), or 0.0 if CUDA unavailable.
+        """
         try:
             if not torch.cuda.is_available():
                 return 0.0
@@ -119,6 +181,11 @@ class AdaptiveLRUCache(LRUCache):
             return 0.0
 
     def _calculate_target_capacity(self) -> int:
+        """Determine cache capacity based on current GPU memory usage.
+
+        Returns:
+            Target cache capacity (number of items).
+        """
         gpu_pct = self._get_gpu_memory_percent()
         for threshold, capacity in self._CAPACITY_MAP:
             if gpu_pct > threshold:
@@ -126,6 +193,11 @@ class AdaptiveLRUCache(LRUCache):
         return 20
 
     def adapt_capacity(self) -> int:
+        """Adjust cache capacity based on GPU memory and evict excess items.
+
+        Returns:
+            New cache capacity after adjustment.
+        """
         target = self._calculate_target_capacity()
         with self._adapt_lock:
             old_max = self._maxsize
@@ -140,10 +212,12 @@ class AdaptiveLRUCache(LRUCache):
         return target
 
     def put(self, key: str, value: Any) -> None:
+        """Insert item after adapting cache capacity if needed."""
         self.adapt_capacity()
         super().put(key, value)
 
     def clear(self) -> None:
+        """Clear all cached items and reset statistics."""
         with self._adapt_lock:
             self._cache.clear()
             self.reset_stats()
@@ -151,6 +225,18 @@ class AdaptiveLRUCache(LRUCache):
 
 # --- Generation Tracker ---
 class GenerationTracker:
+    """Tracks generation queue depth and estimates wait times.
+
+    Uses exponential moving average (alpha=0.2) to smooth generation
+    time measurements for more stable wait time estimates.
+
+    Attributes:
+        queue_depth: Current number of queued generation requests.
+        avg_gen_time: Exponential moving average of generation duration (seconds).
+        _lock: Thread lock for state mutations.
+        phase: Human-readable status phase description.
+    """
+
     def __init__(self):
         self.queue_depth = 0
         self.avg_gen_time = 15.0
@@ -158,29 +244,73 @@ class GenerationTracker:
         self.phase = "空闲"
 
     def start_generation(self):
+        """Increment queue depth at the start of a generation request.
+
+        Returns:
+            New queue depth after increment.
+        """
         with self._lock:
             self.queue_depth += 1
             return self.queue_depth
 
     def end_generation(self, elapsed):
+        """Update average generation time and decrement queue depth.
+
+        Args:
+            elapsed: Duration of the completed generation in seconds.
+        """
         with self._lock:
             self.avg_gen_time = 0.8 * self.avg_gen_time + 0.2 * elapsed
             self.queue_depth = max(0, self.queue_depth - 1)
 
     def estimate_wait(self):
+        """Estimate total wait time for queued requests.
+
+        Returns:
+            Estimated wait time in seconds.
+        """
         with self._lock:
             return self.avg_gen_time * self.queue_depth
 
     def status_text(self):
+        """Generate human-readable queue status string.
+
+        Returns:
+            Status text showing queue depth and estimated wait time,
+            or "idle" if queue is empty.
+        """
         with self._lock:
             if self.queue_depth == 0:
-                return "🟢 空闲"
+                return "空闲"
             wait = self.estimate_wait()
-            return f"🟡 队列: {self.queue_depth} | 预计等待: {wait:.0f}秒"
+            return f"队列: {self.queue_depth} | 预计等待: {wait:.0f}秒"
 
 
 # --- Progress Manager ---
 class ProgressManager:
+    """Manages generation progress tracking and renders HTML progress bars.
+
+    Tracks segment-by-segment progress with phase labels, timing,
+    byte throughput, and character throughput. Generates HTML for
+    frontend rendering via HTMX partial updates.
+
+    Supports single-segment mode (animated progress 5%→95%) and
+    multi-segment mode (explicit segment counting).
+
+    Attributes:
+        _phase: Current progress phase label (e.g., "推理中", "完成").
+        _current_segment: Number of completed segments.
+        _total_segments: Total number of segments to process.
+        _start_time: Timestamp when progress tracking started.
+        _segment_times: Rolling history of per-segment durations.
+        _max_history: Maximum number of segment times to retain for averaging.
+        _total_bytes_processed: Cumulative bytes processed across all segments.
+        _last_segment_bytes: Bytes in the most recently processed segment.
+        _is_complete: Whether all segments have been processed.
+        _is_cancelled: Whether the operation has been cancelled.
+        _total_chars_processed: Cumulative characters processed.
+    """
+
     def __init__(self, max_history=5):
         self._phase = ""
         self._current_segment = 0
@@ -196,6 +326,12 @@ class ProgressManager:
         self._total_chars_processed = 0
 
     def start(self, total_segments=1, phase="准备中"):
+        """Initialize progress tracking for a new generation task.
+
+        Args:
+            total_segments: Expected number of segments to process.
+            phase: Initial phase label.
+        """
         with self._lock:
             self._phase = phase
             self._current_segment = 0
@@ -209,10 +345,21 @@ class ProgressManager:
             self._total_chars_processed = 0
 
     def update_phase(self, phase):
+        """Update the current phase label.
+
+        Args:
+            phase: New phase label string.
+        """
         with self._lock:
             self._phase = phase
 
     def advance_segment(self, phase="推理中", segment_bytes=0):
+        """Mark a segment as completed and record timing data.
+
+        Args:
+            phase: Phase label for the next segment.
+            segment_bytes: Byte size of the completed segment.
+        """
         with self._lock:
             self._is_complete = False
             if self._current_segment > 0:
@@ -227,10 +374,21 @@ class ProgressManager:
             self._phase = phase
 
     def set_total_bytes(self, total_bytes):
+        """Override the total bytes processed counter.
+
+        Args:
+            total_bytes: New total bytes value.
+        """
         with self._lock:
             self._total_bytes_processed = total_bytes
 
     def get_progress_html(self):
+        """Render HTML progress bar with phase, percentage, and timing info.
+
+        Returns:
+            HTML string for the progress bar, or empty string if
+            progress is too early to display (<0.5s elapsed).
+        """
         with self._lock:
             if self._is_complete:
                 return ('<div class="tts-progress-bar">'
@@ -280,6 +438,15 @@ class ProgressManager:
                     f'</div>')
 
     def _get_speed_info(self, elapsed):
+        """Calculate throughput metrics for display.
+
+        Args:
+            elapsed: Total elapsed time in seconds.
+
+        Returns:
+            Formatted speed string (e.g., "2.3秒/段 | ~1.5MB 待处理")
+            or empty string if insufficient data.
+        """
         if elapsed <= 0 or self._current_segment <= 0:
             return ""
         avg_per_segment = elapsed / self._current_segment
@@ -295,6 +462,14 @@ class ProgressManager:
         return speed_text
 
     def _format_duration(self, seconds):
+        """Format seconds into human-readable duration string.
+
+        Args:
+            seconds: Duration in seconds.
+
+        Returns:
+            Formatted string (e.g., "35秒", "2分10秒", "0秒").
+        """
         if seconds <= 0:
             return "0秒"
         if seconds < 60:
@@ -304,6 +479,14 @@ class ProgressManager:
         return f"{minutes}分{secs}秒"
 
     def _estimate_remaining(self):
+        """Estimate remaining time based on historical segment timings.
+
+        Uses rolling average of recent segment times if available,
+        otherwise falls back to overall average.
+
+        Returns:
+            Estimated remaining time in seconds.
+        """
         if not self._segment_times:
             if self._current_segment > 0 and self._start_time > 0:
                 avg = (time.time() - self._start_time) / self._current_segment
@@ -315,6 +498,7 @@ class ProgressManager:
         return avg * remaining_segments
 
     def reset(self):
+        """Reset all progress state to initial values."""
         with self._lock:
             self._phase = ""
             self._current_segment = 0
@@ -328,18 +512,34 @@ class ProgressManager:
             self._total_chars_processed = 0
 
     def cancel(self):
+        """Mark the current operation as cancelled."""
         with self._lock:
             self._is_cancelled = True
 
     def is_cancelled(self):
+        """Check if the current operation has been cancelled.
+
+        Returns:
+            True if cancelled, False otherwise.
+        """
         with self._lock:
             return self._is_cancelled
 
     def add_chars_processed(self, char_count):
+        """Accumulate the count of processed characters.
+
+        Args:
+            char_count: Number of characters in the processed segment.
+        """
         with self._lock:
             self._total_chars_processed += char_count
 
     def get_speed_stats(self):
+        """Calculate character throughput statistics.
+
+        Returns:
+            Dictionary with total_chars, elapsed time, and chars_per_sec.
+        """
         with self._lock:
             elapsed = time.time() - self._start_time if self._start_time > 0 else 0
             chars_per_sec = (self._total_chars_processed / elapsed) if elapsed > 0 else 0
@@ -350,12 +550,18 @@ class ProgressManager:
             }
 
     def complete(self):
+        """Mark all segments as completed and set progress to 100%."""
         with self._lock:
             self._current_segment = self._total_segments
             self._phase = "完成"
             self._is_complete = True
 
     def schedule_reset(self, delay_seconds=3):
+        """Schedule a delayed reset of progress state on a background thread.
+
+        Args:
+            delay_seconds: Seconds to wait before resetting (default: 3).
+        """
         def _delayed_reset():
             time.sleep(delay_seconds)
             self.reset()
@@ -364,7 +570,19 @@ class ProgressManager:
 
 
 def get_nvidia_gpu_device():
-    """Find the NVIDIA GPU device index. ONLY supports NVIDIA GPUs with CUDA."""
+    """Find the NVIDIA GPU device index with the most available VRAM.
+
+    Only supports NVIDIA GPUs with CUDA. Iterates through all available
+    GPU devices and filters by name patterns (NVIDIA, GeForce, RTX,
+    GTX, Quadro, Tesla). If multiple GPUs are found, selects the one
+    with the largest total VRAM.
+
+    Returns:
+        GPU device index for the best available NVIDIA GPU.
+
+    Raises:
+        RuntimeError: If CUDA is not available or no NVIDIA GPU is detected.
+    """
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA 不可用，请确认已安装支持 CUDA 的 NVIDIA 显卡和驱动。")
     
@@ -392,7 +610,12 @@ def get_nvidia_gpu_device():
 
 
 def get_nvidia_gpu_memory_info():
-    """Get memory info for the primary NVIDIA GPU."""
+    """Get memory information for the primary NVIDIA GPU.
+
+    Returns:
+        Tuple of (total_bytes, allocated_bytes, reserved_bytes, free_bytes),
+        or (0, 0, 0, 0) if GPU memory info cannot be retrieved.
+    """
     device = get_nvidia_gpu_device()
     if not torch.cuda.is_available():
         return (0, 0, 0, 0)
@@ -410,8 +633,20 @@ def get_nvidia_gpu_memory_info():
 
 # --- GPU VRAM Monitor ---
 class GPUMemoryMonitor:
+    """Static utility class for GPU VRAM monitoring and capacity checks.
+
+    Provides methods to query current VRAM usage and determine if
+    there is sufficient free VRAM to load the model.
+    """
+
     @staticmethod
     def get_vram_info():
+        """Query current VRAM usage statistics.
+
+        Returns:
+            Dictionary with 'total', 'used', and 'free' keys in bytes.
+            Returns zeroed dict if CUDA is unavailable.
+        """
         if not torch.cuda.is_available():
             return {"total": 0, "used": 0, "free": 0}
         total, allocated, reserved, free = get_nvidia_gpu_memory_info()
@@ -419,6 +654,14 @@ class GPUMemoryMonitor:
 
     @staticmethod
     def can_load_model(model_name="voxcpm2"):
+        """Check if there is enough free VRAM to load the specified model.
+
+        Args:
+            model_name: Model identifier (currently only "voxcpm2" is supported).
+
+        Returns:
+            Tuple of (can_load: bool, free_bytes: int).
+        """
         info = GPUMemoryMonitor.get_vram_info()
         needed = int(6.5 * 1024**3)  # VoxCPM2 needs ~6.5GB
         return info["free"] >= needed, info["free"]
@@ -441,11 +684,21 @@ _persona_warmup_lock = threading.Lock()
 
 
 def get_persona_cache_stats() -> dict:
+    """Retrieve current persona embedding cache statistics.
+
+    Returns:
+        Dictionary with hits, misses, hit_rate, size, and maxsize.
+    """
     return _persona_embedding_cache.get_stats()
 
 
 def warmup_persona_cache() -> None:
-    """Asynchronously preload the 5 most recently used personas into cache."""
+    """Asynchronously preload the 5 most recently used personas into cache.
+
+    Runs on a background daemon thread to avoid blocking application startup.
+    Only executes once per process lifetime (guarded by _persona_warmup_lock).
+    Logs a summary of cache state after warmup completes.
+    """
     with _persona_warmup_lock:
         if _persona_warmup_done["done"]:
             return
@@ -490,7 +743,11 @@ def warmup_persona_cache() -> None:
 
 
 def _check_model_ready() -> bool:
-    """Check if model is ready (not locked)."""
+    """Non-blocking check if the model lock is available.
+
+    Returns:
+        True if the model is not being loaded/switched, False if locked.
+    """
     if not _model_lock.acquire(blocking=False):
         return False
     _model_lock.release()
@@ -498,7 +755,13 @@ def _check_model_ready() -> bool:
 
 
 def unload_model() -> None:
-    """Unload current VoxCPM2 model and release VRAM."""
+    """Unload the current VoxCPM2 model and aggressively release VRAM.
+
+    Acquires the model lock, deletes model and ASR references, clears
+    the persona embedding cache, then performs multi-step GPU memory
+    cleanup: synchronize, empty cache, clear cuBLAS workspaces,
+    IPC collect, sleep, and final empty cache.
+    """
     global voxcpm_model, voxcpm_asr
     with _model_lock:
         if voxcpm_model is not None:
@@ -527,7 +790,20 @@ def unload_model() -> None:
 
 
 def load_voxcpm2() -> Generator:
-    """Load VoxCPM2 engine (generator mode for UI progress feedback)."""
+    """Load the VoxCPM2 engine with generator-based progress feedback.
+
+    Yields status text tuples suitable for UI display at each loading stage:
+    1. Unload existing model and clear GPU memory
+    2. Load VoxCPM2 main model via voxcpm.VoxCPM.from_pretrained()
+    3. Move all model sub-components (tts_model, model, codecs, vocoder) to GPU
+    4. Load ASR model via funasr.AutoModel
+    5. Record VRAM usage to health monitor
+
+    On failure, cleans up partial state and yields error status.
+
+    Yields:
+        Tuple of (status_text, audio, sample_rate, format) at each stage.
+    """
     global voxcpm_model, voxcpm_asr, current_engine, current_type, current_size
     import voxcpm
     from funasr import AutoModel
@@ -607,7 +883,19 @@ def load_voxcpm2() -> Generator:
 
 
 def preload_model(engine="voxcpm2", size="voxcpm2") -> None:
-    """Background preload model files into system RAM (not GPU VRAM)."""
+    """Background preload of model files into system RAM page cache.
+
+    Reads the first 1MB of each model file to warm up the OS page cache,
+    reducing disk I/O latency when the model is subsequently loaded into
+    GPU VRAM. Does NOT load model into VRAM.
+
+    Runs on a background daemon thread to avoid blocking application startup.
+    Only one preload task runs at a time (guarded by _preload_lock).
+
+    Args:
+        engine: Target engine name (currently only "voxcpm2" is supported).
+        size: Model size variant (currently ignored for VoxCPM2).
+    """
     global _preload_state
 
     with _preload_lock:
@@ -650,7 +938,18 @@ def preload_model(engine="voxcpm2", size="voxcpm2") -> None:
 
 
 def _read_files_to_cache(directory_path):
-    """Read model files into system page cache."""
+    """Recursively read model files into system page cache.
+
+    For each file in the directory tree, reads the first 1MB (or full file
+    if smaller) to warm up the OS page cache. Skips dot-files and
+    __pycache__ directories.
+
+    Args:
+        directory_path: Path to directory or single file to preload.
+
+    Returns:
+        Total bytes read into cache.
+    """
     if os.path.isfile(directory_path):
         _read_single_file(directory_path)
         return
@@ -669,7 +968,17 @@ def _read_files_to_cache(directory_path):
 
 
 def _read_single_file(filepath):
-    """Read single file into system cache, return bytes read."""
+    """Read a single file into system cache to warm up page cache.
+
+    Reads the first 1MB of the file (or full file if smaller).
+    This primes the OS page cache so subsequent reads are served from RAM.
+
+    Args:
+        filepath: Absolute path to the file to read.
+
+    Returns:
+        Number of bytes actually read, or 0 on failure.
+    """
     try:
         size = os.path.getsize(filepath)
         if size == 0:
@@ -684,14 +993,39 @@ def _read_single_file(filepath):
 
 
 def get_preload_status() -> dict:
-    """Get current preload task status."""
+    """Retrieve the current preload task status.
+
+    Returns:
+        Dictionary with keys: in_progress, target_engine, target_size,
+        completed, and error.
+    """
     with _preload_lock:
         return dict(_preload_state)
 
 
 def switch_engine(engine_name="voxcpm2") -> Generator:
-    """Switch engine (generator mode for UI progress feedback).
-    Simplified for VoxCPM2-only architecture.
+    """Switch the active engine with full rollback on failure.
+
+    Performs a 5-step engine switch:
+    1. VRAM pre-check: verify at least 6.5GB free VRAM is available
+    2. Unload current model with aggressive VRAM cleanup
+    3. Load new VoxCPM2 model and move sub-components to GPU
+    4. Load ASR model
+    5. Update global engine state and log success
+
+    If any step fails, automatically rolls back to the previous engine
+    state (model, ASR, engine name). All TTSError subclasses are
+    re-raised as-is; other exceptions are wrapped as EngineSwitchError.
+
+    Args:
+        engine_name: Target engine name (currently only "voxcpm2").
+
+    Yields:
+        Tuple of (status_text, audio, sample_rate, format) at each stage.
+
+    Raises:
+        InsufficientVRAMError: If free VRAM is below the 6.5GB threshold.
+        EngineSwitchError: If the switch fails and rollback is attempted.
     """
     global voxcpm_model, voxcpm_asr, current_engine, current_type, current_size
 

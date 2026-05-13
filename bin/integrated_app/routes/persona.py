@@ -94,8 +94,13 @@ async def persona_table(request: Request):
     search_keyword = request.query_params.get("keyword", "") or request.query_params.get("search_keyword", "")
     accept = request.headers.get("accept", "")
     table_data = get_persona_detail_table(search_keyword=search_keyword)
+    
+    # Always return JSON for AJAX/fetch requests
     if "application/json" in accept or request.query_params.get("format") == "json":
         return JSONResponse({"status": "ok", "records": table_data, "total": len(table_data)})
+    
+    # For htmx requests from persona tab, return JSON as well (our new persona.html uses fetch)
+    # For legacy HTML format support, still support it
     rows_html = ""
     for row in table_data:
         name = row[0]

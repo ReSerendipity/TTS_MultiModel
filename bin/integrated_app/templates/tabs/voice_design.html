@@ -31,24 +31,7 @@
             padding: 4px 8px;
             background: rgba(139, 92, 246, 0.05);
             border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 4px;
-        }
-        .char-counter .counter-main {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .char-counter .counter-segments {
-            color: var(--accent-primary);
-            font-weight: 600;
-        }
-        .char-counter .counter-detail {
-            font-size: 11px;
-            color: var(--text-muted);
+            white-space: nowrap;
         }
 
         /* Voice preset tags - pill-shaped chips with gradient borders */
@@ -166,8 +149,8 @@
     <form id="vd-form" hx-post="/api/generate/voxcpm_design" hx-target="#vd-result" hx-swap="innerHTML" hx-indicator="#vd-spinner">
         <input type="hidden" name="mode" value="voxcpm_design">
         <label>{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" class="tts-input-textbox vd-full-width vd-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required maxlength="500" oninput="updateCharCounter(this, 'vd-char-counter', 500); autoResizeTextarea(this)">{{ "default_voice_design_text"|t(lang) }}</textarea>
-        <div id="vd-char-counter" class="char-counter">0/500</div>
+        <textarea name="text" class="tts-input-textbox vd-full-width vd-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateCharCounter(this, 'vd-char-counter'); autoResizeTextarea(this)">{{ "default_voice_design_text"|t(lang) }}</textarea>
+        <div id="vd-char-counter" class="char-counter">0/200</div>
         <label>{{ "language"|t(lang) }}</label>
         <select name="lang" class="tts-input-dropdown vd-full-width">
             {% for l in langs %}
@@ -348,7 +331,7 @@
         // Build FormData for POST request
         var formData = new FormData();
         formData.append('text', text);
-        formData.append('ref_audio_path', personaName || '');
+        formData.append('persona_name', personaName || '');
 
         var audioChunks = [];
         var sampleRate = 48000;
@@ -401,12 +384,18 @@
         }
 
         function playStreamingAudio(audioBlob) {
+            console.log('[Streaming] playStreamingAudio called, blob size:', audioBlob.size);
             var url = URL.createObjectURL(audioBlob);
-            audioEl.src = url;
-            audioEl.style.display = '';
-            audioEl.play().catch(function(e) {
-                console.warn('Auto-play prevented:', e);
-            });
+            console.log('[Streaming] Created blob URL:', url);
+            if (window.globalAudioPlayer) {
+                console.log('[Streaming] Calling globalAudioPlayer.play()');
+                window.globalAudioPlayer.play(url, '{{ "streaming_gen"|t(lang) }}');
+            } else {
+                console.warn('[Streaming] globalAudioPlayer not available!');
+                // Fallback: play directly
+                var fallbackAudio = new Audio(url);
+                fallbackAudio.play();
+            }
         }
 
         try {
@@ -423,6 +412,97 @@
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
+            let currentEvent = '';
+            let currentData = '';
+
+            function processEvent() {
+                if (!currentEvent || !currentData) return;
+                
+                switch (currentEvent) {
+                    case 'meta':
+                        try {
+                            var meta = JSON.parse(currentData);
+                            totalSegments = meta.total_segments || 1;
+                            sampleRate = meta.sample_rate || 48000;
+                            updateProgress(0, header + ' - ' + totalSegments + ' segments');
+                        } catch (e) { /* ignore */ }
+                        break;
+
+                    case 'progress':
+                        try {
+                            var prog = JSON.parse(currentData);
+                            currentSegment = prog.segment || 0;
+                            totalSegments = prog.total || 1;
+                            var pct = ((currentSegment - 1) / totalSegments) * 80;
+                            updateProgress(pct, '{{ "generating_segment"|t(lang) }} ' + currentSegment + '/' + totalSegments);
+                        } catch (e) { /* ignore */ }
+                        break;
+
+                    case 'audio':
+                        try {
+                            console.log('[Streaming] Received audio event, data length:', currentData.length);
+                            // Decode base64 PCM data
+                            var binaryString = atob(currentData);
+                            var len = binaryString.length;
+                            var bytes = new Uint8Array(len);
+                            for (var j = 0; j < len; j++) {
+                                bytes[j] = binaryString.charCodeAt(j);
+                            }
+                            // Create a NEW ArrayBuffer for each chunk to avoid shared buffer issues
+                            var int16Array = new Int16Array(bytes.buffer.slice(0));
+                            audioChunks.push(int16Array);
+                            var currentPct = ((currentSegment) / totalSegments) * 80 + (audioChunks.length / totalSegments) * 20;
+                            updateProgress(Math.min(currentPct, 95), '{{ "received_chunk"|t(lang) }} #' + audioChunks.length);
+                            console.log('[Streaming] Audio chunk added, total chunks:', audioChunks.length, 'chunk samples:', int16Array.length);
+                        } catch (e) {
+                            console.warn('[Streaming] Audio chunk decode failed:', e);
+                        }
+                        break;
+
+                    case 'done':
+                        try {
+                            var doneData = JSON.parse(currentData);
+                            console.log('[Streaming] Done event received, filename:', doneData.filename, 'audio chunks:', audioChunks.length);
+                            updateProgress(100, '{{ "stream_complete"|t(lang) }} - ' + doneData.filename);
+                            // Combine all PCM chunks and play
+                            if (audioChunks.length > 0) {
+                                var totalLen = 0;
+                                for (var k = 0; k < audioChunks.length; k++) {
+                                    totalLen += audioChunks[k].length;
+                                }
+                                console.log('[Streaming] Combining', audioChunks.length, 'chunks, total samples:', totalLen);
+                                var combined = new Int16Array(totalLen);
+                                var offset = 0;
+                                for (var k = 0; k < audioChunks.length; k++) {
+                                    combined.set(audioChunks[k], offset);
+                                    offset += audioChunks[k].length;
+                                }
+                                console.log('[Streaming] Creating WAV blob...');
+                                var wavBlob = createWavBlob(combined, sampleRate);
+                                console.log('[Streaming] WAV blob created, size:', wavBlob.size, 'bytes');
+                                playStreamingAudio(wavBlob);
+                            } else {
+                                console.warn('[Streaming] No audio chunks received!');
+                            }
+                        } catch (e) {
+                            console.warn('[Streaming] Done event parse failed:', e);
+                        }
+                        break;
+
+                    case 'error':
+                        try {
+                            var errData = JSON.parse(currentData);
+                            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">' + (errData.message || '{{ "unknown_error"|t(lang) }}') + '</div></div>';
+                        } catch (e) {
+                            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">{{ "unknown_error"|t(lang) }}</div></div>';
+                        }
+                        return;
+                }
+                
+                // Reset event state
+                currentEvent = '';
+                currentData = '';
+            }
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -432,92 +512,31 @@
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
 
-                let eventType = '';
-                let eventData = '';
-
                 for (var i = 0; i < lines.length; i++) {
                     var line = lines[i].trim();
                     if (line.startsWith('event:')) {
-                        eventType = line.substring(6).trim();
-                    } else if (line.startsWith('data:')) {
-                        eventData = line.substring(5).trim();
-                    } else if (line === '' && eventType) {
-                        // Process complete event
-                        switch (eventType) {
-                            case 'meta':
-                                try {
-                                    var meta = JSON.parse(eventData);
-                                    totalSegments = meta.total_segments || 1;
-                                    sampleRate = meta.sample_rate || 48000;
-                                    updateProgress(0, header + ' - ' + totalSegments + ' segments');
-                                } catch (e) { /* ignore */ }
-                                break;
-
-                            case 'progress':
-                                try {
-                                    var prog = JSON.parse(eventData);
-                                    currentSegment = prog.segment || 0;
-                                    totalSegments = prog.total || 1;
-                                    var pct = ((currentSegment - 1) / totalSegments) * 80;
-                                    updateProgress(pct, '{{ "generating_segment"|t(lang) }} ' + currentSegment + '/' + totalSegments);
-                                } catch (e) { /* ignore */ }
-                                break;
-
-                            case 'audio':
-                                try {
-                                    // Decode base64 PCM data
-                                    var binaryString = atob(eventData);
-                                    var len = binaryString.length;
-                                    var bytes = new Uint8Array(len);
-                                    for (var j = 0; j < len; j++) {
-                                        bytes[j] = binaryString.charCodeAt(j);
-                                    }
-                                    var int16Array = new Int16Array(bytes.buffer);
-                                    audioChunks.push(int16Array);
-                                    var currentPct = ((currentSegment) / totalSegments) * 80 + (audioChunks.length / totalSegments) * 20;
-                                    updateProgress(Math.min(currentPct, 95), '{{ "received_chunk"|t(lang) }} #' + audioChunks.length);
-                                } catch (e) {
-                                    console.warn('Audio chunk decode failed:', e);
-                                }
-                                break;
-
-                            case 'done':
-                                try {
-                                    var doneData = JSON.parse(eventData);
-                                    updateProgress(100, '{{ "stream_complete"|t(lang) }} - ' + doneData.filename);
-                                    // Combine all PCM chunks and play
-                                    if (audioChunks.length > 0) {
-                                        var totalLen = 0;
-                                        for (var k = 0; k < audioChunks.length; k++) {
-                                            totalLen += audioChunks[k].length;
-                                        }
-                                        var combined = new Int16Array(totalLen);
-                                        var offset = 0;
-                                        for (var k = 0; k < audioChunks.length; k++) {
-                                            combined.set(audioChunks[k], offset);
-                                            offset += audioChunks[k].length;
-                                        }
-                                        var wavBlob = createWavBlob(combined, sampleRate);
-                                        playStreamingAudio(wavBlob);
-                                    }
-                                } catch (e) {
-                                    console.warn('Done event parse failed:', e);
-                                }
-                                break;
-
-                            case 'error':
-                                try {
-                                    var errData = JSON.parse(eventData);
-                                    statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">' + (errData.message || '{{ "unknown_error"|t(lang) }}') + '</div></div>';
-                                } catch (e) {
-                                    statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">{{ "unknown_error"|t(lang) }}</div></div>';
-                                }
-                                return;
+                        // If we have a pending event, process it first
+                        if (currentEvent && currentData) {
+                            processEvent();
                         }
-                        eventType = '';
-                        eventData = '';
+                        currentEvent = line.substring(6).trim();
+                        currentData = '';
+                    } else if (line.startsWith('data:')) {
+                        // Append to current data (handles multi-line data)
+                        var dataValue = line.substring(5).trim();
+                        currentData = currentData ? currentData + dataValue : dataValue;
+                    } else if (line === '') {
+                        // Empty line signals end of event
+                        if (currentEvent && currentData) {
+                            processEvent();
+                        }
                     }
                 }
+            }
+            
+            // Process any remaining event
+            if (currentEvent && currentData) {
+                processEvent();
             }
         } catch (err) {
             statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">' + err.message + '</div></div>';
@@ -528,21 +547,19 @@
         textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
     };
 
-    window.updateCharCounter = function(textarea, counterId, maxLen) {
+    window.updateCharCounter = function(textarea, counterId) {
+        var SPLIT_MAX_CHARS = 200;
         var counter = document.getElementById(counterId);
         var submitBtn = document.querySelector('.primary-btn[type="submit"]');
         if (counter) {
             var len = textarea.value.length;
-            var segments = len > 0 ? Math.ceil(len / maxLen) : 0;
+            var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
             
-            var counterMain = '<span class="counter-main">' + len + '/' + maxLen + '</span>';
+            var counterMain = '<span class="counter-main">' + len + '/' + SPLIT_MAX_CHARS + '</span>';
             
             var counterDetail = '';
-            if (len > maxLen) {
+            if (len > SPLIT_MAX_CHARS) {
                 counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
-            } else if (len > maxLen * 0.8) {
-                var remaining = maxLen - len;
-                counterDetail = '<span class="counter-detail">{{ "remaining"|t(lang) }}' + remaining + '{{ "chars"|t(lang) }}</span>';
             } else if (len > 0) {
                 counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
             }
@@ -559,7 +576,7 @@
         var textarea = form.querySelector('textarea[name=text]');
         if (!textarea || !textarea.value.trim()) return null;
         var len = textarea.value.length;
-        var maxLen = 500;
+        var maxLen = 200;
         var segments = Math.ceil(len / maxLen);
         return {
             textLength: len,
@@ -597,7 +614,7 @@
     // ISSUE 2 FIX: Initialize character counter on page load
     var textarea = document.querySelector('#vd-form textarea[name=text]');
     if (textarea) {
-        updateCharCounter(textarea, 'vd-char-counter', 500);
+        updateCharCounter(textarea, 'vd-char-counter');
         autoResizeTextarea(textarea);
     }
 
@@ -661,13 +678,9 @@
                 var resultEl = document.getElementById('vd-result');
                 if (!resultEl) return;
                 var audioSrc = resultEl.querySelector('audio');
-                var audioEl = document.getElementById('vd-audio');
-                if (audioSrc && audioEl) {
-                    audioEl.src = audioSrc.src;
-                    audioEl.style.display = '';
-                    audioEl.play().catch(function(ex) {
-                        console.warn('Auto-play prevented:', ex);
-                    });
+                if (audioSrc && window.globalAudioPlayer) {
+                    var filename = audioSrc.src.split('/').pop().split('?')[0];
+                    window.globalAudioPlayer.play(audioSrc.src, filename);
                 }
                 // Show post-processing section when audio is available
                 var wrapper = resultEl.querySelector('[data-audio-filename]');
@@ -701,11 +714,9 @@
             var respHtml = await resp.text();
             resultEl.innerHTML = respHtml;
             var audioSrc = resultEl.querySelector('audio');
-            var audioEl = document.getElementById('vd-audio');
-            if (audioSrc && audioEl) {
-                audioEl.src = audioSrc.src;
-                audioEl.style.display = '';
-                audioEl.play().catch(function(ex) {});
+            if (audioSrc && window.globalAudioPlayer) {
+                var filename = audioSrc.src.split('/').pop().split('?')[0];
+                window.globalAudioPlayer.play(audioSrc.src, filename);
             }
         } catch(err) {
             statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';

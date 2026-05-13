@@ -1606,14 +1606,14 @@ for _d in _I18N_TRANSLATIONS.values():
 
 _DEFAULT_LANG = "zh-CN"
 
-def t(key, lang=_DEFAULT_LANG):
+def t(key, lang=_DEFAULT_LANG, default=None):
     lang_dict = _I18N_TRANSLATIONS.get(lang)
     if lang_dict is not None and key in lang_dict:
         return lang_dict[key]
     en_dict = _I18N_TRANSLATIONS.get("en")
     if en_dict is not None and key in en_dict:
         return en_dict[key]
-    return key
+    return default if default is not None else key
 
 def get_lang(request):
     lang = request.query_params.get("lang")

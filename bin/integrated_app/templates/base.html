@@ -15,6 +15,237 @@
                 document.documentElement.setAttribute('lang', savedLang);
             }
         })();
+
+    /* ===== Global Audio Player ===== */
+    (function() {
+        var playerEl, audioEl, playBtn, titleEl, timeEl, timeDisplayEl;
+        var progressBar, progressFill, volumeIcon, volumeSlider, closeBtn, speedBtns;
+        var progressInterval = null;
+        var isHidden = false;
+        var isInitialized = false;
+
+        function initPlayer() {
+            if (isInitialized) return;
+            playerEl = document.getElementById('global-audio-player');
+            audioEl = document.getElementById('global-audio-element');
+            playBtn = document.getElementById('gap-play-btn');
+            titleEl = document.getElementById('gap-title');
+            timeEl = document.getElementById('gap-time');
+            timeDisplayEl = document.getElementById('gap-time-display');
+            progressBar = document.getElementById('gap-progress-bar');
+            progressFill = document.getElementById('gap-progress-fill');
+            volumeIcon = document.getElementById('gap-volume-icon');
+            volumeSlider = document.getElementById('gap-volume-slider');
+            closeBtn = document.getElementById('gap-close-btn');
+            speedBtns = document.querySelectorAll('.gap-speed-btn');
+
+            if (!playerEl || !audioEl || !playBtn) {
+                console.warn('[GlobalAudio] Elements not ready, retrying...');
+                setTimeout(initPlayer, 50);
+                return;
+            }
+
+            isInitialized = true;
+            console.log('[GlobalAudio] Player initialized');
+
+            // Event Listeners
+            playBtn.addEventListener('click', togglePlay);
+            closeBtn.addEventListener('click', function() {
+                audioEl.pause();
+                audioEl.src = '';
+                stopProgressUpdate();
+                hidePlayer();
+                isHidden = true;
+            });
+
+            progressBar.addEventListener('click', function(e) {
+                if (!audioEl.duration) return;
+                var rect = progressBar.getBoundingClientRect();
+                var pct = (e.clientX - rect.left) / rect.width;
+                audioEl.currentTime = pct * audioEl.duration;
+            });
+
+            volumeSlider.addEventListener('input', function() {
+                audioEl.volume = parseFloat(volumeSlider.value);
+                updateVolumeIcon();
+            });
+
+            volumeIcon.addEventListener('click', function() {
+                audioEl.muted = !audioEl.muted;
+                updateVolumeIcon();
+            });
+
+            speedBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var speed = parseFloat(btn.dataset.speed);
+                    audioEl.playbackRate = speed;
+                    speedBtns.forEach(function(b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                });
+            });
+
+            // Default speed
+            audioEl.playbackRate = 1;
+            if (speedBtns.length > 1) speedBtns[1].classList.add('active');
+
+            // Audio events
+            audioEl.addEventListener('ended', function() {
+                playBtn.innerHTML = '&#9654;';
+                playBtn.classList.remove('playing');
+                stopProgressUpdate();
+                progressFill.style.width = '0%';
+            });
+
+            audioEl.addEventListener('pause', function() {
+                playBtn.innerHTML = '&#9654;';
+                playBtn.classList.remove('playing');
+                stopProgressUpdate();
+            });
+
+            audioEl.addEventListener('play', function() {
+                playBtn.innerHTML = '&#10074;&#10074;';
+                playBtn.classList.add('playing');
+                startProgressUpdate();
+            });
+        }
+
+        function formatTime(sec) {
+            if (isNaN(sec) || sec < 0) sec = 0;
+            var m = Math.floor(sec / 60);
+            var s = Math.floor(sec % 60);
+            return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        function updateProgress() {
+            if (!audioEl || !audioEl.src || !audioEl.duration) return;
+            var pct = (audioEl.currentTime / audioEl.duration) * 100;
+            progressFill.style.width = pct + '%';
+            timeDisplayEl.textContent = formatTime(audioEl.currentTime) + ' / ' + formatTime(audioEl.duration);
+            timeEl.textContent = formatTime(audioEl.currentTime) + ' / ' + formatTime(audioEl.duration);
+        }
+
+        function startProgressUpdate() {
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(updateProgress, 100);
+        }
+
+        function stopProgressUpdate() {
+            if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+        }
+
+        function updateVolumeIcon() {
+            if (!volumeIcon || !audioEl) return;
+            if (audioEl.muted || audioEl.volume === 0) {
+                volumeIcon.textContent = '\uD83D\uDD07';
+            } else if (audioEl.volume < 0.5) {
+                volumeIcon.textContent = '\uD83D\uDD09';
+            } else {
+                volumeIcon.textContent = '\uD83D\uDD0A';
+            }
+        }
+
+        function showPlayer() {
+            if (!playerEl) return;
+            playerEl.classList.add('visible');
+            playerEl.style.display = 'flex';
+            var mainContent = document.querySelector('.main-content');
+            if (mainContent) mainContent.classList.add('has-audio');
+        }
+
+        function hidePlayer() {
+            if (!playerEl) return;
+            playerEl.classList.remove('visible');
+            playerEl.style.display = 'none';
+            var mainContent = document.querySelector('.main-content');
+            if (mainContent) mainContent.classList.remove('has-audio');
+        }
+
+        function showError(msg) {
+            var existing = document.getElementById('global-audio-error');
+            if (existing) existing.remove();
+            var toast = document.createElement('div');
+            toast.id = 'global-audio-error';
+            toast.textContent = msg;
+            toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:9999;animation:gapToastIn 0.2s ease-out;max-width:90vw;text-align:center;';
+            document.body.appendChild(toast);
+            setTimeout(function() {
+                if (toast.parentNode) {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.2s';
+                    setTimeout(function() { toast.remove(); }, 200);
+                }
+            }, 3000);
+        }
+
+        function playAudio(src, title) {
+            if (!audioEl) {
+                console.warn('[GlobalAudio] audio element not initialized yet, retrying...');
+                setTimeout(function() { playAudio(src, title); }, 100);
+                return;
+            }
+            if (!src) {
+                showError('音频源地址无效');
+                return;
+            }
+            audioEl.src = src;
+            titleEl.textContent = title || '播放中...';
+            showPlayer();
+            audioEl.play().then(function() {
+                playBtn.innerHTML = '\u275A\u275A';
+                playBtn.classList.add('playing');
+                startProgressUpdate();
+            }).catch(function(e) {
+                console.warn('[GlobalAudio] 自动播放被阻止:', e);
+                showError('播放被浏览器阻止，请点击播放按钮手动播放');
+                playBtn.innerHTML = '\u25B6';
+                playBtn.classList.remove('playing');
+            });
+        }
+
+        function togglePlay() {
+            if (!audioEl || !audioEl.src) return;
+            if (audioEl.paused) {
+                audioEl.play();
+                playBtn.innerHTML = '\u275A\u275A';
+                playBtn.classList.add('playing');
+                startProgressUpdate();
+            } else {
+                audioEl.pause();
+                playBtn.innerHTML = '\u25B6';
+                playBtn.classList.remove('playing');
+                stopProgressUpdate();
+            }
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initPlayer();
+                // Expose element reference immediately after init
+                if (window.globalAudioPlayer) {
+                    window.globalAudioPlayer.element = document.getElementById('global-audio-element');
+                }
+            });
+        } else {
+            initPlayer();
+            if (window.globalAudioPlayer) {
+                window.globalAudioPlayer.element = document.getElementById('global-audio-element');
+            }
+        }
+
+        // Expose to global scope - element will be updated after init
+        var globalPlayerObj = {
+            play: playAudio,
+            toggle: togglePlay,
+            hide: function() { if (closeBtn) closeBtn.click(); },
+            show: showPlayer,
+            get element() { return document.getElementById('global-audio-element'); },
+            set element(val) { /* no-op, getter handles it */ },
+            isHidden: function() { return isHidden; },
+            resetHidden: function() { isHidden = false; }
+        };
+        window.globalAudioPlayer = globalPlayerObj;
+    })();
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -234,6 +465,178 @@
             color: var(--text-muted);
             font-size: 14px;
         }
+
+        /* Global Audio Player */
+        .global-audio-player {
+            position: fixed;
+            bottom: 0;
+            left: 240px;
+            right: 0;
+            height: 56px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-subtle);
+            display: none;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            z-index: 1000;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+        }
+        .global-audio-player.visible { display: flex; }
+        .sidebar.collapsed ~ .main-content .global-audio-player { left: 52px; }
+        .global-audio-player .gap-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--primary-bg);
+            color: var(--primary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+            border: none;
+            font-size: 16px;
+        }
+        .global-audio-player .gap-icon:hover { background: var(--primary); color: white; transform: scale(1.05); }
+        .global-audio-player .gap-icon.playing { background: var(--primary); color: white; }
+        .global-audio-player .gap-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .global-audio-player .gap-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .global-audio-player .gap-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono, monospace);
+        }
+        .global-audio-player .gap-progress {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .global-audio-player .gap-progress-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .global-audio-player .gap-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent-primary));
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.1s linear;
+            position: relative;
+        }
+        .global-audio-player .gap-progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary);
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .global-audio-player .gap-progress-bar:hover .gap-progress-fill::after { opacity: 1; }
+        .global-audio-player .gap-time-display {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono, monospace);
+            min-width: 80px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .global-audio-player .gap-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+            font-size: 18px;
+        }
+        .global-audio-player .gap-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        .global-audio-player .gap-volume {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .global-audio-player .gap-volume-icon {
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 16px;
+            transition: color 0.15s;
+        }
+        .global-audio-player .gap-volume-icon:hover { color: var(--primary); }
+        .global-audio-player .gap-volume-slider {
+            width: 60px;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        .global-audio-player .gap-volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+        }
+        .global-audio-player .gap-speed {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .global-audio-player .gap-speed-btn {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border-medium);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .global-audio-player .gap-speed-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .global-audio-player .gap-speed-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Main content needs bottom padding for audio player */
+        .main-content { display: flex; flex-direction: column; min-height: 0; position: relative; }
+        .main-content.has-audio #tab-content { padding-bottom: 64px; }
 
         /* === Mobile Overlay === */
         .top-bar {
@@ -2600,6 +3003,89 @@
             }
         };
 
+        // ===== HTMX Audio State Preservation =====
+        // Save audio state before tab switch, restore after
+        var savedAudioState = { src: '', currentTime: 0, title: '', wasPlaying: false };
+
+        document.body.addEventListener('htmx:beforeSwap', function(evt) {
+            var target = evt.detail.target;
+            if (target && target.id === 'tab-content') {
+                var audioEl = document.getElementById('global-audio-element');
+                if (audioEl && audioEl.src) {
+                    savedAudioState = {
+                        src: audioEl.src,
+                        currentTime: audioEl.currentTime,
+                        title: document.getElementById('gap-title').textContent,
+                        wasPlaying: !audioEl.paused
+                    };
+                    console.log('[HTMX Audio] State saved before swap:', savedAudioState.src, 'playing:', savedAudioState.wasPlaying);
+                }
+            }
+        });
+
+        document.body.addEventListener('htmx:afterSettle', function() {
+            if (savedAudioState.src) {
+                console.log('[HTMX Audio] Restoring state after settle:', savedAudioState.src);
+                var audioEl = document.getElementById('global-audio-element');
+                var playerEl = document.getElementById('global-audio-player');
+                
+                if (!audioEl || !playerEl) {
+                    console.warn('[HTMX Audio] Player elements not found, retrying...');
+                    setTimeout(function() {
+                        if (savedAudioState.src) restoreAudioState();
+                    }, 100);
+                    return;
+                }
+                
+                restoreAudioState();
+            }
+        });
+
+        function restoreAudioState() {
+            var audioEl = document.getElementById('global-audio-element');
+            var playerEl = document.getElementById('global-audio-player');
+            var titleEl = document.getElementById('gap-title');
+            
+            if (!audioEl || !playerEl || !savedAudioState.src) return;
+            
+            // Show the player
+            playerEl.classList.add('visible');
+            playerEl.style.display = 'flex';
+            var mainContent = document.querySelector('.main-content');
+            if (mainContent) mainContent.classList.add('has-audio');
+            
+            // Restore audio source if needed
+            if (audioEl.src !== savedAudioState.src) {
+                audioEl.src = savedAudioState.src;
+            }
+            
+            // Restore title
+            if (titleEl) titleEl.textContent = savedAudioState.title || '播放中...';
+            
+            // Restore playback position
+            try {
+                audioEl.currentTime = savedAudioState.currentTime;
+            } catch(e) {
+                console.warn('[HTMX Audio] Could not set currentTime:', e);
+            }
+            
+            // Resume playing if it was playing before
+            if (savedAudioState.wasPlaying) {
+                audioEl.play().then(function() {
+                    var playBtn = document.getElementById('gap-play-btn');
+                    if (playBtn) {
+                        playBtn.innerHTML = '\u275A\u275A';
+                        playBtn.classList.add('playing');
+                    }
+                }).catch(function(e) {
+                    console.warn('[HTMX Audio] Resume play failed:', e);
+                });
+            }
+            
+            console.log('[HTMX Audio] State restored successfully');
+            savedAudioState = { src: '', currentTime: 0, title: '', wasPlaying: false };
+        }
+
         // Sidebar toggle (mobile/tablet)
         function toggleSidebar() {
             var sidebar = document.getElementById('sidebar');
@@ -3296,5 +3782,33 @@
         }, 3000);
     })();
     </script>
+
+    <!-- Global Persistent Audio Player -->
+    <div class="global-audio-player" id="global-audio-player">
+        <button class="gap-icon" id="gap-play-btn" title="播放/暂停">&#9654;</button>
+        <div class="gap-info">
+            <div class="gap-title" id="gap-title">未播放音频</div>
+            <div class="gap-time" id="gap-time">00:00 / 00:00</div>
+        </div>
+        <div class="gap-progress">
+            <div class="gap-progress-bar" id="gap-progress-bar">
+                <div class="gap-progress-fill" id="gap-progress-fill"></div>
+            </div>
+        </div>
+        <div class="gap-time-display" id="gap-time-display">00:00</div>
+        <div class="gap-volume">
+            <span class="gap-volume-icon" id="gap-volume-icon" title="静音">&#128266;</span>
+            <input type="range" class="gap-volume-slider" id="gap-volume-slider" min="0" max="1" step="0.05" value="1">
+        </div>
+        <div class="gap-speed">
+            <button class="gap-speed-btn" data-speed="0.5">0.5x</button>
+            <button class="gap-speed-btn" data-speed="1">1x</button>
+            <button class="gap-speed-btn" data-speed="1.5">1.5x</button>
+            <button class="gap-speed-btn" data-speed="2">2x</button>
+        </div>
+        <button class="gap-close" id="gap-close-btn" title="关闭">&#10005;</button>
+        <audio id="global-audio-element" preload="auto"></audio>
+    </div>
+
 </body>
 </html>

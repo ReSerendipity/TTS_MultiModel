@@ -121,7 +121,7 @@ def create_app() -> FastAPI:
     templates_dir = os.path.join(_BASE_DIR, "templates")
     os.makedirs(templates_dir, exist_ok=True)
     templates = Jinja2Templates(directory=templates_dir)
-    templates.env.auto_reload = os.environ.get("TTS_DEBUG", "0") == "1"
+    templates.env.auto_reload = True
     from .i18n import register_i18n_filters
     register_i18n_filters(templates.env)
     app.state.templates = templates

@@ -1,4 +1,36 @@
 <div class="card">
+    <style>
+        .sc-auto-resize {
+            resize: none;
+            overflow: hidden;
+            min-height: 60px;
+            max-height: 400px;
+            line-height: 1.6;
+        }
+        .sc-char-counter {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            margin-bottom: 2px;
+            padding: 4px 8px;
+            background: rgba(139, 92, 246, 0.05);
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        .sc-char-counter .counter-main {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .sc-char-counter .counter-segments {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+        .sc-char-counter .counter-detail {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+    </style>
     <div class="card-header">
         <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
         <h3 class="card-header-title">{{ "script_workshop"|t(lang) }}</h3>
@@ -13,7 +45,8 @@
                 <code style="color:var(--accent-secondary);">[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}</code><br>
                 <code style="color:var(--accent-secondary);">[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}</code>
             </div>
-            <textarea name="text" class="tts-input-textarea" rows="8" placeholder="[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}&#10;[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}&#10;[{{ 'narrator'|t(lang) }}]{{ 'example_line3'|t(lang) }}" style="font-family:monospace;font-size:14px;min-height:200px;"></textarea>
+            <textarea name="text" class="tts-input-textarea sc-auto-resize" rows="8" placeholder="[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}&#10;[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}&#10;[{{ 'narrator'|t(lang) }}]{{ 'example_line3'|t(lang) }}" style="font-family:monospace;font-size:14px;min-height:200px;" oninput="updateScCharCounter(this); autoResizeTextarea(this)"></textarea>
+            <div id="sc-char-counter" class="sc-char-counter">0/200</div>
         </div>
 
         <div style="margin:16px 0;">
@@ -108,6 +141,39 @@
 </div>
 <script>
 (function(){
+    window.autoResizeTextarea = window.autoResizeTextarea || function(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
+    };
+
+    window.updateScCharCounter = function(textarea) {
+        var SPLIT_MAX_CHARS = 200;
+        var counter = document.getElementById('sc-char-counter');
+        var submitBtn = document.querySelector('#script-form button[type="submit"]');
+        if (counter) {
+            var len = textarea.value.length;
+            var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
+            
+            var counterMain = '<span class="counter-main">' + len + '/' + SPLIT_MAX_CHARS + '</span>';
+            var counterDetail = '';
+            if (len > SPLIT_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            } else if (len > 0) {
+                counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            }
+            
+            counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    };
+
+    // Initialize character counter and textarea height on page load
+    var scTextarea = document.querySelector('#script-form textarea[name=text]');
+    if (scTextarea) {
+        updateScCharCounter(scTextarea);
+        autoResizeTextarea(scTextarea);
+    }
+
     // Frontend validation: prevent empty text submission
     document.getElementById('script-form').addEventListener('submit', function(e) {
         var textarea = this.querySelector('textarea[name="text"]');
@@ -127,9 +193,11 @@
             var audioEl = document.getElementById('script-audio');
             var audioSrc = document.querySelector('#script-result audio');
             if (audioSrc) {
-                audioEl.src = audioSrc.src;
+                if (window.globalAudioPlayer) {
+                    var filename = audioSrc.src.split('/').pop().split('?')[0];
+                    window.globalAudioPlayer.play(audioSrc.src, filename);
+                }
                 audioEl.style.display = '';
-                audioEl.play().catch(function(ex) {});
             }
             // Show post-processing section when audio is available
             var wrapper = document.querySelector('#script-result [data-audio-filename]');
@@ -170,9 +238,11 @@
             var audioSrc = resultEl.querySelector('audio');
             var audioEl = document.getElementById('script-audio');
             if (audioSrc && audioEl) {
-                audioEl.src = audioSrc.src;
+                if (window.globalAudioPlayer) {
+                    var filename2 = audioSrc.src.split('/').pop().split('?')[0];
+                    window.globalAudioPlayer.play(audioSrc.src, filename2);
+                }
                 audioEl.style.display = '';
-                audioEl.play().catch(function(ex) {});
             }
         } catch(err) {
             statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';

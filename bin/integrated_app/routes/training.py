@@ -7,6 +7,11 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/training", tags=["training"])
 
@@ -22,6 +27,35 @@ def _validate_path(base_dir: str, user_path: str) -> str:
     if not joined.startswith(base + os.sep) and joined != base:
         raise ValueError(f"Path traversal detected: {user_path}")
     return joined
+
+
+def _detect_sample_rate(pretrained_path: str) -> int:
+    config_file = os.path.join(pretrained_path, "config.json")
+    if not os.path.isfile(config_file):
+        logger.warning(f"config.json not found at {config_file}, using default sample_rate=44100")
+        return 44100
+    try:
+        with open(config_file, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        sr = int(cfg["audio_vae_config"]["sample_rate"])
+        logger.info(f"Auto-detected sample_rate={sr} from {config_file}")
+        return sr
+    except (KeyError, ValueError, json.JSONDecodeError) as e:
+        logger.warning(f"Failed to detect sample_rate from {config_file}: {e}, using default 44100")
+        return 44100
+
+
+def _detect_out_sample_rate(pretrained_path: str) -> int:
+    config_file = os.path.join(pretrained_path, "config.json")
+    if not os.path.isfile(config_file):
+        return 0
+    try:
+        with open(config_file, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        out_sr = cfg.get("audio_vae_config", {}).get("out_sample_rate")
+        return int(out_sr) if out_sr else 0
+    except (KeyError, ValueError, json.JSONDecodeError):
+        return 0
 
 
 @router.post("/start")
@@ -41,12 +75,18 @@ async def start_training(request: Request):
     val_manifest = body.get("val_manifest", "")
     save_path = body.get("save_path", "lora/my_lora")
     learning_rate = body.get("learning_rate", 1e-4)
-    num_iters = body.get("num_iters", 10000)
+    num_iters = body.get("num_iters", 2000)
     batch_size = body.get("batch_size", 1)
     grad_accum_steps = body.get("grad_accum_steps", 1)
     save_interval = body.get("save_interval", 1000)
-    log_interval = body.get("log_interval", 100)
+    log_interval = body.get("log_interval", 10)
     lora_config = body.get("lora", {})
+    weight_decay = body.get("weight_decay", 0.01)
+    warmup_steps = body.get("warmup_steps", 100)
+    max_grad_norm = body.get("max_grad_norm", 1.0)
+    num_workers = body.get("num_workers", 2)
+    valid_interval = body.get("valid_interval", 1000)
+    lambdas = body.get("lambdas", {"loss/diff": 1.0, "loss/stop": 1.0})
 
     if not train_manifest:
         return JSONResponse({"status": "error", "message": "train_manifest is required"})
@@ -73,27 +113,62 @@ async def start_training(request: Request):
     except ValueError as e:
         return JSONResponse({"status": "error", "message": str(e)})
 
-    lora_json = json.dumps(lora_config) if lora_config else ""
+    sample_rate = _detect_sample_rate(pretrained_path)
+    out_sample_rate = _detect_out_sample_rate(pretrained_path)
 
-    cmd = [
-        sys.executable, train_script,
-        "--pretrained_path", pretrained_path,
-        "--train_manifest", train_manifest,
-        "--save_path", save_path,
-        "--learning_rate", str(learning_rate),
-        "--num_iters", str(num_iters),
-        "--batch_size", str(batch_size),
-        "--grad_accum_steps", str(grad_accum_steps),
-        "--save_interval", str(save_interval),
-        "--log_interval", str(log_interval),
-        "--sample_rate", "16000",
-    ]
+    user_sr = body.get("sample_rate")
+    if user_sr is not None:
+        user_sr = int(user_sr)
+        if user_sr != sample_rate:
+            logger.warning(f"User sample_rate={user_sr} differs from auto-detected {sample_rate}, using auto-detected value")
+    else:
+        user_sr = sample_rate
 
-    if val_manifest:
-        cmd.extend(["--val_manifest", val_manifest])
+    os.makedirs(save_path, exist_ok=True)
+    checkpoints_dir = os.path.join(save_path, "checkpoints")
+    logs_dir = os.path.join(save_path, "logs")
+    os.makedirs(checkpoints_dir, exist_ok=True)
+    os.makedirs(logs_dir, exist_ok=True)
 
-    if lora_json:
-        cmd.extend(["--lora", lora_json])
+    resolved_max_steps = int(body.get("max_steps", 0)) or int(num_iters)
+
+    config = {
+        "pretrained_path": pretrained_path,
+        "train_manifest": train_manifest,
+        "val_manifest": val_manifest if val_manifest else "",
+        "sample_rate": int(user_sr),
+        "out_sample_rate": int(out_sample_rate),
+        "batch_size": int(batch_size),
+        "grad_accum_steps": int(grad_accum_steps),
+        "num_workers": int(num_workers),
+        "num_iters": int(num_iters),
+        "log_interval": int(log_interval),
+        "valid_interval": int(valid_interval),
+        "save_interval": int(save_interval),
+        "learning_rate": float(learning_rate),
+        "weight_decay": float(weight_decay),
+        "warmup_steps": int(warmup_steps),
+        "max_steps": resolved_max_steps,
+        "max_grad_norm": float(max_grad_norm),
+        "save_path": checkpoints_dir,
+        "tensorboard": logs_dir,
+        "lambdas": lambdas,
+    }
+
+    if lora_config:
+        config["lora"] = lora_config
+
+    config_path = os.path.join(save_path, "train_config.yaml")
+    try:
+        import yaml as _yaml
+        with open(config_path, "w", encoding="utf-8") as f:
+            _yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+    except ImportError:
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+        logger.warning("PyYAML not installed, saved config as JSON instead")
+
+    cmd = [sys.executable, train_script, "--config_path", config_path]
 
     with _training_log_lock:
         _training_log = f"Starting training: {' '.join(cmd)}\n"
