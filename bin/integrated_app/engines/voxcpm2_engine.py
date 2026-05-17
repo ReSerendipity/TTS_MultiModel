@@ -1,19 +1,17 @@
-# -*- coding: utf-8 -*-
 """VoxCPM2 引擎：声音设计、可控克隆、极致克隆、剧本工坊"""
 
+import logging
 import os
 import re
 import time
-import logging
-from typing import Optional, Tuple
 
 import numpy as np
 
-from ..config import SAVE_DIR, PERSONA_DIR
-from ..model_manager import voxcpm_model, voxcpm_asr, _gen_tracker, _progress_mgr
-from ..generation import _save_wav_compatible, split_text_for_tts, merge_audio_segments
-from ..persona_manager import get_persona_map
+from ..config import SAVE_DIR
 from ..exceptions import EngineSwitchError, GenerationError, tts_error_handler
+from ..generation import _save_wav_compatible, split_text_for_tts
+from ..model_manager import _gen_tracker, _progress_mgr
+from ..persona_manager import get_persona_map
 from ..utils import cleanup_temp_files
 
 logger = logging.getLogger("tts_multimodel")
@@ -50,10 +48,10 @@ def update_advanced_params(params_dict):
 def fn_voxcpm_design(text: str, instruction: str,
                      cfg_value: float = 2.0, inference_timesteps: int = 10,
                      denoise: bool = True,
-                     ref_audio_path: Optional[str] = None) -> Tuple[Optional[Tuple], str]:
+                     ref_audio_path: str | None = None) -> tuple[tuple | None, str]:
     """VoxCPM2 声音设计，支持参考音色"""
-    from ..model_manager import voxcpm_model as _voxcpm_model
     from ..model_manager import _check_model_ready
+    from ..model_manager import voxcpm_model as _voxcpm_model
     if _voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
@@ -80,7 +78,7 @@ def fn_voxcpm_design(text: str, instruction: str,
 def _fn_voxcpm_design_impl(text: str, instruction: str, start_time: float = 0,
                            cfg_value: float = 2.0, inference_timesteps: int = 10,
                            denoise: bool = True,
-                           ref_audio_path: Optional[str] = None) -> Tuple[Optional[Tuple], str]:
+                           ref_audio_path: str | None = None) -> tuple[tuple | None, str]:
     """VoxCPM2 声音设计核心实现，使用官方 reference_wav_path 参数"""
     from ..model_manager import voxcpm_model as _voxcpm_model
 
@@ -167,12 +165,12 @@ def _fn_voxcpm_design_impl(text: str, instruction: str, start_time: float = 0,
 
 # ==================== 可控克隆 ====================
 
-def fn_voxcpm_clone(text: str, instruction: str, ref_audio_path: Optional[str],
+def fn_voxcpm_clone(text: str, instruction: str, ref_audio_path: str | None,
                     cfg_value: float = 2.0, inference_timesteps: int = 10,
-                    denoise: bool = True, normalize: bool = True) -> Tuple[Optional[Tuple], str]:
+                    denoise: bool = True, normalize: bool = True) -> tuple[tuple | None, str]:
     """VoxCPM2 可控克隆 - 使用官方 reference_wav_path 参数"""
-    from ..model_manager import voxcpm_model as _voxcpm_model
     from ..model_manager import _check_model_ready
+    from ..model_manager import voxcpm_model as _voxcpm_model
     if _voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
@@ -196,11 +194,12 @@ def fn_voxcpm_clone(text: str, instruction: str, ref_audio_path: Optional[str],
     return _wrapped(text, instruction, ref_audio_path, cfg_value, inference_timesteps, denoise, normalize)
 
 
-def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[str], start_time: float = 0,
+def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: str | None, start_time: float = 0,
                            cfg_value: float = 2.0, inference_timesteps: int = 10,
-                           denoise: bool = True, normalize: bool = True) -> Tuple[Optional[Tuple], str]:
+                           denoise: bool = True, normalize: bool = True) -> tuple[tuple | None, str]:
     """VoxCPM2 可控克隆核心实现 - 使用官方 reference_wav_path 参数（音色克隆）"""
     from ..model_manager import voxcpm_model as _voxcpm_model
+    from ..prompt_cache import load_cached_prompt
 
     _progress_mgr.update_phase("文本分割中...")
     segments = split_text_for_tts(text)
@@ -211,6 +210,14 @@ def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[
         if not os.path.isfile(ref_audio_path):
             raise GenerationError(f"参考音频文件不存在: {ref_audio_path}")
 
+    # Prompt Cache: 尝试从持久化缓存加载参考音频的 prompt_cache
+    _progress_mgr.update_phase("加载音色缓存...")
+    cached_prompt = None
+    if ref_audio_path:
+        cached_prompt = load_cached_prompt(ref_audio_path)
+        if cached_prompt is not None:
+            logger.info("[VoxCPM可控克隆] 使用缓存的音色特征，跳过重复编码")
+
     _progress_mgr.start(total_segments=total, phase="VoxCPM2 推理中...")
 
     def _build_text(seg_text):
@@ -218,11 +225,9 @@ def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[
             return "(" + instruction.strip() + ")" + seg_text
         return seg_text
 
-    if total == 1:
-        _progress_mgr.advance_segment("推理生成中...")
-        logger.info(f"[VoxCPM可控克隆] 第 1/1 段，使用 {'reference_wav' if ref_audio_path else '默认音色'} 模式...")
-        gen_kwargs = dict(
-            text=_build_text(segments[0]),
+    def _gen_kwargs(seg_text, ref_path=None, prompt_cache=None):
+        kwargs = dict(
+            text=seg_text,
             normalize=normalize,
             cfg_value=cfg_value,
             inference_timesteps=inference_timesteps,
@@ -233,9 +238,16 @@ def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[
             retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
             retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
         )
-        if ref_audio_path:
-            gen_kwargs["reference_wav_path"] = ref_audio_path
-        wav = _voxcpm_model.generate(**gen_kwargs)
+        if prompt_cache is not None:
+            kwargs["prompt_cache"] = prompt_cache
+        elif ref_path:
+            kwargs["reference_wav_path"] = ref_path
+        return kwargs
+
+    if total == 1:
+        _progress_mgr.advance_segment("推理生成中...")
+        logger.info(f"[VoxCPM可控克隆] 第 1/1 段，使用 {'reference_wav' if ref_audio_path else '默认音色'} 模式...")
+        wav = _voxcpm_model.generate(**_gen_kwargs(_build_text(segments[0]), ref_audio_path, cached_prompt))
         duration_sec = len(wav) / 48000 if len(wav) > 0 else 0
         timestamp = int(time.time())
         out_path = os.path.join(SAVE_DIR, f"voxcpm_clone_{timestamp}.wav")
@@ -260,21 +272,7 @@ def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[
         else:
             logger.info(f"[VoxCPM可控克隆] 第 1/{total} 段...")
 
-        gen_kwargs = dict(
-            text=_build_text(seg),
-            normalize=normalize,
-            cfg_value=cfg_value,
-            inference_timesteps=inference_timesteps,
-            denoise=denoise,
-            min_len=2,
-            max_len=_ADVANCED_PARAMS["max_len"],
-            retry_badcase=_ADVANCED_PARAMS["retry_badcase"],
-            retry_badcase_max_times=_ADVANCED_PARAMS["retry_badcase_max_times"],
-            retry_badcase_ratio_threshold=_ADVANCED_PARAMS["retry_badcase_ratio_threshold"],
-        )
-        if ref_audio_path:
-            gen_kwargs["reference_wav_path"] = ref_audio_path
-        wav = _voxcpm_model.generate(**gen_kwargs)
+        wav = _voxcpm_model.generate(**_gen_kwargs(_build_text(seg), ref_audio_path, cached_prompt))
         audio_segments.append(wav)
 
     if not audio_segments:
@@ -292,16 +290,17 @@ def _fn_voxcpm_clone_impl(text: str, instruction: str, ref_audio_path: Optional[
     return (48000, merged, filename), f"生成成功！音频时长 {duration_sec:.1f} 秒，分段: {total}。"
 
 
+
 # ==================== 极致克隆 ====================
 
 def fn_voxcpm_ultimate_clone(
-    text: str, instruction: str, ref_audio_path: Optional[str],
+    text: str, instruction: str, ref_audio_path: str | None,
     advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
     advanced_steps: int, advanced_seed: int,
-) -> Tuple[Optional[Tuple], str]:
+) -> tuple[tuple | None, str]:
     """VoxCPM2 极致克隆（ref_continuation 组合模式）"""
-    from ..model_manager import voxcpm_model as _voxcpm_model, voxcpm_asr as _voxcpm_asr
     from ..model_manager import _check_model_ready
+    from ..model_manager import voxcpm_model as _voxcpm_model
     if _voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
@@ -327,13 +326,15 @@ def fn_voxcpm_ultimate_clone(
 
 
 def _fn_voxcpm_ultimate_clone_impl(
-    text: str, instruction: str, ref_audio_path: Optional[str],
+    text: str, instruction: str, ref_audio_path: str | None,
     advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
     advanced_steps: int, advanced_seed: int, start_time: float = 0,
-) -> Tuple[Optional[Tuple], str]:
+) -> tuple[tuple | None, str]:
     """VoxCPM2 极致克隆核心实现 - prompt_wav_path + prompt_text 组合模式（官方 continuation API）"""
-    from ..model_manager import voxcpm_model as _voxcpm_model, voxcpm_asr as _voxcpm_asr
     import tempfile
+
+    from ..model_manager import voxcpm_asr as _voxcpm_asr
+    from ..model_manager import voxcpm_model as _voxcpm_model
 
     _progress_mgr.start(total_segments=1, phase="ASR 识别参考音频...")
 
@@ -364,10 +365,9 @@ def _fn_voxcpm_ultimate_clone_impl(
         finally:
             # Clean up temp denoised file if it was created
             if processed_ref_path_for_asr != ref_audio_path and os.path.isfile(processed_ref_path_for_asr):
-                try:
+                import contextlib
+                with contextlib.suppress(Exception):
                     os.remove(processed_ref_path_for_asr)
-                except:
-                    pass
 
     # IMPORTANT: For voice cloning, ALWAYS use original reference audio
     # Denoised audio can alter voice characteristics and cause mismatch
@@ -386,7 +386,7 @@ def _fn_voxcpm_ultimate_clone_impl(
 
     if total == 1:
         _progress_mgr.advance_segment("推理生成中...")
-        logger.info(f"[VoxCPM极致克隆] 第 1/1 段...")
+        logger.info("[VoxCPM极致克隆] 第 1/1 段...")
         # ref_continuation 组合模式：同时传入 prompt_wav_path + prompt_text
         wav = _voxcpm_model.generate(
             text=_build_text(segments[0]),
@@ -463,11 +463,11 @@ def _fn_voxcpm_ultimate_clone_impl(
 def fn_voxcpm_script_studio(
     script_text: str, advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
     advanced_steps: int, advanced_seed: int, lang: str = "中文",
-    persona_map_with_wav: Optional[dict] = None,
-) -> Tuple[Optional[Tuple], str]:
+    persona_map_with_wav: dict | None = None,
+) -> tuple[tuple | None, str]:
     """VoxCPM2 剧本工坊，使用官方 reference_wav_path 参数"""
-    from ..model_manager import voxcpm_model as _voxcpm_model, voxcpm_asr as _voxcpm_asr
     from ..model_manager import _check_model_ready
+    from ..model_manager import voxcpm_model as _voxcpm_model
     if _voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
@@ -477,7 +477,7 @@ def fn_voxcpm_script_studio(
             raise GenerationError("模型正在加载或切换中，请稍后再试")
         _gen_tracker.start_generation()
         start_time = time.time()
-        valid_lines = [l for l in script_text.strip().split("\n") if "]" in l]
+        valid_lines = [line for line in script_text.strip().split("\n") if "]" in line]
         _progress_mgr.start(total_segments=len(valid_lines), phase="剧本合成中...")
         try:
             return _fn_voxcpm_script_studio_impl(
@@ -498,14 +498,14 @@ def fn_voxcpm_script_studio(
 def _fn_voxcpm_script_studio_impl(
     script_text: str, advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
     advanced_steps: int, advanced_seed: int, lang: str, start_time: float,
-    persona_map_with_wav: Optional[dict] = None,
-) -> Tuple[Optional[Tuple], str]:
+    persona_map_with_wav: dict | None = None,
+) -> tuple[tuple | None, str]:
     """VoxCPM2 剧本工坊核心实现，使用官方 reference_wav_path 参数"""
     from ..model_manager import voxcpm_model as _voxcpm_model
 
     persona_map = get_persona_map()
     lines = script_text.strip().split("\n")
-    valid_lines = [l for l in lines if "]" in l]
+    valid_lines = [line for line in lines if "]" in line]
     total_roles = len(valid_lines)
     combined_wav = []
     sr_final = 48000
@@ -533,7 +533,7 @@ def _fn_voxcpm_script_studio_impl(
             continue
 
         role_name = match.group(1).strip()
-        emotion = match.group(2)
+        _emotion = match.group(2)
         content = match.group(3).strip()
         if not content:
             continue
@@ -580,12 +580,12 @@ def _fn_voxcpm_script_studio_impl(
 
 # ==================== Streaming 生成 ====================
 
-def fn_voxcpm_streaming(text: str, ref_audio_path: Optional[str] = None,
+def fn_voxcpm_streaming(text: str, ref_audio_path: str | None = None,
                         cfg_value: float = 2.0, inference_timesteps: int = 10,
                         denoise: bool = True, seed: int = -1):
     """VoxCPM2 流式生成，使用官方 reference_wav_path 参数"""
-    from ..model_manager import voxcpm_model as _voxcpm_model
     from ..model_manager import _check_model_ready
+    from ..model_manager import voxcpm_model as _voxcpm_model
     if _voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
@@ -609,7 +609,7 @@ def fn_voxcpm_streaming(text: str, ref_audio_path: Optional[str] = None,
     return _wrapped(text, ref_audio_path, cfg_value, inference_timesteps, denoise, seed)
 
 
-def _fn_voxcpm_streaming_impl(text: str, ref_audio_path: Optional[str], start_time: float = 0,
+def _fn_voxcpm_streaming_impl(text: str, ref_audio_path: str | None, start_time: float = 0,
                                cfg_value: float = 2.0, inference_timesteps: int = 10,
                                denoise: bool = True, seed: int = -1):
     """VoxCPM2 流式生成核心实现，使用官方 reference_wav_path 参数"""
@@ -760,10 +760,10 @@ def fn_voxcpm_get_lora_state() -> dict:
 
 # ==================== Prompt 延续模式 ====================
 
-def fn_voxcpm_prompt_continue(text: str, prompt_wav_path: str, prompt_text: str) -> Tuple[Optional[Tuple], str]:
+def fn_voxcpm_prompt_continue(text: str, prompt_wav_path: str, prompt_text: str) -> tuple[tuple | None, str]:
     """VoxCPM2 Prompt 延续模式"""
-    from ..model_manager import voxcpm_model as _voxcpm_model
     from ..model_manager import _check_model_ready
+    from ..model_manager import voxcpm_model as _voxcpm_model
     if _voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
@@ -785,7 +785,7 @@ def fn_voxcpm_prompt_continue(text: str, prompt_wav_path: str, prompt_text: str)
     return _wrapped(text, prompt_wav_path, prompt_text)
 
 
-def _fn_voxcpm_prompt_continue_impl(text: str, prompt_wav_path: str, prompt_text: str, start_time: float = 0) -> Tuple[Optional[Tuple], str]:
+def _fn_voxcpm_prompt_continue_impl(text: str, prompt_wav_path: str, prompt_text: str, start_time: float = 0) -> tuple[tuple | None, str]:
     """VoxCPM2 Prompt 延续模式核心实现"""
     from ..model_manager import voxcpm_model as _voxcpm_model
 
@@ -815,3 +815,6 @@ def _fn_voxcpm_prompt_continue_impl(text: str, prompt_wav_path: str, prompt_text
     _progress_mgr.complete()
     logger.info(f"[VoxCPM Prompt延续] 音频已保存: {out_path}，时长 {duration_sec:.1f}s")
     return (48000, wav, filename), f"生成成功！音频时长 {duration_sec:.1f} 秒。"
+
+
+

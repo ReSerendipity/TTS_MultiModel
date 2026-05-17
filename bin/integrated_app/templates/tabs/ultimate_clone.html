@@ -101,11 +101,15 @@
 </div>
 <style>
     .uc-auto-resize {
-        resize: none;
-        overflow: hidden;
+        resize: vertical;
+        overflow-y: auto;
         min-height: 60px;
         max-height: 400px;
         line-height: 1.6;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        max-width: none !important;
+        display: block !important;
     }
     .uc-char-counter {
         font-size: 12px;
@@ -285,5 +289,12 @@
             statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';
         }
     };
+
+    // Initialize character counter and textarea height on page load
+    var ucTextarea = document.querySelector('#uc-form textarea[name=text]');
+    if (ucTextarea) {
+        updateUcCharCounter(ucTextarea);
+        autoResizeTextarea(ucTextarea);
+    }
 })();
 </script>

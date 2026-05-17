@@ -433,7 +433,7 @@
             transition: margin-left 0.25s var(--ease-standard);
         }
         .main-content-inner {
-            padding: 12px 20px 0;
+            padding: 0;
             flex: 1;
             min-height: 0;
             min-width: 0;
@@ -982,11 +982,13 @@
             background: var(--bg-secondary, #14142A) !important;
             border: 1px solid var(--border-medium, rgba(255,255,255,0.12)) !important;
             border-radius: 14px !important;
-            padding: 22px !important;
-            margin-bottom: 18px !important;
+            padding: 12px !important;
+            margin-bottom: 12px !important;
             box-shadow: 0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03) !important;
             position: relative;
             overflow: hidden;
+            width: 100% !important;
+            box-sizing: border-box !important;
         }
         #tab-content .card::before,
         .main-content-inner .card::before {
@@ -1027,6 +1029,20 @@
         }
 
         /* === CRITICAL: Form element spacing === */
+        #tab-content form,
+        #tab-content .card form,
+        .main-content-inner .card form {
+            width: 100% !important;
+            max-width: none !important;
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        #tab-content form > div,
+        #tab-content .card form > div {
+            width: 100% !important;
+            max-width: none !important;
+        }
         #tab-content form label,
         #tab-content .card label {
             display: block !important;
@@ -1051,6 +1067,23 @@
             width: 100% !important;
             box-sizing: border-box !important;
             margin-bottom: 8px !important;
+        }
+
+        /* Ensure card children fill full width */
+        #tab-content .card > *,
+        #tab-content .card > form,
+        #tab-content .card > form > * {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            max-width: none !important;
+        }
+
+        /* Override any inner container width constraints */
+        #tab-content .card .inner-tab-panel,
+        #tab-content .card .inner-tab-panel > * {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            max-width: none !important;
         }
 
         /* === Responsive === */
@@ -2516,14 +2549,14 @@
         /* Reduce padding on cards for tighter feel */
         .tts-card,
         .card {
-            padding: var(--space-4) !important;
+            padding: 12px !important;
         }
 
         /* Simplify tab content area */
         #tab-content .card {
-            border-radius: var(--radius-lg) !important;
-            padding: var(--space-4) !important;
-            margin-bottom: var(--space-3) !important;
+            border-radius: var(--radius-lg, 12px) !important;
+            padding: 12px !important;
+            margin-bottom: 12px !important;
         }
 
         /* Health panel sections */
@@ -2567,12 +2600,13 @@
     </style>
 </head>
 <body class="dark">
+    <a href="#main-content" class="skip-link">跳到主内容</a>
     <div class="app-shell">
         <!-- Sidebar Overlay (mobile) -->
         <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
         <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="主导航">
             <!-- Sidebar Edge Toggle Button (visible when collapsed) -->
             <button class="sidebar-edge-toggle" onclick="toggleSidebarCollapse()" id="sidebar-edge-toggle" title="{{ "expand_sidebar"|t(lang) }}">&#9654;</button>
             <div class="sidebar-brand">
@@ -2584,7 +2618,7 @@
                 </div>
             </div>
 
-            <nav class="sidebar-nav">
+            <nav class="sidebar-nav" aria-label="功能菜单">
                 <div class="sidebar-nav-section">
                     <div class="sidebar-nav-label">{{ "nav_section" | t(lang) }}</div>
                     <button class="sidebar-item" data-tab="voice_design" data-engine="voxcpm2"
@@ -2671,7 +2705,7 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content" role="main">
             <div class="top-bar">
                 <button class="sidebar-toggle-desktop" onclick="toggleSidebarCollapse()" id="sidebar-toggle-btn" title="{{ "collapse_sidebar"|t(lang) }}" aria-label="Toggle sidebar" style="display:flex !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:100 !important;">&#9776;</button>
                 <button class="top-bar-mobile-toggle" onclick="toggleSidebar()" id="mobile-menu-btn" aria-label="Open menu">&#9776;</button>
@@ -2757,6 +2791,7 @@
 
                 <!-- Tab Content Area -->
                 <div id="tab-content"
+                     role="region" aria-label="内容区域" aria-live="polite"
                      hx-swap="innerHTML"
                      data-loading-text="{{ "loading_tab"|t(lang) }}">
                     <!-- Initial Page Load Skeleton -->
@@ -2942,6 +2977,194 @@
 
     <!-- All JS logic is inlined below -->
     <script>
+        // ===== KeyboardManager: Global Keyboard Shortcut Manager =====
+        function KeyboardManager() {
+            this.shortcuts = {};
+            this.listener = null;
+        }
+
+        KeyboardManager.prototype.register = function(id, keys, description, handler, category) {
+            var keyArray = Array.isArray(keys) ? keys : [keys];
+            this.shortcuts[id] = {
+                id: id,
+                keys: keyArray,
+                description: description || '',
+                handler: handler,
+                category: category || 'general'
+            };
+            console.log('[KeyboardManager] Registered:', id, keyArray.join('+'));
+        };
+
+        KeyboardManager.prototype.unregister = function(id) {
+            if (this.shortcuts[id]) {
+                delete this.shortcuts[id];
+                console.log('[KeyboardManager] Unregistered:', id);
+            }
+        };
+
+        KeyboardManager.prototype.getShortcuts = function() {
+            var result = [];
+            var ids = Object.keys(this.shortcuts);
+            for (var i = 0; i < ids.length; i++) {
+                var s = this.shortcuts[ids[i]];
+                result.push({
+                    id: s.id,
+                    keys: s.keys.slice(),
+                    description: s.description,
+                    category: s.category
+                });
+            }
+            return result;
+        };
+
+        KeyboardManager.prototype.isTyping = function(event) {
+            var tag = event.target.tagName;
+            return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.target.isContentEditable;
+        };
+
+        KeyboardManager.prototype.handleKeydown = function(event) {
+            if (this.isTyping(event)) {
+                return;
+            }
+
+            var ids = Object.keys(this.shortcuts);
+            for (var i = 0; i < ids.length; i++) {
+                var shortcut = this.shortcuts[ids[i]];
+                if (this._matches(shortcut.keys, event)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    shortcut.handler(event);
+                    return;
+                }
+            }
+        };
+
+        KeyboardManager.prototype._matches = function(keys, event) {
+            for (var i = 0; i < keys.length; i++) {
+                var key = keys[i];
+                var pressed = false;
+
+                if (key === 'Control') {
+                    pressed = event.ctrlKey;
+                } else if (key === 'Shift') {
+                    pressed = event.shiftKey;
+                } else if (key === 'Alt') {
+                    pressed = event.altKey;
+                } else if (key === 'Meta') {
+                    pressed = event.metaKey;
+                } else if (key === 'F1') {
+                    pressed = event.key === 'F1';
+                } else if (key === 'F2') {
+                    pressed = event.key === 'F2';
+                } else if (key === 'F3') {
+                    pressed = event.key === 'F3';
+                } else if (key === 'F4') {
+                    pressed = event.key === 'F4';
+                } else if (key === 'F5') {
+                    pressed = event.key === 'F5';
+                } else if (key === 'F6') {
+                    pressed = event.key === 'F6';
+                } else if (key === 'F7') {
+                    pressed = event.key === 'F7';
+                } else if (key === 'F8') {
+                    pressed = event.key === 'F8';
+                } else if (key === 'F9') {
+                    pressed = event.key === 'F9';
+                } else if (key === 'F10') {
+                    pressed = event.key === 'F10';
+                } else if (key === 'F11') {
+                    pressed = event.key === 'F11';
+                } else if (key === 'F12') {
+                    pressed = event.key === 'F12';
+                } else {
+                    pressed = event.key.toUpperCase() === key.toUpperCase();
+                }
+
+                if (!pressed) {
+                    return false;
+                }
+            }
+
+            // Check that no extra modifiers are pressed
+            if (event.ctrlKey && !this._hasModifier(keys, 'Control')) return false;
+            if (event.shiftKey && !this._hasModifier(keys, 'Shift')) return false;
+            if (event.altKey && !this._hasModifier(keys, 'Alt')) return false;
+            if (event.metaKey && !this._hasModifier(keys, 'Meta')) return false;
+
+            return true;
+        };
+
+        KeyboardManager.prototype._hasModifier = function(keys, modifier) {
+            for (var i = 0; i < keys.length; i++) {
+                if (keys[i] === modifier) return true;
+            }
+            return false;
+        };
+
+        // Mount to window object
+        window.keyboardManager = new KeyboardManager();
+
+        // ===== Shortcut API Functions =====
+        window.loadModel = function() {
+            var engineStatusText = document.getElementById('engine-status-text');
+            if (engineStatusText) {
+                engineStatusText.textContent = window.I18N['loading'] || '加载中...';
+            }
+
+            fetch('/api/model/load', { method: 'POST' })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (engineStatusText) {
+                        engineStatusText.textContent = window.I18N['ready'] || '就绪';
+                    }
+                    if (window.appState) {
+                        window.appState.setLoaded(true);
+                    }
+                    console.log('[KeyboardManager] Model loaded:', data);
+                })
+                .catch(function(error) {
+                    if (engineStatusText) {
+                        engineStatusText.textContent = (window.I18N['error'] || '错误') + ': ' + error.message;
+                    }
+                    console.error('[KeyboardManager] Failed to load model:', error);
+                });
+        };
+
+        window.unloadModel = function() {
+            var engineStatusText = document.getElementById('engine-status-text');
+            if (engineStatusText) {
+                engineStatusText.textContent = window.I18N['unloading'] || '卸载中...';
+            }
+
+            fetch('/api/model/unload', { method: 'POST' })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (engineStatusText) {
+                        engineStatusText.textContent = window.I18N['not_loaded'] || '未加载';
+                    }
+                    if (window.appState) {
+                        window.appState.setLoaded(false);
+                    }
+                    console.log('[KeyboardManager] Model unloaded:', data);
+                })
+                .catch(function(error) {
+                    if (engineStatusText) {
+                        engineStatusText.textContent = (window.I18N['error'] || '错误') + ': ' + error.message;
+                    }
+                    console.error('[KeyboardManager] Failed to unload model:', error);
+                });
+        };
+
         // Global i18n translations for JavaScript
         window.I18N = {{ i18n_json|safe }};
         window.CURRENT_LANG = '{{ lang }}';
@@ -3300,18 +3523,53 @@
             if (window.initMiniMonitor) {
                 window.initMiniMonitor();
             }
+
+            // Register keyboard shortcuts
+            if (window.keyboardManager) {
+                var km = window.keyboardManager;
+
+                // Ctrl+L: Load model
+                km.register('load_model', ['Control', 'L'],
+                    window.I18N['load_model_shortcut'] || '加载模型',
+                    function() { window.loadModel(); },
+                    'general'
+                );
+
+                // Ctrl+U: Unload model
+                km.register('unload_model', ['Control', 'U'],
+                    window.I18N['unload_model_shortcut'] || '卸载模型',
+                    function() { window.unloadModel(); },
+                    'general'
+                );
+
+                // F1: Toggle shortcut help panel
+                km.register('toggle_help', ['F1'],
+                    window.I18N['toggle_help_shortcut'] || '显示快捷键帮助',
+                    function() { window.toggleShortcutHelp(); },
+                    'general'
+                );
+
+                // Attach global keydown listener
+                document.addEventListener('keydown', function(e) {
+                    window.keyboardManager.handleKeydown(e);
+                });
+
+                console.log('[KeyboardManager] All shortcuts registered');
+            }
         });
 
-        var statusEventSource = new EventSource('/sse/status');
-        statusEventSource.onerror = function() {
-            // Auto-reconnect after 3 seconds
+        // ---- 统一 SSE 事件流：单一 EventSource 替代原先 4 个独立连接 ----
+        var unifiedEventSource = new EventSource('/api/sse/events');
+        unifiedEventSource.onerror = function() {
             setTimeout(function() {
-                if (statusEventSource.readyState === EventSource.CLOSED) {
-                    statusEventSource = new EventSource('/sse/status');
+                if (unifiedEventSource.readyState === EventSource.CLOSED) {
+                    unifiedEventSource = new EventSource('/api/sse/events');
                 }
             }, 3000);
         };
-        statusEventSource.addEventListener('status', function(e) {
+
+        // status 事件处理 (原 /sse/status)
+        unifiedEventSource.addEventListener('status', function(e) {
             try {
                 var data = JSON.parse(e.data);
                 var statusBar = document.getElementById('status-bar');
@@ -3343,15 +3601,8 @@
             } catch(err) {}
         });
 
-        var progressEventSource = new EventSource('/sse/progress');
-        progressEventSource.onerror = function() {
-            setTimeout(function() {
-                if (progressEventSource.readyState === EventSource.CLOSED) {
-                    progressEventSource = new EventSource('/sse/progress');
-                }
-            }, 3000);
-        };
-        progressEventSource.addEventListener('progress', function(e) {
+        // progress 事件处理 (原 /sse/progress)
+        unifiedEventSource.addEventListener('progress', function(e) {
             var progressBar = document.getElementById('progress-bar');
             if (progressBar && e.data) {
                 progressBar.innerHTML = e.data;
@@ -3390,7 +3641,9 @@
                 }
             }
         });
-        progressEventSource.addEventListener('complete', function(e) {
+
+        // complete 事件处理 (原 /sse/progress 的 complete 事件)
+        unifiedEventSource.addEventListener('complete', function(e) {
             if (window.appState) window.appState.setGenerating(false);
             // Hide cancel button after completion
             var cancelBtn = document.getElementById('progress-cancel-btn');
@@ -3399,18 +3652,9 @@
                 cancelBtn.querySelector('span').textContent = window.I18N["cancel"];
             }
         });
-        progressEventSource.addEventListener('error_event', function(e) {
-            if (window.appState) window.appState.setGenerating(false);
-            var cancelBtn = document.getElementById('progress-cancel-btn');
-            if (cancelBtn) {
-                cancelBtn.classList.remove('visible', 'cancelled');
-                cancelBtn.querySelector('span').textContent = window.I18N["cancel"];
-            }
-        });
 
-        // Cancel SSE event source
-        var cancelEventSource = new EventSource('/sse/cancel');
-        cancelEventSource.addEventListener('cancelled', function(e) {
+        // cancelled 事件处理 (原 /sse/cancel)
+        unifiedEventSource.addEventListener('cancelled', function(e) {
             try {
                 var data = JSON.parse(e.data);
                 if (window.appState) window.appState.setGenerating(false);
@@ -3424,8 +3668,8 @@
             } catch(err) {}
         });
 
-        var engineSwitchEventSource = new EventSource('/sse/engine_switch');
-        engineSwitchEventSource.addEventListener('engine_switch', function(e) {
+        // engine_switch 事件处理 (原 /sse/engine_switch)
+        unifiedEventSource.addEventListener('engine_switch', function(e) {
             try {
                 var data = JSON.parse(e.data);
                 var engineDisplay = document.getElementById('engine-status-text');
@@ -3784,7 +4028,7 @@
     </script>
 
     <!-- Global Persistent Audio Player -->
-    <div class="global-audio-player" id="global-audio-player">
+    <div class="global-audio-player" id="global-audio-player" role="region" aria-label="音频播放器">
         <button class="gap-icon" id="gap-play-btn" title="播放/暂停">&#9654;</button>
         <div class="gap-info">
             <div class="gap-title" id="gap-title">未播放音频</div>

@@ -71,11 +71,15 @@
 
     /* Textarea auto-resize */
     .vc-auto-resize {
-        resize: none;
-        overflow: hidden;
+        resize: vertical;
+        overflow-y: auto;
         min-height: 60px;
         max-height: 400px;
         line-height: 1.6;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        max-width: none !important;
+        display: block !important;
     }
 
     /* Character counter */
@@ -89,6 +93,7 @@
         border-radius: 4px;
         white-space: nowrap;
     }
+    .vc-char-counter.warning { color: #f59e0b; font-weight: 600; }
     .vc-char-counter .counter-main {
         display: inline-flex;
         align-items: center;
@@ -265,6 +270,8 @@
             }
 
             counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
+            counter.classList.remove('warning');
+            if (len >= SPLIT_MAX_CHARS || len >= SPLIT_MAX_CHARS * 0.8) counter.classList.add('warning');
             if (submitBtn) submitBtn.disabled = false;
         }
     };
@@ -381,6 +388,13 @@
                 filenameSpan.style.color = 'var(--text-muted)';
             }
         });
+    }
+
+    // Initialize character counter and textarea height on page load
+    var vcTextarea = document.querySelector('#vc-form textarea[name=text]');
+    if (vcTextarea) {
+        updateVcCharCounter(vcTextarea);
+        autoResizeTextarea(vcTextarea);
     }
 })();
 </script>

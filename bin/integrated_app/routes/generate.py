@@ -1,32 +1,31 @@
-import os
-import time
 import asyncio
 import html
 import logging
-import numpy as np
+import os
+import time
 from datetime import datetime
 from urllib.parse import quote
 
-from fastapi import APIRouter, Request, Form, File, UploadFile
+import numpy as np
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
-from typing import Optional
 
+from ..audio_processing import enhance_audio
+from ..config import SAVE_DIR
 from ..engines.voxcpm2_engine import (
-    fn_voxcpm_design,
     fn_voxcpm_clone,
-    fn_voxcpm_ultimate_clone,
+    fn_voxcpm_design,
+    fn_voxcpm_prompt_continue,
     fn_voxcpm_script_studio,
     fn_voxcpm_streaming,
-    fn_voxcpm_prompt_continue,
+    fn_voxcpm_ultimate_clone,
 )
 from ..exceptions import TTSError
-from .system import log_operation, increment_generation
-from ..gpu_utils import is_oom_error, free_gpu_memory
-from ..model_manager import _time_estimator, voxcpm_model as _voxcpm_model
-from ..config import SAVE_DIR
-from ..audio_processing import enhance_audio
-from ..monitor import get_health_monitor
+from ..gpu_utils import free_gpu_memory, is_oom_error
 from ..history_db import create_history_db
+from ..model_manager import _time_estimator
+from ..monitor import get_health_monitor
+from .system import increment_generation, log_operation
 
 _history_db = None
 
@@ -250,6 +249,69 @@ def _run_with_oom_retry(run_fn, endpoint_name, degraded_fn=None):
                 raise
 
 
+_DIALECT_NAMES = {"四川话", "粤语", "吴语", "东北话", "河南话", "闽南语", "湖南话", "湖北话", "客家话"}
+
+
+def _parse_bool_form(value) -> bool:
+    return str(value).lower() in ("true", "1", "yes")
+
+
+def _merge_dialect(instruction: str, dialect: str) -> str:
+    if dialect and dialect in _DIALECT_NAMES:
+        return (dialect + "，" + instruction) if instruction.strip() else dialect
+    return instruction
+
+
+async def _execute_generation(
+    text: str,
+    run_fn,
+    endpoint_name: str,
+    voice_or_persona: str = "",
+    model_type: str = "",
+    tempo_factor: float = 1.0,
+    voice_enhancement: str = "false",
+    target_lufs: float = -16.0,
+    oom_retry: bool = True,
+):
+    loop = asyncio.get_running_loop()
+    start_time = time.monotonic()
+    try:
+        if oom_retry:
+            result, msg, degraded_note = await loop.run_in_executor(
+                None, lambda: _run_with_oom_retry(run_fn, endpoint_name)
+            )
+        else:
+            result, msg = await loop.run_in_executor(None, run_fn)
+            degraded_note = None
+        duration = time.monotonic() - start_time
+        if result is None:
+            _log_generation(endpoint_name, text, "voxcpm2", voice_or_persona, False, duration, error_msg=msg)
+            return _error_html(msg)
+        is_degraded = degraded_note is not None
+        _log_generation(endpoint_name, text, "voxcpm2", voice_or_persona, True, duration, is_degraded=is_degraded)
+        _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
+        if isinstance(result, tuple) and len(result) >= 3:
+            audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
+            _record_to_history_db(
+                filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
+                model_type=model_type, output_format=result[1] if len(result) > 1 else "wav",
+                is_success=True,
+            )
+        monitor = get_health_monitor()
+        monitor.record_generation(success=True)
+        filename = result[2]
+        pp_voice_enhancement = _parse_bool_form(voice_enhancement)
+        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
+        if degraded_note:
+            return _partial_success_html(filename, msg, degraded_note)
+        return _success_html(filename, msg)
+    except Exception as e:
+        duration = time.monotonic() - start_time
+        logger.error(f"{endpoint_name} generation failed: {e}")
+        _log_generation(endpoint_name, text, "voxcpm2", voice_or_persona, False, duration, error_msg=str(e))
+        return _error_html(_safe_error_msg(e))
+
+
 @router.post("/voxcpm_design")
 async def generate_voxcpm_design(
     request: Request,
@@ -270,19 +332,13 @@ async def generate_voxcpm_design(
     if not text.strip():
         return _error_html("文本不能为空")
 
-    # Merge dialect/language into instruction
-    _DIALECT_NAMES = {"四川话", "粤语", "吴语", "东北话", "河南话", "闽南语", "湖南话", "湖北话", "客家话"}
-    if lang in _DIALECT_NAMES:
-        instruction = (lang + "，" + instruction) if instruction.strip() else lang
+    instruction = _merge_dialect(instruction, lang)
+    advanced_denoise = _parse_bool_form(denoise)
 
-    advanced_denoise = denoise.lower() in ("true", "1", "yes")
-
-    # Load persona WAV path if persona_name is provided
     actual_ref_path = None
     if persona_name:
         from ..persona_manager import load_persona_embedding
         safe_name = os.path.basename(persona_name)
-        
         persona_data = load_persona_embedding(safe_name)
         if persona_data is not None:
             wav_path, ref_text = persona_data
@@ -294,46 +350,20 @@ async def generate_voxcpm_design(
         else:
             logger.warning(f"[VoxCPM声音设计] 音色 '{safe_name}' 不存在，将使用默认音色")
 
-    loop = asyncio.get_running_loop()
-
     def _run():
-        return fn_voxcpm_design(text, instruction, cfg_value=cfg, inference_timesteps=steps, denoise=advanced_denoise,
-                                ref_audio_path=actual_ref_path)
+        return fn_voxcpm_design(text, instruction, cfg_value=cfg, inference_timesteps=steps,
+                                denoise=advanced_denoise, ref_audio_path=actual_ref_path)
 
-    start_time = time.monotonic()
-    try:
-        result, msg, degraded_note = await loop.run_in_executor(
-            None, lambda: _run_with_oom_retry(_run, "VoxCPM design")
-        )
-        duration = time.monotonic() - start_time
-        if result is None:
-            _log_generation("VoxCPM design", text, "voxcpm2", instruction[:50], False, duration, error_msg=msg)
-            return _error_html(msg)
-        is_degraded = degraded_note is not None
-        _log_generation("VoxCPM design", text, "voxcpm2", instruction[:50], True, duration, is_degraded=is_degraded)
-        _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
-        from ..config import SAVE_DIR
-        if isinstance(result, tuple) and len(result) >= 3:
-            audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
-            _record_to_history_db(
-                filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
-                model_type="声音设计", output_format=result[1] if len(result) > 1 else "wav",
-                is_success=True,
-            )
-        monitor = get_health_monitor()
-        monitor.record_generation(success=True)
-        filename = result[2]
-        # Apply post-processing if parameters differ from defaults
-        pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
-        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
-        if degraded_note:
-            return _partial_success_html(filename, msg, degraded_note)
-        return _success_html(filename, msg)
-    except Exception as e:
-        duration = time.monotonic() - start_time
-        logger.error(f"VoxCPM design generation failed: {e}")
-        _log_generation("VoxCPM design", text, "voxcpm2", instruction[:50], False, duration, error_msg=str(e))
-        return _error_html(_safe_error_msg(e))
+    return await _execute_generation(
+        text=text,
+        run_fn=_run,
+        endpoint_name="VoxCPM design",
+        voice_or_persona=instruction[:50],
+        model_type="声音设计",
+        tempo_factor=tempo_factor,
+        voice_enhancement=voice_enhancement,
+        target_lufs=target_lufs,
+    )
 
 
 @router.post("/streaming_sse")
@@ -348,10 +378,9 @@ async def streaming_sse_generation(
     denoise: str = Form("true"),
 ):
     """True streaming generation via SSE - sends audio chunks as they are generated."""
-    from ..model_manager import voxcpm_model as _voxcpm_model
+
     from ..generation import split_text_for_tts
     from ..persona_manager import load_persona_embedding
-    import struct
 
     model_not_ready = _check_model_ready()
     if model_not_ready:
@@ -413,10 +442,12 @@ async def streaming_sse_generation(
                 # Generate audio chunk
                 if hasattr(_voxcpm_model, 'generate_streaming'):
                     # True streaming: yield each sub-chunk
+                    current_gen_text = gen_text
+
                     def _gen_stream():
                         chunks = []
                         for chunk in _voxcpm_model.generate_streaming(
-                            text=gen_text,
+                            text=current_gen_text,
                             reference_wav_path=actual_ref_path if actual_ref_path else None,
                             normalize=True, cfg_value=cfg_value, inference_timesteps=inference_timesteps,
                             denoise=stream_denoise, min_len=2, max_len=4096,
@@ -427,9 +458,10 @@ async def streaming_sse_generation(
                     wav_data = await loop.run_in_executor(None, _gen_stream)
                 else:
                     # Fallback: regular generation
+                    current_gen_text = gen_text
                     wav_data = await loop.run_in_executor(
                         None,
-                        lambda t=gen_text: _voxcpm_model.generate(
+                        lambda t=current_gen_text: _voxcpm_model.generate(
                             text=t,
                             reference_wav_path=actual_ref_path if actual_ref_path else None,
                             normalize=True, cfg_value=cfg_value, inference_timesteps=inference_timesteps,
@@ -454,7 +486,8 @@ async def streaming_sse_generation(
                 filename = f"streaming_{timestamp}.wav"
 
                 # Save to file
-                import io, wave
+                import io
+                import wave
                 wav_bytes = io.BytesIO()
                 with wave.open(wav_bytes, 'wb') as wf:
                     wf.setnchannels(1)
@@ -495,7 +528,7 @@ async def generate_voxcpm_clone(
     norm: str = Form("true"),
     denoise: str = Form("true"),
     steps: int = Form(10),
-    ref_audio_upload: Optional[UploadFile] = File(None),
+    ref_audio_upload: UploadFile | None = File(None),
     lang: str = Form("Auto"),
     tempo_factor: float = Form(1.0),
     voice_enhancement: str = Form("false"),
@@ -507,21 +540,14 @@ async def generate_voxcpm_clone(
     if not text.strip():
         return _error_html("文本不能为空")
 
-    # Merge dialect into instruction
-    _DIALECT_NAMES = {"四川话", "粤语", "吴语", "东北话", "河南话", "闽南语", "湖南话", "湖北话", "客家话"}
-    if lang in _DIALECT_NAMES:
-        instruction = (lang + "，" + instruction) if instruction.strip() else lang
+    instruction = _merge_dialect(instruction, lang)
 
     actual_ref_path = ref_audio_path if ref_audio_path else None
-    actual_pt_data = None
 
-    # Handle file upload
     if ref_audio_upload and ref_audio_upload.filename:
-        from ..config import SAVE_DIR
         upload_dir = os.path.join(SAVE_DIR, "uploads")
         os.makedirs(upload_dir, exist_ok=True)
         safe_name = os.path.basename(ref_audio_upload.filename)
-        # Validate file extension
         _, ext = os.path.splitext(safe_name)
         if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
             return _error_html(f"Unsupported audio format: {ext}")
@@ -534,7 +560,6 @@ async def generate_voxcpm_clone(
     if not actual_ref_path and persona_name:
         from ..persona_manager import load_persona_embedding
         safe_name = os.path.basename(persona_name)
-        
         persona_data = load_persona_embedding(safe_name)
         if persona_data is not None:
             wav_path, ref_text = persona_data
@@ -546,50 +571,24 @@ async def generate_voxcpm_clone(
         else:
             return _error_html(f"音色不存在: {safe_name}")
 
-    loop = asyncio.get_running_loop()
-
-    clone_norm = norm.lower() in ("true", "1", "yes")
-    clone_denoise = denoise.lower() in ("true", "1", "yes")
+    clone_norm = _parse_bool_form(norm)
+    clone_denoise = _parse_bool_form(denoise)
 
     def _run():
         return fn_voxcpm_clone(text, instruction, actual_ref_path,
                                cfg_value=cfg, inference_timesteps=steps,
                                denoise=clone_denoise, normalize=clone_norm)
 
-    start_time = time.monotonic()
-    try:
-        result, msg, degraded_note = await loop.run_in_executor(
-            None, lambda: _run_with_oom_retry(_run, "VoxCPM clone")
-        )
-        duration = time.monotonic() - start_time
-        if result is None:
-            _log_generation("VoxCPM clone", text, "voxcpm2", instruction[:50], False, duration, error_msg=msg)
-            return _error_html(msg)
-        is_degraded = degraded_note is not None
-        _log_generation("VoxCPM clone", text, "voxcpm2", instruction[:50], True, duration, is_degraded=is_degraded)
-        _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
-        from ..config import SAVE_DIR
-        if isinstance(result, tuple) and len(result) >= 3:
-            audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
-            _record_to_history_db(
-                filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
-                model_type="可控克隆", output_format=result[1] if len(result) > 1 else "wav",
-                is_success=True,
-            )
-        monitor = get_health_monitor()
-        monitor.record_generation(success=True)
-        filename = result[2]
-        # Apply post-processing if parameters differ from defaults
-        pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
-        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
-        if degraded_note:
-            return _partial_success_html(filename, msg, degraded_note)
-        return _success_html(filename, msg)
-    except Exception as e:
-        duration = time.monotonic() - start_time
-        logger.error(f"VoxCPM clone generation failed: {e}")
-        _log_generation("VoxCPM clone", text, "voxcpm2", instruction[:50], False, duration, error_msg=str(e))
-        return _error_html(_safe_error_msg(e))
+    return await _execute_generation(
+        text=text,
+        run_fn=_run,
+        endpoint_name="VoxCPM clone",
+        voice_or_persona=instruction[:50],
+        model_type="可控克隆",
+        tempo_factor=tempo_factor,
+        voice_enhancement=voice_enhancement,
+        target_lufs=target_lufs,
+    )
 
 
 @router.post("/voxcpm_ultimate")
@@ -615,17 +614,13 @@ async def generate_voxcpm_ultimate(
     if not text.strip():
         return _error_html("文本不能为空")
 
-    # Merge dialect into instruction
-    _DIALECT_NAMES = {"四川话", "粤语", "吴语", "东北话", "河南话", "闽南语", "湖南话", "湖北话", "客家话"}
-    if lang in _DIALECT_NAMES:
-        instruction = (lang + "，" + instruction) if instruction.strip() else lang
+    instruction = _merge_dialect(instruction, lang)
 
     actual_ref_path = ref_audio_path if ref_audio_path else None
 
     if not actual_ref_path and persona_name:
         from ..persona_manager import load_persona_embedding
         safe_name = os.path.basename(persona_name)
-        
         persona_data = load_persona_embedding(safe_name)
         if persona_data is not None:
             wav_path, ref_text = persona_data
@@ -637,10 +632,8 @@ async def generate_voxcpm_ultimate(
         else:
             return _error_html(f"音色不存在: {safe_name}")
 
-    advanced_norm = norm.lower() in ("true", "1", "yes")
-    advanced_denoise = 1.0 if denoise.lower() in ("true", "1", "yes") else 0.0
-
-    loop = asyncio.get_running_loop()
+    advanced_norm = _parse_bool_form(norm)
+    advanced_denoise = 1.0 if _parse_bool_form(denoise) else 0.0
 
     def _run():
         return fn_voxcpm_ultimate_clone(
@@ -649,40 +642,16 @@ async def generate_voxcpm_ultimate(
             cfg, advanced_norm, advanced_denoise, steps, seed,
         )
 
-    start_time = time.monotonic()
-    try:
-        result, msg, degraded_note = await loop.run_in_executor(
-            None, lambda: _run_with_oom_retry(_run, "VoxCPM ultimate clone")
-        )
-        duration = time.monotonic() - start_time
-        if result is None:
-            _log_generation("VoxCPM ultimate clone", text, "voxcpm2", instruction[:50], False, duration, error_msg=msg)
-            return _error_html(msg)
-        is_degraded = degraded_note is not None
-        _log_generation("VoxCPM ultimate clone", text, "voxcpm2", instruction[:50], True, duration, is_degraded=is_degraded)
-        _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
-        from ..config import SAVE_DIR
-        if isinstance(result, tuple) and len(result) >= 3:
-            audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
-            _record_to_history_db(
-                filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
-                model_type="极致克隆", output_format=result[1] if len(result) > 1 else "wav",
-                is_success=True,
-            )
-        monitor = get_health_monitor()
-        monitor.record_generation(success=True)
-        filename = result[2]
-        # Apply post-processing if parameters differ from defaults
-        pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
-        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
-        if degraded_note:
-            return _partial_success_html(filename, msg, degraded_note)
-        return _success_html(filename, msg)
-    except Exception as e:
-        duration = time.monotonic() - start_time
-        logger.error(f"VoxCPM ultimate clone generation failed: {e}")
-        _log_generation("VoxCPM ultimate clone", text, "voxcpm2", instruction[:50], False, duration, error_msg=str(e))
-        return _error_html(_safe_error_msg(e))
+    return await _execute_generation(
+        text=text,
+        run_fn=_run,
+        endpoint_name="VoxCPM ultimate clone",
+        voice_or_persona=instruction[:50],
+        model_type="极致克隆",
+        tempo_factor=tempo_factor,
+        voice_enhancement=voice_enhancement,
+        target_lufs=target_lufs,
+    )
 
 
 @router.post("/voxcpm_script")
@@ -696,7 +665,7 @@ async def generate_voxcpm_script(
     denoise: str = Form("true"),
     steps: int = Form(10),
     seed: int = Form(-1),
-    persona_names: str = Form(""),  # Comma-separated persona names
+    persona_names: str = Form(""),
     tempo_factor: float = Form(1.0),
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
@@ -705,12 +674,11 @@ async def generate_voxcpm_script(
     if model_not_ready:
         return model_not_ready
     if not text.strip():
-        return _error_html("\u6587\u672c\u4e0d\u80fd\u4e3a\u7a7a")
+        return _error_html("文本不能为空")
 
-    advanced_norm = norm.lower() in ("true", "1", "yes")
-    advanced_denoise = 1.0 if denoise.lower() in ("true", "1", "yes") else 0.0
+    advanced_norm = _parse_bool_form(norm)
+    advanced_denoise = 1.0 if _parse_bool_form(denoise) else 0.0
 
-    # Load persona WAV paths for specified personas
     persona_map_with_wav = {}
     if persona_names.strip():
         from ..persona_manager import load_persona_embedding
@@ -728,43 +696,23 @@ async def generate_voxcpm_script(
             else:
                 logger.warning(f"[VoxCPM剧本工坊] 音色 '{safe_name}' 不存在")
 
-    loop = asyncio.get_running_loop()
-
     def _run():
         return fn_voxcpm_script_studio(
             text, cfg, advanced_norm, advanced_denoise, steps, seed, lang,
             persona_map_with_wav=persona_map_with_wav if persona_map_with_wav else None,
         )
 
-    start_time = time.monotonic()
-    try:
-        result, msg = await loop.run_in_executor(None, _run)
-        duration = time.monotonic() - start_time
-        if result is None:
-            _log_generation("VoxCPM script", text, "voxcpm2", "script", False, duration, error_msg=msg)
-            return _error_html(msg)
-        _log_generation("VoxCPM script", text, "voxcpm2", "script", True, duration)
-        _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
-        from ..config import SAVE_DIR
-        if isinstance(result, tuple) and len(result) >= 3:
-            audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
-            _record_to_history_db(
-                filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
-                model_type="剧本工坊", output_format=result[1] if len(result) > 1 else "wav",
-                is_success=True,
-            )
-        monitor = get_health_monitor()
-        monitor.record_generation(success=True)
-        filename = result[2]
-        # Apply post-processing if parameters differ from defaults
-        pp_voice_enhancement = voice_enhancement.lower() in ("true", "1", "yes")
-        filename = _apply_post_processing_to_file(filename, tempo_factor, pp_voice_enhancement, target_lufs)
-        return _success_html(filename, msg)
-    except Exception as e:
-        duration = time.monotonic() - start_time
-        logger.error(f"VoxCPM script generation failed: {e}")
-        _log_generation("VoxCPM script", text, "voxcpm2", "script", False, duration, error_msg=str(e))
-        return _error_html(_safe_error_msg(e))
+    return await _execute_generation(
+        text=text,
+        run_fn=_run,
+        endpoint_name="VoxCPM script",
+        voice_or_persona="script",
+        model_type="剧本工坊",
+        tempo_factor=tempo_factor,
+        voice_enhancement=voice_enhancement,
+        target_lufs=target_lufs,
+        oom_retry=False,
+    )
 
 
 @router.post("/post-process")
@@ -842,7 +790,7 @@ async def streaming_generation(
     if persona_name:
         from ..persona_manager import load_persona_embedding
         safe_name = os.path.basename(persona_name)
-        
+
         persona_data = load_persona_embedding(safe_name)
         if persona_data is not None:
             wav_path, ref_text = persona_data
@@ -894,18 +842,17 @@ async def streaming_audio_generation(
     denoise: str = Form("true"),
 ):
     """Streaming audio generation - generates audio progressively and returns playable result."""
-    from ..model_manager import voxcpm_model as _voxcpm_model
     from ..persona_manager import load_persona_embedding
-    
+
     model_not_ready = _check_model_ready()
     if model_not_ready:
         return model_not_ready
     if not text.strip():
         return _error_html("\u6587\u672c\u4e0d\u80fd\u4e3a\u7a7a")
-    
+
     # Convert string form values to proper types
     stream_denoise = denoise.lower() in ("true", "1", "yes")
-    
+
     # Load persona WAV path if persona_name is provided
     actual_ref_path = None
     if persona_name:
@@ -920,20 +867,20 @@ async def streaming_audio_generation(
                 logger.warning(f"[VoxCPM流式生成] 音色文件不存在: {safe_name}")
         else:
             logger.warning(f"[VoxCPM流式生成] 音色 '{safe_name}' 不存在，将使用默认音色")
-    
+
     start_time = time.monotonic()
     try:
         loop = asyncio.get_running_loop()
         from ..generation import split_text_for_tts
         segments = split_text_for_tts(text)
-        
+
         all_audio_data = []
-        
-        for seg_idx, seg in enumerate(segments):
+
+        for _seg_idx, seg in enumerate(segments):
             seg = seg.strip()
             if not seg:
                 continue
-            
+
             # Generate audio chunk for this segment
             wav = await loop.run_in_executor(
                 None,
@@ -948,21 +895,21 @@ async def streaming_audio_generation(
                     max_len=4096,
                 )
             )
-            
+
             # Convert audio to numpy array
             if hasattr(wav, 'numpy'):
                 wav_data = (wav.numpy() * 32767).astype(np.int16)
             else:
                 wav_data = (wav * 32767).astype(np.int16)
-            
+
             all_audio_data.append(wav_data)
-        
+
         # Concatenate all audio segments
         if all_audio_data:
             combined_audio = np.concatenate(all_audio_data)
         else:
             return _error_html("\u672a\u751f\u6210\u4efb\u4f55\u97f3\u9891\u6570\u636e")
-        
+
         # Save as WAV file
         import io
         import wave
@@ -972,22 +919,21 @@ async def streaming_audio_generation(
             wf.setsampwidth(2)  # 16-bit
             wf.setframerate(48000)
             wf.writeframes(combined_audio.tobytes())
-        
+
         wav_bytes.seek(0)
         audio_data = wav_bytes.read()
-        
+
         # Save to output directory
-        import base64
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"streaming_{timestamp}.wav"
         output_path = os.path.join(SAVE_DIR, filename)
         with open(output_path, 'wb') as f:
             f.write(audio_data)
-        
+
         duration = time.monotonic() - start_time
         _log_generation("Streaming", text, "voxcpm2", "streaming", True, duration)
-        
+
         # Return HTML with audio element that auto-plays
         safe_filename = quote(filename)
         safe_display = html.escape(filename)
@@ -1005,7 +951,7 @@ async def streaming_audio_generation(
     }}
 }})();
 </script>''')
-        
+
     except Exception as e:
         duration = time.monotonic() - start_time
         logger.error(f"Streaming audio generation failed: {e}")
@@ -1017,12 +963,12 @@ async def streaming_audio_generation(
 async def generate_voxcpm_prompt_continue(
     request: Request,
     text: str = Form(""),
-    prompt_wav: Optional[UploadFile] = File(None),
+    prompt_wav: UploadFile | None = File(None),
     prompt_text: str = Form(""),
     lang: str = Form("Auto"),
     tempo_factor: float = Form(1.0),
     voice_enhancement: bool = Form(False),
-    target_lufs: Optional[float] = Form(None),
+    target_lufs: float | None = Form(None),
 ):
     model_not_ready = _check_model_ready()
     if model_not_ready:

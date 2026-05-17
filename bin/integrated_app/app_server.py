@@ -1,17 +1,16 @@
-# -*- coding: utf-8 -*-
-import os
-import time
 import logging
-import asyncio
+import os
 import threading
+import time
 from logging.handlers import RotatingFileHandler
 
+import uvicorn
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+
+from .auth import APIAuthMiddleware
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_BASE_DIR))
@@ -86,20 +85,6 @@ def setup_logging():
         root_logger.setLevel(logging.INFO)
 
 
-def _preload_voxcpm2_in_background():
-    """Background thread to preload VoxCPM2 model on startup."""
-    try:
-        logger.info("[启动] 后台加载 VoxCPM2 模型中...")
-        from .model_manager import load_voxcpm2
-        gen = load_voxcpm2()
-        for status_text, _, _, _ in gen:
-            logger.info(f"[启动] {status_text}")
-        logger.info("[启动] VoxCPM2 模型已就绪")
-    except Exception as e:
-        logger.error(f"[启动] VoxCPM2 模型后台加载失败: {e}")
-        logger.info("[启动] 用户可手动点击加载按钮进行加载")
-
-
 def create_app() -> FastAPI:
     app = FastAPI(title="TTS MultiModel Voice Studio")
 
@@ -109,6 +94,13 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+
+    from .config import API_AUTH
+    app.add_middleware(
+        APIAuthMiddleware,
+        enabled=API_AUTH.get("enabled", False),
+        token=API_AUTH.get("token", ""),
     )
 
     static_dir = os.path.join(_BASE_DIR, "static")
@@ -130,7 +122,6 @@ def create_app() -> FastAPI:
     @app.get("/api/health/ping")
     async def health_ping():
         """Quick liveness probe -- returns 200 if the server is running."""
-        import time
         return {
             "status": "ok",
             "timestamp": time.time(),
@@ -139,14 +130,27 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health/ready")
     async def health_ready():
-        """Readiness probe -- checks if core models are available."""
+        """Readiness probe -- checks if core models are available, with loading progress."""
+        models_ok = getattr(app.state, "models_ok", False)
+        model_loading = getattr(app.state, "model_loading", False)
+        model_load_progress = getattr(app.state, "model_load_progress", "")
+
+        if models_ok:
+            status = "ok"
+        elif model_loading:
+            status = "loading"
+        else:
+            status = "degraded"
+
         return {
-            "status": "ok" if getattr(app.state, "models_ok", False) else "degraded",
-            "models_available": getattr(app.state, "models_ok", False),
+            "status": status,
+            "models_available": models_ok,
+            "loading": model_loading,
+            "progress": model_load_progress,
             "missing_models": getattr(app.state, "missing_models", []),
         }
 
-    from .routes import pages, tabs, audio, generate, model, persona, sse, system
+    from .routes import audio, generate, model, pages, persona, sse, system, tabs
     from .routes.training import router as training_router
     app.include_router(pages.router)
     app.include_router(tabs.router)
@@ -159,18 +163,34 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     app.include_router(training_router)
 
-    # Auto-load VoxCPM2 model synchronously on startup
     def startup_event():
-        from .model_manager import load_voxcpm2
-        logger.info("[启动] 正在加载 VoxCPM2 模型...")
-        try:
-            gen = load_voxcpm2()
-            for status_text, _, _, _ in gen:
-                logger.info(f"[启动] {status_text}")
-            logger.info("[启动] VoxCPM2 模型已就绪，服务完全启动")
-        except Exception as e:
-            logger.error(f"[启动] VoxCPM2 模型加载失败: {e}")
-            logger.info("[启动] 用户可通过界面手动加载模型")
+        """后台加载 VoxCPM2 模型，服务器立即可接受请求。"""
+        app.state.models_ok = False
+        app.state.model_loading = True
+        app.state.model_load_progress = "正在初始化..."
+
+        def _load_in_background():
+            try:
+                from .model_manager import load_voxcpm2
+                logger.info("[启动] 后台加载 VoxCPM2 模型中...")
+                gen = load_voxcpm2()
+                for status_text, _, _, _ in gen:
+                    app.state.model_load_progress = status_text
+                    logger.info(f"[启动] {status_text}")
+                app.state.models_ok = True
+                app.state.model_loading = False
+                app.state.model_load_progress = "模型已就绪"
+                logger.info("[启动] VoxCPM2 模型已就绪，服务完全启动")
+            except Exception as e:
+                app.state.models_ok = False
+                app.state.model_loading = False
+                app.state.model_load_progress = f"加载失败: {e}"
+                logger.error(f"[启动] VoxCPM2 模型后台加载失败: {e}")
+                logger.info("[启动] 用户可通过界面手动加载模型")
+
+        load_thread = threading.Thread(target=_load_in_background, daemon=True, name="model-startup-load")
+        load_thread.start()
+        logger.info("[启动] 服务已启动，模型正在后台加载...")
 
     app.add_event_handler("startup", startup_event)
 
@@ -178,7 +198,7 @@ def create_app() -> FastAPI:
 
 
 def run_server(ip="127.0.0.1", port=7869):
-    from .config import check_models_available, VERSION
+    from .config import VERSION, check_models_available
 
     app = create_app()
     models_ok, missing = check_models_available()

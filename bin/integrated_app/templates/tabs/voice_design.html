@@ -9,30 +9,74 @@
 
         /* Full-width form inputs */
         .vd-full-width {
-            width: 100%;
-            box-sizing: border-box;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            max-width: none !important;
+            display: block !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+        /* Override any width constraints on the form */
+        #vd-form {
+            width: 100% !important;
+            max-width: none !important;
+            display: block !important;
+        }
+        #vd-form > div {
+            width: 100% !important;
+            max-width: none !important;
+        }
+        /* Ensure textarea fills full available width */
+        .vd-auto-resize {
+            width: 100% !important;
+            max-width: none !important;
+            box-sizing: border-box !important;
+            display: block !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
         }
 
         /* Textarea auto-resize */
         .vd-auto-resize {
-            resize: none;
-            overflow: hidden;
+            resize: vertical;
+            overflow-y: auto;
             min-height: 60px;
             max-height: 400px;
             line-height: 1.6;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            max-width: none !important;
+            display: block !important;
+            padding: 12px 14px !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
         }
 
         /* Character counter */
-        .char-counter {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 6px;
-            margin-bottom: 2px;
-            padding: 4px 8px;
-            background: rgba(139, 92, 246, 0.05);
-            border-radius: 4px;
-            white-space: nowrap;
-        }
+    .vd-char-counter {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 6px;
+        margin-bottom: 2px;
+        padding: 4px 8px;
+        background: rgba(139, 92, 246, 0.05);
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+    .vd-char-counter.warning { color: #f59e0b; font-weight: 600; }
+    .vd-char-counter .counter-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .vd-char-counter .counter-segments {
+        color: var(--accent-primary);
+        font-weight: 600;
+    }
+    .vd-char-counter .counter-detail {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
 
         /* Voice preset tags - pill-shaped chips with gradient borders */
         .voice-preset-tag {
@@ -148,11 +192,11 @@
     </style>
     <form id="vd-form" hx-post="/api/generate/voxcpm_design" hx-target="#vd-result" hx-swap="innerHTML" hx-indicator="#vd-spinner">
         <input type="hidden" name="mode" value="voxcpm_design">
-        <label>{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" class="tts-input-textbox vd-full-width vd-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateCharCounter(this, 'vd-char-counter'); autoResizeTextarea(this)">{{ "default_voice_design_text"|t(lang) }}</textarea>
-        <div id="vd-char-counter" class="char-counter">0/200</div>
-        <label>{{ "language"|t(lang) }}</label>
-        <select name="lang" class="tts-input-dropdown vd-full-width">
+        <label for="vd-text">{{ "synthesis_text"|t(lang) }}</label>
+        <textarea name="text" class="tts-input-textbox vd-full-width vd-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateVdCharCounter(this); autoResizeTextarea(this)">{{ "default_voice_design_text"|t(lang) }}</textarea>
+        <div id="vd-char-counter" class="vd-char-counter">0/200</div>
+        <label for="vd-lang">{{ "language"|t(lang) }}</label>
+        <select name="lang" id="vd-lang" class="tts-input-dropdown vd-full-width">
             {% for l in langs %}
             <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
             {% endfor %}
@@ -168,8 +212,8 @@
                 <button type="button" class="sub-tab-btn" onclick="switchVdInnerTab('saved', this)">{{ "saved_voices"|t(lang) }}</button>
             </div>
             <div id="vd-tab-create" class="inner-tab-panel">
-                <label>{{ "voice_description"|t(lang) }}</label>
-                <input type="text" name="instruction" placeholder="{{ 'voice_desc_placeholder'|t(lang) }}" class="vd-instruct-input">
+                <label for="vd-instruction">{{ "voice_description"|t(lang) }}</label>
+                <input type="text" name="instruction" id="vd-instruction" placeholder="{{ 'voice_desc_placeholder'|t(lang) }}" class="vd-instruct-input">
                 <div class="voice-preset-tags">
                     <span class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)">{{ 'loli_voice'|t(lang) }}</span>
                     <span class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)">{{ 'mature_voice'|t(lang) }}</span>
@@ -217,8 +261,8 @@
                 </div>
             </div>
             <div id="vd-tab-saved" class="inner-tab-panel" style="display:none;">
-                <label>{{ "select_voice"|t(lang) }}</label>
-                <select name="persona_name" class="tts-input-dropdown vd-full-width">
+                <label for="vd-persona-name">{{ "select_voice"|t(lang) }}</label>
+                <select name="persona_name" id="vd-persona-name" class="tts-input-dropdown vd-full-width">
                     {% for p in persona_list %}
                     {% if p.startswith('[官方]') %}
                     <option value="{{ p.split('(')[-1].rstrip(')') }}" data-type="official">⭐ {{ p }}</option>
@@ -229,10 +273,10 @@
                 </select>
                 <div id="vd-persona-desc" class="vd-persona-desc"></div>
                 <div class="vd-flex-row">
-            <button type="button" class="secondary-btn" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
-            <button type="button" class="primary-btn" onclick="submitWithPersona()">{{ "use_selected_voice"|t(lang) }}</button>
-            <button type="button" class="primary-btn stream-btn" onclick="submitStreaming()">{{ "stream_generate"|t(lang) }}</button>
-        </div>
+                    <button type="button" class="secondary-btn" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
+                    <button type="button" class="primary-btn" onclick="submitWithPersona()">{{ "use_selected_voice"|t(lang) }}</button>
+                    <button type="button" class="primary-btn stream-btn" onclick="submitStreaming()">{{ "stream_generate"|t(lang) }}</button>
+                </div>
             </div>
         </div>
     </form>
@@ -242,8 +286,8 @@
         <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
         <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
     </div>
-    <div id="vd-result">
-        <div id="vd-spinner" class="htmx-indicator" style="display:none;text-align:center;padding:24px;">
+    <div id="vd-result" aria-live="polite">
+        <div id="vd-spinner" class="htmx-indicator" style="display:none;text-align:center;padding:24px;" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="生成进度">
             <div class="tts-loading-spinner vd-spinner-centered"></div>
             <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
         </div>
@@ -547,24 +591,25 @@
         textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
     };
 
-    window.updateCharCounter = function(textarea, counterId) {
+    window.updateVdCharCounter = function(textarea) {
         var SPLIT_MAX_CHARS = 200;
-        var counter = document.getElementById(counterId);
-        var submitBtn = document.querySelector('.primary-btn[type="submit"]');
+        var counter = document.getElementById('vd-char-counter');
+        var submitBtn = document.querySelector('#vd-form button[type="submit"]');
         if (counter) {
             var len = textarea.value.length;
             var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
-            
+
             var counterMain = '<span class="counter-main">' + len + '/' + SPLIT_MAX_CHARS + '</span>';
-            
             var counterDetail = '';
             if (len > SPLIT_MAX_CHARS) {
                 counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
             } else if (len > 0) {
                 counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
             }
-            
+
             counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
+            counter.classList.remove('warning');
+            if (len >= SPLIT_MAX_CHARS || len >= SPLIT_MAX_CHARS * 0.8) counter.classList.add('warning');
             if (submitBtn) submitBtn.disabled = false;
         }
     };
@@ -611,10 +656,10 @@
         return false;
     };
 
-    // ISSUE 2 FIX: Initialize character counter on page load
+    // Initialize character counter on page load
     var textarea = document.querySelector('#vd-form textarea[name=text]');
     if (textarea) {
-        updateCharCounter(textarea, 'vd-char-counter');
+        updateVdCharCounter(textarea);
         autoResizeTextarea(textarea);
     }
 

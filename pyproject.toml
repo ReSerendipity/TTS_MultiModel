@@ -4,10 +4,10 @@ version = "2.0.0"
 description = "TTS MultiModel - VoxCPM2 based Text-to-Speech application"
 requires-python = ">=3.10"
 dependencies = [
-    # === 深度学习框架 ===
+    # === 深度学习框架（版本必须匹配：torch 2.5.x -> torchvision 0.20.x -> torchaudio 2.5.x）===
     "torch>=2.5.1",
-    "torchvision>=0.16.0",
-    "torchaudio>=2.1.0",
+    "torchvision>=0.20.1",
+    "torchaudio>=2.5.1",
     "transformers>=4.57.0",
     "tokenizers>=0.19.0",
     # === AI 生态 ===
@@ -29,7 +29,12 @@ dependencies = [
     "httpx>=0.24.0",
     "aiofiles>=23.0",
     "cryptography>=41.0.0",
+    # === 数据校验 ===
+    "pydantic>=2.0",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21", "pytest-cov>=4.0", "ruff>=0.4"]
 
 [project.scripts]
 tts-multimodel = "integrated_app.cli:main"
@@ -37,3 +42,24 @@ tts-multimodel = "integrated_app.cli:main"
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["bin"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+src = ["bin/integrated_app"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B008", "B905"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["integrated_app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

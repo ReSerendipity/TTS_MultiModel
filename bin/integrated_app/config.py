@@ -75,7 +75,7 @@ def _load_config():
 
     config_path = os.path.join(ROOT_DIR, "config.yaml")
     if not os.path.exists(config_path):
-        return version, gen_defaults, official_speakers, official_speaker_info, official_speakers_ordered
+        return version, gen_defaults, official_speakers, official_speaker_info, official_speakers_ordered, {"enabled": False, "token": ""}
 
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -124,9 +124,19 @@ def _load_config():
         import logging
         logging.getLogger("tts_multimodel").warning(f"Config load failed: {e}")
 
-    return version, gen_defaults, official_speakers, official_speaker_info, official_speakers_ordered
+    api_auth = {"enabled": False, "token": ""}
+    try:
+        if cfg and "api_auth" in cfg:
+            auth_cfg = cfg["api_auth"]
+            if isinstance(auth_cfg, dict):
+                api_auth["enabled"] = bool(auth_cfg.get("enabled", False))
+                api_auth["token"] = str(auth_cfg.get("token", ""))
+    except Exception:
+        pass
 
-VERSION, GEN_DEFAULTS, OFFICIAL_SPEAKERS, OFFICIAL_SPEAKER_INFO, _OFFICIAL_SPEAKERS_ORDERED = _load_config()
+    return version, gen_defaults, official_speakers, official_speaker_info, official_speakers_ordered, api_auth
+
+VERSION, GEN_DEFAULTS, OFFICIAL_SPEAKERS, OFFICIAL_SPEAKER_INFO, _OFFICIAL_SPEAKERS_ORDERED, API_AUTH = _load_config()
 _OFFICIAL_SPEAKERS_LOWER = {s.lower() for s in OFFICIAL_SPEAKERS}
 _OFFICIAL_DISPLAY_NAMES = [f"{OFFICIAL_SPEAKER_INFO[s][0]} ({s})" for s in _OFFICIAL_SPEAKERS_ORDERED]
 
