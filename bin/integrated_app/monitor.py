@@ -9,19 +9,20 @@ logger = logging.getLogger("tts_multimodel")
 
 
 def _get_gpu_device():
-    """Get the NVIDIA GPU device index without importing model_manager."""
-    import torch
-    if not torch.cuda.is_available():
+    """Get the GPU device index using unified backend manager."""
+    from .gpu_backend import GPUBackendManager
+    
+    if not GPUBackendManager.is_available():
         return 0
-    for i in range(torch.cuda.device_count()):
-        try:
-            props = torch.cuda.get_device_properties(i)
-            name_lower = props.name.lower()
-            if any(k in name_lower for k in ("nvidia", "geforce", "rtx", "gtx", "quadro", "tesla")):
-                return i
-        except Exception:
-            continue
-    return 0
+    
+    try:
+        device = GPUBackendManager.get_device()
+        import torch
+        if isinstance(device, torch.device):
+            return device.index if device.index is not None else 0
+        return device
+    except Exception:
+        return 0
 
 
 class HealthMonitor:
@@ -104,6 +105,7 @@ class HealthMonitor:
     def get_health_report(self) -> Dict[str, Any]:
         """Get comprehensive health report."""
         import torch
+        from .gpu_backend import GPUBackendManager, GPUBackend
 
         report: Dict[str, Any] = {
             "uptime_seconds": round(time.time() - self._start_time, 1),
@@ -114,15 +116,17 @@ class HealthMonitor:
             "model_last_check": self._model_last_check,
         }
 
-        if torch.cuda.is_available():
+        backend = GPUBackendManager.detect_backend()
+        if backend != GPUBackend.CPU:
             device = _get_gpu_device()
-            vram_used = torch.cuda.memory_allocated(device) / (1024 ** 2)
-            vram_total = torch.cuda.get_device_properties(device).total_memory / (1024 ** 2)
+            vram_used = GPUBackendManager.memory_allocated(device) / (1024 ** 2)
+            props = GPUBackendManager.get_device_properties(device)
+            vram_total = props.get('total_memory', 0) / (1024 ** 2)
             report["gpu"] = {
-                "name": torch.cuda.get_device_name(device),
+                "name": GPUBackendManager.get_device_name(device),
                 "vram_used_mb": round(vram_used, 1),
                 "vram_total_mb": round(vram_total, 1),
-                "vram_usage_pct": round(vram_used / vram_total * 100, 1),
+                "vram_usage_pct": round(vram_used / vram_total * 100, 1) if vram_total > 0 else 0,
             }
             leak_warning = self.check_memory_leak()
             if leak_warning:

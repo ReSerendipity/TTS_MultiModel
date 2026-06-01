@@ -6,9 +6,11 @@ outputs/
 
 # Temp files
 ._____temp/
+temp_indextts/
 *.tmp
 *.log
 error.txt
+get-pip.py
 
 # Static generated files
 static/

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""GPU utility functions: OOM detection, VRAM management, and GPU detection."""
+"""GPU utility functions: OOM detection, VRAM management, and multi-backend GPU detection.
+
+Supports NVIDIA CUDA, AMD ROCM, Intel XPU, Apple MPS, and CPU backends.
+"""
 
 import gc
 import logging
@@ -8,7 +11,7 @@ logger = logging.getLogger("tts_multimodel")
 
 
 def is_oom_error(exc: Exception) -> bool:
-    """Detect whether an exception is caused by CUDA OOM during generation or model loading."""
+    """Detect whether an exception is caused by GPU OOM during generation or model loading."""
     error_str = str(exc).lower()
     oom_patterns = [
         "cuda out of memory",
@@ -16,12 +19,14 @@ def is_oom_error(exc: Exception) -> bool:
         "oom",
         "insufficient vram",
         "insufficientvram",
+        "xpu out of memory",
     ]
     for pattern in oom_patterns:
         if pattern in error_str:
             return True
     if isinstance(exc, RuntimeError):
-        if "CUDA" in str(exc) and ("memory" in str(exc).lower() or "alloc" in str(exc).lower()):
+        error_upper = str(exc).upper()
+        if ("CUDA" in error_upper or "XPU" in error_upper) and ("memory" in str(exc).lower() or "alloc" in str(exc).lower()):
             return True
     return False
 
@@ -29,26 +34,91 @@ def is_oom_error(exc: Exception) -> bool:
 def free_gpu_memory():
     """Attempt to free GPU memory aggressively before retry operations."""
     import torch
+    from .gpu_backend import GPUBackendManager, GPUBackend
 
     gc.collect()
-    if torch.cuda.is_available():
+    backend = GPUBackendManager.detect_backend()
+
+    if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
         torch.cuda.synchronize()
         torch.cuda.empty_cache()
-        try:
-            torch._C._cuda_clearCublasWorkspaces()
-        except AttributeError:
-            pass
+        clear_func = GPUBackendManager.get_cuda_clear_workspaces_func()
+        if clear_func:
+            try:
+                clear_func()
+            except Exception:
+                pass
         torch.cuda.ipc_collect()
         torch.cuda.empty_cache()
+    elif backend == GPUBackend.XPU:
+        GPUBackendManager.synchronize()
+        GPUBackendManager.empty_cache()
+    elif backend == GPUBackend.MPS:
+        pass
+
+
+def get_gpu_device():
+    """Find the best GPU device index with the most available VRAM.
+
+    Supports multiple GPU backends: NVIDIA CUDA, AMD ROCM, Intel XPU, Apple MPS.
+    Iterates through all available GPU devices and selects the one
+    with the largest total VRAM if multiple GPUs are found.
+
+    Returns:
+        GPU device index for the best available GPU, or None if only CPU is available.
+
+    Raises:
+        RuntimeError: If GPU is expected but not available.
+    """
+    import torch
+    from .gpu_backend import GPUBackendManager, GPUBackend
+
+    backend = GPUBackendManager.detect_backend()
+
+    # CPU backend - return None to indicate no GPU
+    if backend == GPUBackend.CPU:
+        return None
+
+    if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
+        if not torch.cuda.is_available():
+            return None
+
+        for i in range(torch.cuda.device_count()):
+            try:
+                props = torch.cuda.get_device_properties(i)
+                return i
+            except Exception as e:
+                logger.debug(f"无法获取 GPU {i} 信息: {e}")
+
+        return None
+
+    elif backend == GPUBackend.XPU:
+        try:
+            import intel_extension_for_pytorch as ipex
+            if ipex.xpu.is_available():
+                for i in range(ipex.xpu.device_count()):
+                    try:
+                        props = ipex.xpu.get_device_properties(i)
+                        return i
+                    except Exception as e:
+                        logger.debug(f"无法获取 Intel XPU {i} 信息: {e}")
+                return None
+        except ImportError:
+            pass
+
+        return None
+
+    elif backend == GPUBackend.MPS:
+        return 0
+
+    return None
 
 
 def get_nvidia_gpu_device():
     """Find the NVIDIA GPU device index with the most available VRAM.
 
-    Only supports NVIDIA GPUs with CUDA. Iterates through all available
-    GPU devices and filters by name patterns (NVIDIA, GeForce, RTX,
-    GTX, Quadro, Tesla). If multiple GPUs are found, selects the one
-    with the largest total VRAM.
+    Deprecated: Use get_gpu_device() instead for multi-backend support.
+    This function is kept for backward compatibility.
 
     Returns:
         GPU device index for the best available NVIDIA GPU.
@@ -57,6 +127,12 @@ def get_nvidia_gpu_device():
         RuntimeError: If CUDA is not available or no NVIDIA GPU is detected.
     """
     import torch
+    from .gpu_backend import GPUBackendManager, GPUBackend
+
+    backend = GPUBackendManager.detect_backend()
+    
+    if backend != GPUBackend.CUDA:
+        raise RuntimeError("未检测到可用的 NVIDIA 显卡。本项目当前后端为 {}，仅 NVIDIA GPU 可使用此函数。".format(backend.value))
 
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA 不可用，请确认已安装支持 CUDA 的 NVIDIA 显卡和驱动。")
@@ -84,16 +160,40 @@ def get_nvidia_gpu_device():
     return best_idx
 
 
-def get_nvidia_gpu_memory_info():
-    """Get memory information for the primary NVIDIA GPU.
+def get_gpu_memory_info():
+    """Get memory information for the primary GPU.
+
+    Supports multiple GPU backends: NVIDIA CUDA, AMD ROCM, Intel XPU.
 
     Returns:
         Tuple of (total_bytes, allocated_bytes, reserved_bytes, free_bytes),
         or (0, 0, 0, 0) if GPU memory info cannot be retrieved.
     """
     import torch
+    from .gpu_backend import GPUBackendManager
 
-    device = get_nvidia_gpu_device()
+    device = get_gpu_device()
+    return GPUBackendManager.get_memory_info(device)
+
+
+def get_nvidia_gpu_memory_info():
+    """Get memory information for the primary NVIDIA GPU.
+
+    Deprecated: Use get_gpu_memory_info() instead for multi-backend support.
+    This function is kept for backward compatibility.
+
+    Returns:
+        Tuple of (total_bytes, allocated_bytes, reserved_bytes, free_bytes),
+        or (0, 0, 0, 0) if GPU memory info cannot be retrieved.
+    """
+    import torch
+    from .gpu_backend import GPUBackendManager, GPUBackend
+
+    try:
+        device = get_nvidia_gpu_device()
+    except RuntimeError:
+        return (0, 0, 0, 0)
+
     if not torch.cuda.is_available():
         return (0, 0, 0, 0)
     try:
@@ -121,9 +221,9 @@ class GPUMemoryMonitor:
 
         Returns:
             Dictionary with 'total', 'used', and 'free' keys in bytes.
-            Returns zeroed dict if CUDA is unavailable.
+            Returns zeroed dict if GPU is unavailable.
         """
-        total, allocated, reserved, free = get_nvidia_gpu_memory_info()
+        total, allocated, reserved, free = get_gpu_memory_info()
         return {"total": total, "used": allocated, "free": free}
 
     @staticmethod

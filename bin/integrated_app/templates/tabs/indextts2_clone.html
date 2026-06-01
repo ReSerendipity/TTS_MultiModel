@@ -1,0 +1,138 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+        <h3 class="card-header-title">{{ "tab_indextts2_clone"|t(lang) }}</h3>
+    </div>
+    <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "indextts2_clone_desc"|t(lang) }}</div>
+    <style>
+        .it2c-full-width { width: 100% !important; box-sizing: border-box !important; max-width: none !important; display: block !important; }
+        #it2c-form { width: 100% !important; max-width: none !important; display: block !important; }
+        .it2c-auto-resize { resize: vertical; overflow-y: auto; min-height: 80px; max-height: 400px; line-height: 1.6; width: 100% !important; box-sizing: border-box !important; padding: 12px 14px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
+        .it2c-char-counter { font-size: 12px; color: var(--text-secondary); margin-top: 6px; padding: 4px 8px; background: rgba(139,92,246,0.05); border-radius: 4px; }
+        .it2c-file-upload { border: 2px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-bottom: 10px; background: rgba(139,92,246,0.02); }
+        .it2c-file-upload:hover { border-color: var(--primary); background: rgba(139,92,246,0.06); }
+        .it2c-file-upload input[type="file"] { display: none; }
+        .it2c-file-name { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+        .it2c-duration-selector { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        .it2c-duration-btn { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; font-size: 12px; transition: all 0.2s ease; }
+        .it2c-duration-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .it2c-duration-btn.active { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); font-weight: 600; }
+        .it2c-audio-preview { margin-top: 10px; display: none; }
+        .it2c-audio-preview audio { width: 100%; }
+        .it2c-full-width-btn { width: 100%; margin-top: 16px; }
+    </style>
+    <form id="it2c-form" hx-post="/api/generate/indextts2/clone" hx-target="#it2c-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+        <input type="hidden" name="mode" value="clone">
+        <label for="it2c-ref-audio">{{ "ref_audio"|t(lang) }}</label>
+        <div class="it2c-file-upload" onclick="document.getElementById('it2c-ref-audio-input').click()">
+            <input type="file" id="it2c-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2cFileName(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div style="font-size:13px;color:var(--text-secondary);">{{ "upload_clone_ref"|t(lang) }}</div>
+            <div id="it2c-ref-audio-name" class="it2c-file-name">{{ "supported_formats"|t(lang) }} (5-30s)</div>
+        </div>
+        <div class="it2c-audio-preview" id="it2c-audio-preview">
+            <audio id="it2c-preview-audio" controls></audio>
+        </div>
+        <label for="it2c-text">{{ "synthesis_text"|t(lang) }}</label>
+        <textarea name="text" id="it2c-text" class="it2c-full-width it2c-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateIt2cCharCounter(this)"></textarea>
+        <div id="it2c-char-counter" class="it2c-char-counter">0/500</div>
+        <label>{{ "duration_mode"|t(lang) }}</label>
+        <div style="margin-bottom:10px;">
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
+                <input type="radio" name="duration_mode" value="free" checked onchange="toggleIt2cDurationMode('free')">
+                <span style="font-size:13px;">{{ "duration_free"|t(lang) }}</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="radio" name="duration_mode" value="fixed" onchange="toggleIt2cDurationMode('fixed')">
+                <span style="font-size:13px;">{{ "duration_specified"|t(lang) }}</span>
+            </label>
+        </div>
+        <div id="it2c-duration-options" style="display:none;">
+            <div class="it2c-duration-selector">
+                <button type="button" class="it2c-duration-btn" data-speed="0.75" onclick="selectIt2cSpeed(this)">0.75x</button>
+                <button type="button" class="it2c-duration-btn active" data-speed="1.0" onclick="selectIt2cSpeed(this)">1.0x</button>
+                <button type="button" class="it2c-duration-btn" data-speed="1.25" onclick="selectIt2cSpeed(this)">1.25x</button>
+            </div>
+            <input type="hidden" name="duration_scale" id="it2c-duration-scale" value="1.0">
+        </div>
+        <button type="submit" class="primary-btn generate-btn it2c-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
+    </form>
+</div>
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
+    </div>
+    <div id="it2c-result" aria-live="polite">
+        <div id="it2c-spinner" class="htmx-indicator" style="display:none;text-align:center;padding:24px;">
+            <div class="tts-loading-spinner" style="margin:0 auto 8px;"></div>
+            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
+        </div>
+        <div class="status-message" id="it2c-status"></div>
+    </div>
+</div>
+<script>
+(function(){
+    window.updateIt2cFileName = function(input) {
+        var nameEl = document.getElementById('it2c-ref-audio-name');
+        var previewEl = document.getElementById('it2c-audio-preview');
+        var previewAudio = document.getElementById('it2c-preview-audio');
+        if (input.files && input.files.length > 0) {
+            nameEl.textContent = input.files[0].name;
+            var url = URL.createObjectURL(input.files[0]);
+            previewAudio.src = url;
+            previewEl.style.display = 'block';
+        } else {
+            nameEl.textContent = '{{ "supported_formats"|t(lang) }} (5-30s)';
+            previewEl.style.display = 'none';
+        }
+    };
+    window.updateIt2cCharCounter = function(textarea) {
+        var MAX_CHARS = 500;
+        var counter = document.getElementById('it2c-char-counter');
+        if (counter) {
+            var len = textarea.value.length;
+            counter.textContent = len + '/' + MAX_CHARS;
+            counter.classList.toggle('warning', len >= MAX_CHARS * 0.8);
+        }
+    };
+    window.toggleIt2cDurationMode = function(mode) {
+        document.getElementById('it2c-duration-options').style.display = mode === 'fixed' ? 'block' : 'none';
+    };
+    window.selectIt2cSpeed = function(btn) {
+        document.querySelectorAll('.it2c-duration-btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('it2c-duration-scale').value = btn.dataset.speed;
+    };
+    var form = document.getElementById('it2c-form');
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var originalText = submitBtn.innerHTML;
+    form.addEventListener('submit', function(e) {
+        if (!form.querySelector('textarea[name="text"]').value.trim()) {
+            e.preventDefault();
+            var status = document.getElementById('it2c-status');
+            if (status) { status.className = 'status-message error'; status.textContent = '{{ "enter_text"|t(lang) }}'; }
+            return false;
+        }
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '{{ "generating"|t(lang) }}...';
+    });
+    document.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target && evt.detail.target.id === 'it2c-result') {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    });
+    form.addEventListener('htmx:afterSettle', function(e) {
+        if (e.detail.successful) {
+            try {
+                var resultEl = document.getElementById('it2c-result');
+                var audioSrc = resultEl.querySelector('audio');
+                if (audioSrc && window.globalAudioPlayer) {
+                    window.globalAudioPlayer.play(audioSrc.src, 'IndexTTS2 Clone');
+                }
+            } catch(ex) {}
+        }
+    });
+})();
+</script>

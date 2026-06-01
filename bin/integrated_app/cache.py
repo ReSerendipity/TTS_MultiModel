@@ -128,18 +128,30 @@ class AdaptiveLRUCache(LRUCache):
 
     @staticmethod
     def _get_gpu_memory_percent() -> float:
-        """Query current GPU memory allocation percentage.
+        """Query current GPU memory allocation percentage (multi-backend).
 
         Returns:
-            Memory usage percentage (0.0 to 100.0), or 0.0 if CUDA unavailable.
+            Memory usage percentage (0.0 to 100.0), or 0.0 if GPU unavailable.
         """
         try:
-            if not torch.cuda.is_available():
+            from .gpu_backend import GPUBackendManager, GPUBackend
+            
+            if not GPUBackendManager.is_available():
                 return 0.0
-            from .gpu_utils import get_nvidia_gpu_device
-            device = get_nvidia_gpu_device()
-            total = torch.cuda.get_device_properties(device).total_memory
-            allocated = torch.cuda.memory_allocated(device)
+            
+            backend = GPUBackendManager.detect_backend()
+            device = GPUBackendManager.get_device()
+            
+            if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
+                total = torch.cuda.get_device_properties(device).total_memory
+                allocated = torch.cuda.memory_allocated(device)
+            elif backend == GPUBackend.XPU:
+                import intel_extension_for_pytorch as ipex
+                total = ipex.xpu.get_device_properties(device).get('total_memory', 0)
+                allocated = ipex.xpu.memory_allocated(device)
+            else:
+                return 0.0
+            
             if total == 0:
                 return 0.0
             return allocated / total * 100

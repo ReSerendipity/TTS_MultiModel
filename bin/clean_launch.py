@@ -19,6 +19,17 @@ _bin_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _bin_dir)
 sys.path.insert(0, _root_dir)
 
+_config_yaml_path = os.path.join(_root_dir, "config.yaml")
+if os.path.exists(_config_yaml_path):
+    try:
+        import yaml
+        with open(_config_yaml_path, "r", encoding="utf-8") as _f:
+            _cfg = yaml.safe_load(_f)
+        if _cfg and _cfg.get("server", {}).get("auto_load_model", False):
+            os.environ["TTS_AUTO_LOAD_MODEL"] = "1"
+    except Exception:
+        pass
+
 os.environ['HUGGINGFACE_HUB_CACHE'] = os.path.join(_root_dir, 'cache', 'huggingface')
 os.environ['MODELSCOPE_CACHE'] = os.path.join(_root_dir, 'cache', 'modelscope')
 os.environ['TORCH_HOME'] = os.path.join(_root_dir, 'cache', 'torch')

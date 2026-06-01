@@ -22,10 +22,15 @@ _TAB_TEMPLATES = {
     "prompt_continue": "tabs/prompt_continue.html",
     "script": "tabs/script.html",
     "voxcpm2": "tabs/voxcpm2.html",
+    "indextts2": "tabs/indextts2.html",
+    "indextts2_clone": "tabs/indextts2_clone.html",
+    "indextts2_emotion": "tabs/indextts2_emotion.html",
+    "indextts2_duration": "tabs/indextts2_duration.html",
     "lora": "tabs/lora_manager.html",
     "lora_training": "tabs/lora_training.html",
     "history": "tabs/history.html",
     "persona": "tabs/persona.html",
+    "help": "tabs/help.html",
 }
 
 

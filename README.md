@@ -19,7 +19,9 @@ A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAP
 
 - **Operating System**: Windows 10/11 (64-bit)
 - **Python**: 3.12+ (bundled WinPython included, or install your own)
-- **GPU**: NVIDIA GPU with CUDA support (recommended for optimal performance)
+- **GPU**: NVIDIA GPU (CUDA) / AMD GPU (ROCM) / Intel GPU (XPU) (recommended for optimal performance)
+  - Both integrated and discrete GPUs are supported
+  - Minimum 6.5GB VRAM required for VoxCPM2 model
 - **VC Redistributable**: Visual C++ Redistributable (included in `VC运行库/` folder)
 
 ### Installation Steps
@@ -205,8 +207,10 @@ The application comes with 9 pre-configured official speakers:
    - Check directory structure matches expected layout
 
 3. **GPU Not Detected**:
-   - Install CUDA-compatible PyTorch version
-   - Verify NVIDIA drivers are up to date
+   - Install GPU-compatible PyTorch version (CUDA for NVIDIA, ROCM for AMD, XPU for Intel)
+   - Verify GPU drivers are up to date
+   - For integrated GPUs (iGPU), ensure system memory is sufficient (VoxCPM2 requires ~6.5GB VRAM)
+   - Check `python -c "import torch; print(torch.cuda.is_available())"` or equivalent for your backend
 
 4. **Port Already in Use**:
    - The app will auto-select an available port

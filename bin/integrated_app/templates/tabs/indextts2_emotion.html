@@ -1,0 +1,204 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg></span>
+        <h3 class="card-header-title">{{ "tab_indextts2_emotion"|t(lang) }}</h3>
+    </div>
+    <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "indextts2_emotion_desc"|t(lang) }}</div>
+    <style>
+        .it2e-full-width { width: 100% !important; box-sizing: border-box !important; max-width: none !important; }
+        #it2e-form { width: 100% !important; max-width: none !important; }
+        .it2e-auto-resize { resize: vertical; overflow-y: auto; min-height: 80px; max-height: 400px; line-height: 1.6; width: 100% !important; box-sizing: border-box !important; padding: 12px 14px !important; }
+        .it2e-file-upload { border: 2px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-bottom: 10px; background: rgba(139,92,246,0.02); }
+        .it2e-file-upload:hover { border-color: var(--primary); background: rgba(139,92,246,0.06); }
+        .it2e-file-upload input[type="file"] { display: none; }
+        .it2e-file-name { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+        .it2e-mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .it2e-mode-tab { flex: 1; padding: 10px 14px; text-align: center; cursor: pointer; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-secondary); transition: all 0.2s ease; font-size: 13px; }
+        .it2e-mode-tab:hover { border-color: var(--primary); }
+        .it2e-mode-tab.active { background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; border-color: transparent; }
+        .it2e-emotion-panel { padding: 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-secondary); margin-bottom: 12px; }
+        .it2e-emotion-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px; }
+        .it2e-emotion-item { display: flex; flex-direction: column; gap: 6px; }
+        .it2e-emotion-label { font-size: 12px; color: var(--text-secondary); display: flex; justify-content: space-between; }
+        .it2e-emotion-value { font-weight: 600; color: var(--primary); }
+        .it2e-emotion-slider { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: var(--bg-tertiary); border-radius: 3px; outline: none; }
+        .it2e-emotion-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #6366f1); cursor: pointer; box-shadow: 0 2px 6px rgba(139,92,246,0.3); }
+        .it2e-emotion-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #6366f1); cursor: pointer; border: none; box-shadow: 0 2px 6px rgba(139,92,246,0.3); }
+        .it2e-emotion-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+        .it2e-emotion-preset { display: inline-block; padding: 5px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; border: 1.5px solid transparent; background-clip: padding-box; position: relative; color: var(--text-secondary); background-color: var(--bg-secondary); transition: all 0.2s ease; user-select: none; }
+        .it2e-emotion-preset::before { content: ''; position: absolute; inset: -1.5px; border-radius: 999px; background: linear-gradient(135deg, #c084fc, #818cf8, #38bdf8); z-index: -1; opacity: 0.5; transition: opacity 0.2s ease; }
+        .it2e-emotion-preset:hover { color: var(--text-primary); transform: translateY(-1px); }
+        .it2e-emotion-preset:hover::before { opacity: 1; }
+        .it2e-emotion-preset.active { color: #fff; background: linear-gradient(135deg, #8b5cf6, #6366f1); box-shadow: 0 2px 12px rgba(139,92,246,0.35); }
+        .it2e-emotion-preset.active::before { opacity: 1; }
+        .it2e-quick-descriptions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .it2e-quick-desc { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-subtle); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; font-size: 11px; transition: all 0.2s ease; }
+        .it2e-quick-desc:hover { border-color: var(--primary); color: var(--primary); }
+        .it2e-weight-display { font-size: 12px; color: var(--primary); font-weight: 600; min-width: 28px; text-align: right; }
+        .it2e-full-width-btn { width: 100%; margin-top: 16px; }
+        .it2e-char-counter { font-size: 12px; color: var(--text-secondary); margin-top: 6px; padding: 4px 8px; background: rgba(139,92,246,0.05); border-radius: 4px; }
+        @media (max-width: 640px) { .it2e-emotion-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+    <form id="it2e-form" hx-post="/api/generate/indextts2/emotion" hx-target="#it2e-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+        <input type="hidden" name="mode" value="emotion">
+        <label>{{ "emotion_mode"|t(lang) }}</label>
+        <div class="it2e-mode-tabs">
+            <div class="it2e-mode-tab active" data-mode="same" onclick="switchIt2eMode('same', this)">{{ "emotion_same_prompt"|t(lang) }}</div>
+            <div class="it2e-mode-tab" data-mode="diff" onclick="switchIt2eMode('diff', this)">{{ "emotion_diff_prompt"|t(lang) }}</div>
+            <div class="it2e-mode-tab" data-mode="text" onclick="switchIt2eMode('text', this)">{{ "emotion_text_desc"|t(lang) }}</div>
+        </div>
+        <input type="hidden" name="emotion_mode" id="it2e-emotion-mode" value="same">
+        <!-- Same Prompt Mode -->
+        <div id="it2e-same-panel">
+            <label>{{ "ref_audio"|t(lang) }}</label>
+            <div class="it2e-file-upload" onclick="document.getElementById('it2e-same-audio-input').click()">
+                <input type="file" id="it2e-same-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2eFileName(this, 'it2e-same-name')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div style="font-size:13px;color:var(--text-secondary);">{{ "upload_ref_audio_desc"|t(lang) }}</div>
+                <div id="it2e-same-name" class="it2e-file-name">{{ "supported_formats"|t(lang) }}</div>
+            </div>
+            <div class="it2e-emotion-panel">
+                <div style="font-size:13px;font-weight:600;margin-bottom:10px;">{{ "preset_emotions"|t(lang) }}</div>
+                <div class="it2e-emotion-presets">
+                    <span class="it2e-emotion-preset" onclick="selectIt2ePresetEmotion('angry', this)">😡 {{ "emotion_angry"|t(lang) }}</span>
+                    <span class="it2e-emotion-preset" onclick="selectIt2ePresetEmotion('cry', this)">😢 {{ "emotion_cry"|t(lang) }}</span>
+                    <span class="it2e-emotion-preset" onclick="selectIt2ePresetEmotion('fear', this)">😨 {{ "emotion_fear"|t(lang) }}</span>
+                    <span class="it2e-emotion-preset" onclick="selectIt2ePresetEmotion('depressed', this)">😞 {{ "emotion_depressed"|t(lang) }}</span>
+                    <span class="it2e-emotion-preset" onclick="selectIt2ePresetEmotion('happy', this)">😊 {{ "emotion_happy"|t(lang) }}</span>
+                    <span class="it2e-emotion-preset" onclick="selectIt2ePresetEmotion('surprise', this)">😲 {{ "emotion_surprise"|t(lang) }}</span>
+                    <span class="it2e-emotion-preset" onclick="selectIt2ePresetEmotion('calm', this)">😐 {{ "emotion_calm"|t(lang) }}</span>
+                </div>
+                <input type="hidden" name="preset_emotion" id="it2e-preset-emotion" value="">
+                <div style="margin-top:12px;">
+                    <label>{{ "emotion_weight"|t(lang) }}</label>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                        <input type="range" name="emotion_weight" id="it2e-emotion-weight" min="0" max="1.4" step="0.1" value="1.0" style="flex:1;" oninput="document.getElementById('it2e-weight-display').textContent = parseFloat(this.value).toFixed(1)">
+                        <span class="it2e-weight-display" id="it2e-weight-display">1.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Different Prompts Mode -->
+        <div id="it2e-diff-panel" style="display:none;">
+            <label>{{ "timbre_ref_audio"|t(lang) }}</label>
+            <div class="it2e-file-upload" onclick="document.getElementById('it2e-diff-timbre-input').click()">
+                <input type="file" id="it2e-diff-timbre-input" name="timbre_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2eFileName(this, 'it2e-diff-timbre-name')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div style="font-size:13px;color:var(--text-secondary);">{{ "upload_timbre_ref"|t(lang) }}</div>
+                <div id="it2e-diff-timbre-name" class="it2e-file-name">{{ "supported_formats"|t(lang) }}</div>
+            </div>
+            <label>{{ "emotion_ref_audio"|t(lang) }}</label>
+            <div class="it2e-file-upload" onclick="document.getElementById('it2e-diff-emotion-input').click()">
+                <input type="file" id="it2e-diff-emotion-input" name="emotion_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2eFileName(this, 'it2e-diff-emotion-name')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div style="font-size:13px;color:var(--text-secondary);">{{ "upload_emotion_ref_desc"|t(lang) }}</div>
+                <div id="it2e-diff-emotion-name" class="it2e-file-name">{{ "supported_formats"|t(lang) }}</div>
+            </div>
+            <div style="margin-top:12px;">
+                <label>{{ "emotion_weight"|t(lang) }}</label>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                    <input type="range" name="emotion_weight" min="0" max="1.4" step="0.1" value="0.6" style="flex:1;" oninput="document.getElementById('it2e-diff-weight-display').textContent = parseFloat(this.value).toFixed(1)">
+                    <span class="it2e-weight-display" id="it2e-diff-weight-display">0.6</span>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">0={{ "emotion_weight_0"|t(lang) }} 0.6={{ "emotion_weight_06"|t(lang) }} 1.0={{ "emotion_weight_10"|t(lang) }} 1.4={{ "emotion_weight_14"|t(lang) }}</div>
+            </div>
+        </div>
+        <!-- Text Description Mode -->
+        <div id="it2e-text-panel" style="display:none;">
+            <label>{{ "timbre_ref_audio"|t(lang) }}</label>
+            <div class="it2e-file-upload" onclick="document.getElementById('it2e-text-timbre-input').click()">
+                <input type="file" id="it2e-text-timbre-input" name="timbre_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2eFileName(this, 'it2e-text-timbre-name')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div style="font-size:13px;color:var(--text-secondary);">{{ "upload_timbre_ref"|t(lang) }}</div>
+                <div id="it2e-text-timbre-name" class="it2e-file-name">{{ "supported_formats"|t(lang) }}</div>
+            </div>
+            <label>{{ "emotion_text_input"|t(lang) }}</label>
+            <input type="text" name="emotion_text" class="it2e-full-width" style="padding:8px 12px;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;" placeholder="{{ 'emotion_text_input_placeholder'|t(lang) }}">
+            <div class="it2e-quick-descriptions">
+                <span class="it2e-quick-desc" onclick="document.querySelector('#it2e-text-panel input[name=emotion_text]').value='巨巨巨巨巨巨巨巨难过'">{{ "quick_desc_1"|t(lang) }}</span>
+                <span class="it2e-quick-desc" onclick="document.querySelector('#it2e-text-panel input[name=emotion_text]').value='又生气又委屈'">{{ "quick_desc_2"|t(lang) }}</span>
+                <span class="it2e-quick-desc" onclick="document.querySelector('#it2e-text-panel input[name=emotion_text]').value='超级无敌爆炸angry的情感'">{{ "quick_desc_3"|t(lang) }}</span>
+                <span class="it2e-quick-desc" onclick="document.querySelector('#it2e-text-panel input[name=emotion_text]').value='又fear又有点开心'">{{ "quick_desc_4"|t(lang) }}</span>
+            </div>
+        </div>
+        <label for="it2e-text">{{ "synthesis_text"|t(lang) }}</label>
+        <textarea name="text" id="it2e-text" class="it2e-full-width it2e-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateIt2eCharCounter(this)"></textarea>
+        <div id="it2e-char-counter" class="it2e-char-counter">0/500</div>
+        <button type="submit" class="primary-btn generate-btn it2e-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
+    </form>
+</div>
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
+    </div>
+    <div id="it2e-result" aria-live="polite">
+        <div id="it2e-spinner" class="htmx-indicator" style="display:none;text-align:center;padding:24px;">
+            <div class="tts-loading-spinner" style="margin:0 auto 8px;"></div>
+            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
+        </div>
+        <div class="status-message" id="it2e-status"></div>
+    </div>
+</div>
+<script>
+(function(){
+    window.switchIt2eMode = function(mode, btn) {
+        document.querySelectorAll('.it2e-mode-tab').forEach(function(t){ t.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('it2e-same-panel').style.display = mode === 'same' ? '' : 'none';
+        document.getElementById('it2e-diff-panel').style.display = mode === 'diff' ? '' : 'none';
+        document.getElementById('it2e-text-panel').style.display = mode === 'text' ? '' : 'none';
+        document.getElementById('it2e-emotion-mode').value = mode;
+    };
+    window.updateIt2eFileName = function(input, nameElId) {
+        var nameEl = document.getElementById(nameElId);
+        if (nameEl) {
+            nameEl.textContent = (input.files && input.files.length > 0) ? input.files[0].name : '{{ "supported_formats"|t(lang) }}';
+        }
+    };
+    window.selectIt2ePresetEmotion = function(emotion, btn) {
+        document.querySelectorAll('.it2e-emotion-preset').forEach(function(p){ p.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('it2e-preset-emotion').value = emotion;
+    };
+    window.updateIt2eCharCounter = function(textarea) {
+        var MAX_CHARS = 500;
+        var counter = document.getElementById('it2e-char-counter');
+        if (counter) {
+            var len = textarea.value.length;
+            counter.textContent = len + '/' + MAX_CHARS;
+            counter.classList.toggle('warning', len >= MAX_CHARS * 0.8);
+        }
+    };
+    var form = document.getElementById('it2e-form');
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var originalText = submitBtn.innerHTML;
+    form.addEventListener('submit', function(e) {
+        if (!form.querySelector('textarea[name="text"]').value.trim()) {
+            e.preventDefault();
+            var status = document.getElementById('it2e-status');
+            if (status) { status.className = 'status-message error'; status.textContent = '{{ "enter_text"|t(lang) }}'; }
+            return false;
+        }
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '{{ "generating"|t(lang) }}...';
+    });
+    document.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target && evt.detail.target.id === 'it2e-result') {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    });
+    form.addEventListener('htmx:afterSettle', function(e) {
+        if (e.detail.successful) {
+            try {
+                var resultEl = document.getElementById('it2e-result');
+                var audioSrc = resultEl.querySelector('audio');
+                if (audioSrc && window.globalAudioPlayer) {
+                    window.globalAudioPlayer.play(audioSrc.src, 'IndexTTS2 Emotion');
+                }
+            } catch(ex) {}
+        }
+    });
+})();
+</script>

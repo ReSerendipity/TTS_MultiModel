@@ -18,13 +18,18 @@ class Accelerator:
     training utilities. It initializes a distributed process group when
     ``torchrun`` is used and exposes helpers for AMP, gradient scaling and
     preparing models/dataloaders for DDP.
+
+    Supports multiple GPU backends: CUDA, ROCM, XPU, MPS, CPU.
     """
 
     def __init__(self, amp: bool = False, seed: int = 42):
         self.world_size = int(os.getenv("WORLD_SIZE", "1"))
 
         if self.world_size > 1 and not dist.is_initialized():
-            dist.init_process_group("nccl", init_method="env://")
+            from ..gpu_backend import GPUBackendManager, GPUBackend
+            backend = GPUBackendManager.detect_backend()
+            process_backend = GPUBackendManager.get_process_group_backend()
+            dist.init_process_group(process_backend, init_method="env://")
 
         self.rank = dist.get_rank() if dist.is_initialized() else 0
         self.local_rank = int(os.environ.get("LOCAL_RANK", "0"))
@@ -46,8 +51,20 @@ class Accelerator:
             def update(self):
                 pass
 
-        self.scaler = torch.amp.GradScaler("cuda") if (amp and torch.cuda.is_available()) else DummyScaler()
-        self.device_ctx = torch.cuda.device(self.local_rank) if torch.cuda.is_available() else None
+        # Get gradient scaler based on backend
+        from ..gpu_backend import GPUBackendManager, GPUBackend
+        backend = GPUBackendManager.detect_backend()
+        if amp and backend != GPUBackend.CPU:
+            grad_scaler = GPUBackendManager.get_grad_scaler(enabled=True)
+            self.scaler = grad_scaler if grad_scaler is not None else DummyScaler()
+        else:
+            self.scaler = DummyScaler()
+
+        # Get device context based on backend
+        if backend != GPUBackend.CPU:
+            self.device_ctx = torch.cuda.device(self.local_rank) if (backend == GPUBackend.CUDA or backend == GPUBackend.ROCM) else None
+        else:
+            self.device_ctx = None
         self._ddp_model = None  # For no_sync support
 
     def _set_seed(self, seed: int):
@@ -105,9 +122,14 @@ class Accelerator:
 
     @property
     def device(self):
-        if torch.cuda.is_available():
+        from ..gpu_backend import GPUBackendManager, GPUBackend
+        backend = GPUBackendManager.detect_backend()
+        
+        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
             return torch.device("cuda", self.local_rank)
-        if torch.backends.mps.is_available():
+        elif backend == GPUBackend.XPU:
+            return torch.device("xpu", self.local_rank)
+        elif backend == GPUBackend.MPS:
             return torch.device("mps")
         return torch.device("cpu")
 
@@ -115,7 +137,9 @@ class Accelerator:
     # AMP helpers
     # ------------------------------------------------------------------ #
     def autocast(self, *args, **kwargs):
-        return torch.amp.autocast("cuda", enabled=self.amp, *args, **kwargs)
+        from ..gpu_backend import GPUBackendManager
+        device_type = GPUBackendManager.get_autocast_device_type()
+        return torch.amp.autocast(device_type, enabled=self.amp, *args, **kwargs)
 
     def backward(self, loss: torch.Tensor):
         self.scaler.scale(loss).backward()

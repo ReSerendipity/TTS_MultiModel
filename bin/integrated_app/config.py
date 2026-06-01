@@ -39,6 +39,9 @@ VOXCPM2_DENOISER_PATH = os.path.join(PRETRAINED_DIR, "speech_zipenhancer")
 LORA_DIR = os.path.join(ROOT_DIR, "lora")
 os.makedirs(LORA_DIR, exist_ok=True)
 
+# --- IndexTTS 2.0 Model Paths ---
+INDEXTTS2_MODEL_PATH = os.path.join(PRETRAINED_DIR, "IndexTTS2")
+
 # --- Version and Generation Parameters (from config.yaml) ---
 def _load_config():
     version = "0.0.0"

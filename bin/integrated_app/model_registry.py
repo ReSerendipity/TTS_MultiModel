@@ -80,6 +80,10 @@ class ModelRegistry:
         self._current_type: str = "voxcpm2"
         self._current_size: str = "voxcpm2"
 
+        # --- IndexTTS 2.0 state ---
+        self._indextts2_engine = None
+        self._indextts2_model_path: str = ""
+
         # --- Extended VoxCPM2 state (simple attributes) ---
         self.voxcpm_enhancer_model = None
         self.voxcpm_ultimate: bool = False

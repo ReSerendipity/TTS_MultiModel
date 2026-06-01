@@ -21,19 +21,22 @@ router = APIRouter(prefix="/api/system", tags=["system"])
 
 
 def _get_gpu_device():
-    """Get the NVIDIA GPU device index without importing model_manager."""
+    """Get the GPU device index using unified backend manager."""
     import torch
-    if not torch.cuda.is_available():
+    from ..gpu_backend import GPUBackendManager, GPUBackend
+    
+    if not GPUBackendManager.is_available():
         return 0
-    for i in range(torch.cuda.device_count()):
-        try:
-            props = torch.cuda.get_device_properties(i)
-            name_lower = props.name.lower()
-            if any(k in name_lower for k in ("nvidia", "geforce", "rtx", "gtx", "quadro", "tesla")):
-                return i
-        except Exception:
-            continue
-    return 0
+    
+    backend = GPUBackendManager.detect_backend()
+    
+    try:
+        device = GPUBackendManager.get_device()
+        if isinstance(device, torch.device):
+            return device.index if device.index is not None else 0
+        return device
+    except Exception:
+        return 0
 
 # Global NVML state with thread-safe caching
 _nvml_state = {
@@ -219,24 +222,31 @@ def _get_gpu_utilization() -> int:
     """
     Get GPU utilization percentage with multiple fallback methods.
 
-    Tries NVML first, then falls back to nvidia-smi, and finally returns 0
-    if all methods fail.
+    Tries backend-specific methods first, then falls back to vendor-specific
+    commands, and finally returns 0 if all methods fail.
 
     Returns:
         GPU utilization percentage (0-100).
     """
-    # Try NVML first
-    nvml_util = _get_gpu_utilization_from_nvml()
-    if nvml_util is not None:
-        return nvml_util
+    from ..gpu_backend import GPUBackendManager, GPUBackend
+    
+    backend = GPUBackendManager.detect_backend()
+    
+    # For NVIDIA CUDA backend, try NVML/nvidia-smi
+    if backend == GPUBackend.CUDA:
+        # Try NVML first
+        nvml_util = _get_gpu_utilization_from_nvml()
+        if nvml_util is not None:
+            return nvml_util
 
-    # Fallback to nvidia-smi
-    smi_util = _get_gpu_utilization_from_nvidia_smi()
-    if smi_util is not None:
-        return smi_util
-
-    # All methods failed
-    logger.debug("All GPU utilization methods failed, returning 0%")
+        # Fallback to nvidia-smi
+        smi_util = _get_gpu_utilization_from_nvidia_smi()
+        if smi_util is not None:
+            return smi_util
+    
+    # For other backends, vendor-specific tools may be needed
+    # AMD: rocm-smi, Intel: intel_gpu_tools, etc.
+    # For now, return 0 and rely on PyTorch memory metrics
     return 0
 
 
@@ -335,12 +345,16 @@ def get_health():
     # --- GPU Memory ---
     try:
         import torch
-        if torch.cuda.is_available():
-            # Use direct torch calls to avoid importing model_manager
+        from ..gpu_backend import GPUBackendManager, GPUBackend
+        
+        backend = GPUBackendManager.detect_backend()
+        if backend != GPUBackend.CPU:
+            # Use unified GPU backend manager
             device = _get_gpu_device()
-            total = torch.cuda.get_device_properties(device).total_memory
-            allocated = torch.cuda.memory_allocated(device)
-            reserved = torch.cuda.memory_reserved(device)
+            props = GPUBackendManager.get_device_properties(device)
+            total = props.get('total_memory', 0)
+            allocated = GPUBackendManager.memory_allocated(device)
+            reserved = GPUBackendManager.memory_reserved(device)
             used = max(allocated, reserved)
             health["gpu"]["memory_used_mb"] = round(used / (1024 * 1024), 1)
             health["gpu"]["memory_total_mb"] = round(total / (1024 * 1024), 1)
@@ -520,9 +534,12 @@ def get_settings():
     # Device info
     try:
         import torch
-        if torch.cuda.is_available():
-            device_name = torch.cuda.get_device_name(0)
-            settings["device"] = f"CUDA: {device_name}"
+        from ..gpu_backend import GPUBackendManager, GPUBackend
+        
+        backend = GPUBackendManager.detect_backend()
+        if backend != GPUBackend.CPU:
+            device_name = GPUBackendManager.get_device_name()
+            settings["device"] = f"{backend.value.upper()}: {device_name}"
         else:
             settings["device"] = "CPU"
     except Exception:
@@ -531,18 +548,22 @@ def get_settings():
     # VRAM info
     try:
         import torch
-        if torch.cuda.is_available():
-            device = 0
-            total = torch.cuda.get_device_properties(device).total_memory
-            allocated = torch.cuda.memory_allocated(device)
-            reserved = torch.cuda.memory_reserved(device)
+        from ..gpu_backend import GPUBackendManager, GPUBackend
+        
+        backend = GPUBackendManager.detect_backend()
+        if backend != GPUBackend.CPU:
+            device = _get_gpu_device()
+            props = GPUBackendManager.get_device_properties(device)
+            total = props.get('total_memory', 0)
+            allocated = GPUBackendManager.memory_allocated(device)
+            reserved = GPUBackendManager.memory_reserved(device)
             used = max(allocated, reserved)
             free = total - used
             
             settings["vram_used"] = f"{round(used / (1024**3), 2)} GB"
             settings["vram_total"] = f"{round(total / (1024**3), 2)} GB"
             settings["vram_free"] = f"{round(free / (1024**3), 2)} GB"
-            settings["vram_percent"] = round(used / total * 100, 1)
+            settings["vram_percent"] = round(used / total * 100, 1) if total > 0 else 0
             
             # Get GPU utilization with fallback methods
             try:

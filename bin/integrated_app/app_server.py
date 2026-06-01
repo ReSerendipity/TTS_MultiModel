@@ -164,8 +164,17 @@ def create_app() -> FastAPI:
     app.include_router(training_router)
 
     def startup_event():
-        """后台加载 VoxCPM2 模型，服务器立即可接受请求。"""
+        """后台加载模型，服务器立即可接受请求。"""
         app.state.models_ok = False
+        app.state.model_loading = False
+        app.state.model_load_progress = "等待手动加载模型"
+
+        auto_load = os.environ.get("TTS_AUTO_LOAD_MODEL", "0") == "1"
+
+        if not auto_load:
+            logger.info("[启动] 自动加载已禁用，请通过界面手动加载模型")
+            return
+
         app.state.model_loading = True
         app.state.model_load_progress = "正在初始化..."
 

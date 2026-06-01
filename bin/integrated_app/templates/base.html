@@ -398,7 +398,7 @@
         .main-content { margin-left: 60px; }
 
         /* === Sidebar Item Hide/Show Transitions === */
-        .sidebar-item[data-engine] {
+        .sidebar-item[data-model] {
             overflow: hidden;
             max-height: 36px;
             opacity: 1;
@@ -689,7 +689,52 @@
         .sidebar-edge-toggle:hover { background: var(--bg-tertiary); color: var(--primary); }
         .sidebar.collapsed .sidebar-edge-toggle { display: flex; }
 
-        /* === Engine Status === */
+        /* === Model Tabs Group === */
+        .model-tabs-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+        .model-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: var(--font-sans);
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .model-tab:hover {
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+        }
+        .model-tab.active {
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            color: white;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+        }
+        .model-tab-icon {
+            font-size: 14px;
+            line-height: 1;
+        }
+        .model-tab-label {
+            display: inline-block;
+        }
+
+        /* === Engine Status (Updated) === */
         .engine-status {
             display: inline-flex;
             align-items: center;
@@ -698,10 +743,21 @@
             border-radius: 20px;
             font-size: 12px;
             font-weight: 500;
+            background: rgba(156, 163, 175, 0.08);
+            color: #9ca3af;
+            border: 1px solid rgba(156, 163, 175, 0.15);
+            backdrop-filter: blur(8px);
+            margin-left: 8px;
+        }
+        .engine-status.loaded {
             background: rgba(16, 185, 129, 0.08);
             color: #10b981;
-            border: 1px solid rgba(16, 185, 129, 0.15);
-            backdrop-filter: blur(8px);
+            border-color: rgba(16, 185, 129, 0.15);
+        }
+        .engine-status.loading {
+            background: rgba(59, 130, 246, 0.08);
+            color: #3b82f6;
+            border-color: rgba(59, 130, 246, 0.15);
         }
         .engine-status.error {
             background: rgba(239, 68, 68, 0.08);
@@ -712,14 +768,26 @@
             width: 7px;
             height: 7px;
             border-radius: 50%;
+            background: #9ca3af;
+            box-shadow: none;
+        }
+        .engine-status.loaded .engine-status-dot {
             background: #10b981;
             animation: pulse-dot 2s infinite;
             box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+        }
+        .engine-status.loading .engine-status-dot {
+            background: #3b82f6;
+            animation: pulse-dot 1.5s infinite;
+            box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
         }
         .engine-status.error .engine-status-dot {
             background: #ef4444;
             animation: none;
             box-shadow: none;
+        }
+        .engine-status-text {
+            font-weight: 600;
         }
         @keyframes pulse-dot {
             0%, 100% { opacity: 1; transform: scale(1); }
@@ -2621,68 +2689,95 @@
             <nav class="sidebar-nav" aria-label="功能菜单">
                 <div class="sidebar-nav-section">
                     <div class="sidebar-nav-label">{{ "nav_section" | t(lang) }}</div>
-                    <button class="sidebar-item" data-tab="voice_design" data-engine="voxcpm2"
+                    <!-- VoxCPM2 专属菜单 -->
+                    <button class="sidebar-item" data-tab="voice_design" data-model="voxcpm2"
                             hx-get="/tab/voice_design?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
                         <span class="sidebar-label-text">{{ "tab_voice_design" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="voice_clone" data-engine="voxcpm2"
+                    <button class="sidebar-item" data-tab="voice_clone" data-model="voxcpm2"
                             hx-get="/tab/voice_clone?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                         <span class="sidebar-label-text">{{ "tab_voice_clone" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="ultimate_clone" data-engine="voxcpm2"
+                    <button class="sidebar-item" data-tab="ultimate_clone" data-model="voxcpm2"
                             hx-get="/tab/ultimate_clone?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                         <span class="sidebar-label-text">{{ "tab_ultimate_clone" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="script" data-engine="voxcpm2"
+                    <button class="sidebar-item" data-tab="script" data-model="voxcpm2"
                             hx-get="/tab/script?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                         <span class="sidebar-label-text">{{ "tab_script" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="prompt_continue" data-engine="voxcpm2"
+                    <button class="sidebar-item" data-tab="prompt_continue" data-model="voxcpm2"
                             hx-get="/tab/prompt_continue?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg>
                         <span class="sidebar-label-text">{{ "tab_prompt_continue" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="voxcpm2" data-engine="voxcpm2"
+                    <button class="sidebar-item" data-tab="voxcpm2" data-model="voxcpm2"
                             hx-get="/tab/voxcpm2?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                         <span class="sidebar-label-text">{{ "tab_settings" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="lora" data-engine="voxcpm2"
+                    <button class="sidebar-item" data-tab="lora" data-model="voxcpm2"
                             hx-get="/tab/lora?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                         <span class="sidebar-label-text">{{ "tab_lora" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="lora_training" data-engine="voxcpm2"
+                    <button class="sidebar-item" data-tab="lora_training" data-model="voxcpm2"
                             hx-get="/tab/lora_training?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z"/></svg>
                         <span class="sidebar-label-text">{{ "tab_lora_training" | t(lang) }}</span>
+                    </button>
+                    <!-- IndexTTS 2.0 专属菜单 -->
+                    <button class="sidebar-item" data-tab="indextts2_clone" data-model="indextts2"
+                            hx-get="/tab/indextts2_clone?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
+                            onclick="window.activateSidebarTab(this)">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_indextts2_clone" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="indextts2_emotion" data-model="indextts2"
+                            hx-get="/tab/indextts2_emotion?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
+                            onclick="window.activateSidebarTab(this)">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_indextts2_emotion" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="indextts2_duration" data-model="indextts2"
+                            hx-get="/tab/indextts2_duration?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
+                            onclick="window.activateSidebarTab(this)">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_indextts2_duration" | t(lang) }}</span>
                     </button>
                 </div>
                 <div class="sidebar-nav-section">
                     <div class="sidebar-nav-label">{{ "tools_section" | t(lang) }}</div>
-                    <button class="sidebar-item" data-tab="history" data-engine="all"
+                    <!-- 通用菜单 — 全部整合到"工具"区域 -->
+                    <button class="sidebar-item" data-tab="history" data-model="all"
                             hx-get="/tab/history?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         <span class="sidebar-label-text">{{ "tab_history" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="persona" data-engine="all"
+                    <button class="sidebar-item" data-tab="persona" data-model="all"
                             hx-get="/tab/persona?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="activateSidebarTab(this)">
+                            onclick="window.activateSidebarTab(this)">
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/><path d="M2 20s4-4 10-4 10 4 10 4"/></svg>
                         <span class="sidebar-label-text">{{ "tab_persona" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="help" data-model="all"
+                            hx-get="/tab/help?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
+                            onclick="window.activateSidebarTab(this)">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_help" | t(lang) }}</span>
                     </button>
                 </div>
             </nav>
@@ -2711,16 +2806,25 @@
                 <button class="top-bar-mobile-toggle" onclick="toggleSidebar()" id="mobile-menu-btn" aria-label="Open menu">&#9776;</button>
                 <span class="top-bar-title" id="top-page-title">{{ "top_bar_title"|t(lang) }}</span>
                 <!-- 合并状态显示：引擎选择器 + 状态 -->
-                <div class="engine-selector-group" id="top-engine-selector">
-                    <label>
-                        <input type="radio" name="engine" value="VoxCPM2" checked
-                               onchange="window.switchEngine(this.value)">
-                        <span>VoxCPM2</span>
-                    </label>
+                <!-- 顶部模型标签栏 -->
+                <div class="model-tabs-group" id="model-tabs">
+                    <button class="model-tab" data-model="voxcpm2" onclick="window.switchModel('voxcpm2')">
+                        <span class="model-tab-icon">🎙️</span>
+                        <span class="model-tab-label">VoxCPM2</span>
+                    </button>
+                    <button class="model-tab" data-model="indextts2" onclick="window.switchModel('indextts2')">
+                        <span class="model-tab-icon">🎭</span>
+                        <span class="model-tab-label">IndexTTS 2.0</span>
+                    </button>
+                    <button class="model-tab active" data-model="none" onclick="window.switchModel('none')">
+                        <span class="model-tab-icon">⚪</span>
+                        <span class="model-tab-label">None</span>
+                    </button>
                 </div>
+                <!-- 引擎状态指示器 -->
                 <span class="engine-status" id="engine-status">
-                    <span class="engine-status-dot"></span>
-                    <span id="engine-status-text">{{ "ready"|t(lang) }}</span>
+                    <span class="engine-status-dot" id="engine-status-dot"></span>
+                    <span class="engine-status-text" id="engine-status-text">None</span>
                 </span>
                 <!-- Mini System Monitor Widget -->
                 <div class="mini-monitor" id="mini-monitor" onclick="openHealthPanel()" title="{{ "click_for_details"|t(lang) }}">
@@ -2867,6 +2971,27 @@
                     <li><span class="step-badge">3</span>{{ "help_step_s3"|t(lang) }}</li>
                     <li><span class="step-badge">4</span>{{ "help_step_s4"|t(lang) }}</li>
                 </ol>
+            </div>
+            <div class="help-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06);">
+                <div class="help-section-title">&#9888;&#65039; {{ "help_gpu_notes"|t(lang) }}</div>
+                <ul class="step-list" style="list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 10px; font-size: 13px; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #f59e0b; flex-shrink: 0;">⚠</span>
+                        <span>{{ "help_gpu_note1"|t(lang) }}</span>
+                    </li>
+                    <li style="margin-bottom: 10px; font-size: 13px; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #f59e0b; flex-shrink: 0;">⚠</span>
+                        <span>{{ "help_gpu_note2"|t(lang) }}</span>
+                    </li>
+                    <li style="margin-bottom: 10px; font-size: 13px; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #22c55e; flex-shrink: 0;">✓</span>
+                        <span>{{ "help_gpu_note3"|t(lang) }}</span>
+                    </li>
+                    <li style="margin-bottom: 10px; font-size: 13px; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #3b82f6; flex-shrink: 0;">&#128187;</span>
+                        <span>{{ "help_gpu_note4"|t(lang) }}</span>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
@@ -3185,7 +3310,8 @@
             script: window.I18N["tab_script"],
             voxcpm2: window.I18N["tab_settings"],
             history: window.I18N["tab_history"],
-            persona: window.I18N["tab_persona"]
+            persona: window.I18N["tab_persona"],
+            help: window.I18N["tab_help"]
         };
 
         // Activate sidebar items
@@ -3366,6 +3492,99 @@
 
             // Dispatch resize event so layouts can adapt
             window.dispatchEvent(new Event('resize'));
+        };
+
+        // ============================================================
+        // Model Switching
+        // ============================================================
+        window.switchModel = function(modelName) {
+            var tabs = document.querySelectorAll('.model-tab');
+            tabs.forEach(function(tab) {
+                tab.classList.toggle('active', tab.dataset.model === modelName);
+            });
+            
+            var items = document.querySelectorAll('.sidebar-item[data-model]');
+            items.forEach(function(item) {
+                var itemModel = item.dataset.model;
+                var shouldShow = (itemModel === modelName || itemModel === 'all');
+                item.classList.toggle('sidebar-item-hidden', !shouldShow);
+            });
+            
+            var firstVisible = document.querySelector('.sidebar-item[data-model="' + modelName + '"]:not(.sidebar-item-hidden)');
+            if (firstVisible) {
+                window.activateSidebarTab(firstVisible);
+            }
+            
+            if (modelName === 'none') {
+                window.updateEngineStatus('none', 'None', '');
+            }
+        };
+
+        // ============================================================
+        // Engine Status Management
+        // ============================================================
+        window.updateEngineStatus = function(status, modelName, extra) {
+            var statusEl = document.getElementById('engine-status');
+            var statusText = document.getElementById('engine-status-text');
+            if (!statusEl || !statusText) return;
+            
+            statusEl.classList.remove('loaded', 'loading', 'error');
+            
+            if (status === 'none') {
+                statusText.textContent = 'None';
+                statusText.style.fontWeight = '700';
+            } else if (status === 'loading') {
+                statusEl.classList.add('loading');
+                statusText.textContent = extra || (window.I18N && window.I18N["loading"]) || 'Loading...';
+                statusText.style.fontWeight = '600';
+            } else if (status === 'loaded') {
+                statusEl.classList.add('loaded');
+                statusText.textContent = modelName + ' | ' + (window.I18N && window.I18N["ready"]) || (modelName + ' | Ready');
+                statusText.style.fontWeight = '600';
+            } else if (status === 'error') {
+                statusEl.classList.add('error');
+                statusText.textContent = extra || (window.I18N && window.I18N["error"]) || 'Error';
+                statusText.style.fontWeight = '600';
+            }
+        };
+
+        // ============================================================
+        // Sidebar Tab Activation
+        // ============================================================
+        window.activateSidebarTab = function(btn) {
+            var tabId = btn.getAttribute('data-tab');
+            document.querySelectorAll('.sidebar-item').forEach(function(s) {
+                s.classList.toggle('active', s.getAttribute('data-tab') === tabId);
+            });
+            if (tabId) {
+                var pageTitle = document.getElementById('top-page-title');
+                var pageTitles = {
+                    voice_design: window.I18N && window.I18N["tab_voice_design"] || 'Voice Design',
+                    voice_clone: window.I18N && window.I18N["tab_voice_clone"] || 'Voice Clone',
+                    ultimate_clone: window.I18N && window.I18N["tab_ultimate_clone"] || 'Ultimate Clone',
+                    script: window.I18N && window.I18N["tab_script"] || 'Script',
+                    prompt_continue: window.I18N && window.I18N["tab_prompt_continue"] || 'Prompt Continue',
+                    voxcpm2: window.I18N && window.I18N["tab_settings"] || 'Settings',
+                    indextts2: window.I18N && window.I18N["tab_indextts2"] || 'IndexTTS 2.0',
+                    indextts2_clone: window.I18N && window.I18N["tab_indextts2_clone"] || 'Voice Clone',
+                    indextts2_emotion: window.I18N && window.I18N["tab_indextts2_emotion"] || 'Emotion Control',
+                    indextts2_duration: window.I18N && window.I18N["tab_indextts2_duration"] || 'Duration Control',
+                    lora: window.I18N && window.I18N["tab_lora"] || 'LoRA',
+                    lora_training: window.I18N && window.I18N["tab_lora_training"] || 'LoRA Training',
+                    history: window.I18N && window.I18N["tab_history"] || 'History',
+                    persona: window.I18N && window.I18N["tab_persona"] || 'Persona',
+                    help: window.I18N && window.I18N["tab_help"] || 'Help'
+                };
+                if (pageTitle && pageTitles[tabId]) {
+                    pageTitle.textContent = pageTitles[tabId];
+                }
+                if (tabId === 'history' || tabId === 'persona') {
+                    if (window.SkeletonManager) {
+                        window.SkeletonManager.showTabSkeleton(tabId);
+                    }
+                }
+            }
+            closeSidebar();
         };
 
         // ============================================================
@@ -3714,7 +3933,7 @@
                                 var tabId = currentTab.getAttribute('data-tab');
                                 var pageTitles = {
                                     voice_design: window.I18N["tab_voice_design"], voice_clone: window.I18N["tab_voice_clone"],
-                                    ultimate_clone: window.I18N["tab_ultimate_clone"], voxcpm2: window.I18N["tab_settings"], history: window.I18N["tab_history"], persona: window.I18N["tab_persona"]
+                                    ultimate_clone: window.I18N["tab_ultimate_clone"], voxcpm2: window.I18N["tab_settings"], history: window.I18N["tab_history"], persona: window.I18N["tab_persona"], help: window.I18N["tab_help"]
                                 };
                                 pageTitle.textContent = pageTitles[tabId] || 'TTS MultiModel';
                             }

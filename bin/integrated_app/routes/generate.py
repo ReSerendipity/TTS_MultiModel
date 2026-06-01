@@ -45,6 +45,14 @@ def _check_model_ready():
     return None
 
 
+def _check_indextts2_ready():
+    """Check if IndexTTS2 engine is loaded. Returns error HTMLResponse if not ready."""
+    from ..model_manager import registry
+    if registry._indextts2_engine is None:
+        return _error_html("IndexTTS 2.0 模型未加载，请先在设置中加载模型")
+    return None
+
+
 router = APIRouter(prefix="/api/generate", tags=["generate"])
 
 logger = logging.getLogger("tts_multimodel")
@@ -1035,4 +1043,167 @@ async def generate_voxcpm_prompt_continue(
         duration = time.monotonic() - start_time
         logger.error(f"VoxCPM prompt continue generation failed: {e}")
         _log_generation("VoxCPM prompt continue", text, "voxcpm2", prompt_text[:50], False, duration, error_msg=str(e))
+        return _error_html(_safe_error_msg(e))
+
+
+@router.post("/indextts2")
+async def generate_indextts2(
+    request: Request,
+    text: str = Form(""),
+    lang: str = Form("Auto"),
+    ref_audio: UploadFile | None = File(None),
+    ref_text: str = Form(""),
+    seed: int = Form(0),
+    emo_text: str = Form(""),
+    emo_audio: UploadFile | None = File(None),
+    emo_happy: float = Form(0.0),
+    emo_angry: float = Form(0.0),
+    emo_sad: float = Form(0.0),
+    emo_afraid: float = Form(0.0),
+    emo_disgusted: float = Form(0.0),
+    emo_melancholic: float = Form(0.0),
+    emo_surprised: float = Form(0.0),
+    emo_calm: float = Form(0.0),
+    emo_alpha: float = Form(0.8),
+    emo_alpha_text: float = Form(0.8),
+    emo_alpha_audio: float = Form(0.8),
+    target_duration: float = Form(0.0),
+):
+    """IndexTTS 2.0 generation endpoint."""
+    model_not_ready = _check_indextts2_ready()
+    if model_not_ready:
+        return model_not_ready
+    if not text.strip():
+        return _error_html("文本不能为空")
+
+    from ..model_manager import registry
+    engine = registry._indextts2_engine
+
+    ref_audio_path = None
+    emo_audio_path = None
+
+    # Handle ref audio upload
+    if ref_audio and ref_audio.filename:
+        upload_dir = os.path.join(SAVE_DIR, "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        safe_name = os.path.basename(ref_audio.filename)
+        _, ext = os.path.splitext(safe_name)
+        if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
+            return _error_html(f"Unsupported audio format: {ext}")
+        upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
+        content = await ref_audio.read()
+        with open(upload_path, "wb") as f:
+            f.write(content)
+        ref_audio_path = upload_path
+
+    # Handle emotion audio upload
+    if emo_audio and emo_audio.filename:
+        upload_dir = os.path.join(SAVE_DIR, "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        safe_name = os.path.basename(emo_audio.filename)
+        _, ext = os.path.splitext(safe_name)
+        if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
+            return _error_html(f"Unsupported audio format: {ext}")
+        upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
+        content = await emo_audio.read()
+        with open(upload_path, "wb") as f:
+            f.write(content)
+        emo_audio_path = upload_path
+
+    # Determine emotion mode and alpha
+    if emo_text and emo_text.strip():
+        emotion_mode = "text"
+        emotion_data = emo_text.strip()
+        emotion_alpha = emo_alpha_text
+    elif emo_audio_path:
+        emotion_mode = "audio"
+        emotion_data = emo_audio_path
+        emotion_alpha = emo_alpha_audio
+    else:
+        # Vector mode
+        emotion_dict = {
+            "happy": emo_happy,
+            "angry": emo_angry,
+            "sad": emo_sad,
+            "afraid": emo_afraid,
+            "disgusted": emo_disgusted,
+            "melancholic": emo_melancholic,
+            "surprised": emo_surprised,
+            "calm": emo_calm,
+        }
+        # Check if any emotion is non-zero
+        if any(v > 0 for v in emotion_dict.values()):
+            emotion_mode = "vector"
+            emotion_data = emotion_dict
+        else:
+            emotion_mode = None
+            emotion_data = None
+
+        emotion_alpha = emo_alpha
+
+    # Build target duration
+    target_dur = target_duration if target_duration > 0 else None
+
+    loop = asyncio.get_running_loop()
+
+    def _run():
+        return engine.infer(
+            text=text.strip(),
+            lang=lang,
+            ref_wav_path=ref_audio_path,
+            ref_text=ref_text.strip() if ref_text else None,
+            seed=seed if seed > 0 else None,
+            emotion=emotion_data,
+            emotion_alpha=emotion_alpha,
+            target_duration=target_dur,
+        )
+
+    start_time = time.monotonic()
+    try:
+        result = await loop.run_in_executor(None, _run)
+        duration = time.monotonic() - start_time
+
+        if result is None:
+            _log_generation("IndexTTS2", text, "indextts2", "", False, duration, error_msg="生成失败")
+            return _error_html("生成失败")
+
+        # result is numpy array
+        # Save to file
+        timestamp = int(time.time())
+        filename = f"indextts2_{timestamp}.wav"
+        output_path = os.path.join(SAVE_DIR, filename)
+
+        import io
+        import wave
+        import scipy.io.wavfile as wavfile
+
+        # Convert float32 to int16
+        if hasattr(result, 'numpy'):
+            audio_data = result.numpy()
+        else:
+            audio_data = result
+
+        if audio_data.dtype != np.int16:
+            audio_data = (audio_data * 32768.0).clip(-32768, 32767).astype(np.int16)
+
+        wavfile.write(output_path, 44100, audio_data)
+
+        _log_generation("IndexTTS2", text, "indextts2", "", True, duration)
+        _time_estimator.record(len(text), duration, "indextts2", segment_count=1)
+
+        audio_path = os.path.join(SAVE_DIR, filename)
+        audio_duration = len(audio_data) / 44100.0
+        _record_to_history_db(
+            filepath=audio_path, text=text, engine="indextts2", duration=audio_duration,
+            model_type="IndexTTS 2.0", output_format="wav", is_success=True,
+        )
+
+        monitor = get_health_monitor()
+        monitor.record_generation(success=True)
+
+        return _success_html(filename, f"IndexTTS 2.0 生成完成！耗时 {duration:.1f}秒")
+    except Exception as e:
+        duration = time.monotonic() - start_time
+        logger.error(f"IndexTTS2 generation failed: {e}")
+        _log_generation("IndexTTS2", text, "indextts2", "", False, duration, error_msg=str(e))
         return _error_html(_safe_error_msg(e))
