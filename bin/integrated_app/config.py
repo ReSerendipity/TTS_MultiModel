@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """Path configuration, constants, model path mapping, official speaker info, language list, etc.
-VoxCPM2-exclusive configuration.
+Multi-engine configuration (VoxCPM2 + IndexTTS 2.0).
 """
 
 import os
 import re
 from typing import Tuple, List
 
-# --- Environment Settings ---
-os.environ['TRANSFORMERS_OFFLINE'] = '1'
-os.environ['HF_HUB_OFFLINE'] = '1'
-os.environ['MODELSCOPE_OFFLINE'] = '1'
+def _set_env():
+    os.environ['TRANSFORMERS_OFFLINE'] = '1'
+    os.environ['HF_HUB_OFFLINE'] = '1'
+    os.environ['MODELSCOPE_OFFLINE'] = '1'
 
 # --- Path Configuration ---
 def get_project_root():
@@ -28,22 +28,26 @@ CACHE_DIR = os.path.join(ROOT_DIR, "cache")
 PRETRAINED_DIR = os.path.join(ROOT_DIR, "pretrained_models")
 SAVE_DIR = os.path.join(ROOT_DIR, "outputs")
 PERSONA_DIR = os.path.join(ROOT_DIR, "personas")
-os.makedirs(CACHE_DIR, exist_ok=True)
-os.makedirs(SAVE_DIR, exist_ok=True)
-os.makedirs(PERSONA_DIR, exist_ok=True)
 
 # --- VoxCPM2 Model Paths ---
 VOXCPM2_MODEL_PATH = os.path.join(PRETRAINED_DIR, "VoxCPM2")
 VOXCPM2_ASR_PATH = os.path.join(PRETRAINED_DIR, "SenseVoiceSmall")
 VOXCPM2_DENOISER_PATH = os.path.join(PRETRAINED_DIR, "speech_zipenhancer")
 LORA_DIR = os.path.join(ROOT_DIR, "lora")
-os.makedirs(LORA_DIR, exist_ok=True)
 
 # --- IndexTTS 2.0 Model Paths ---
 INDEXTTS2_MODEL_PATH = os.path.join(PRETRAINED_DIR, "IndexTTS2")
 
+def _ensure_dirs():
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    os.makedirs(PERSONA_DIR, exist_ok=True)
+    os.makedirs(LORA_DIR, exist_ok=True)
+
 # --- Version and Generation Parameters (from config.yaml) ---
 def _load_config():
+    _set_env()
+    _ensure_dirs()
     version = "0.0.0"
     gen_defaults = {
         "cfg_value": 2.0,
@@ -155,12 +159,32 @@ MIN_LEN = GEN_DEFAULTS.get("min_len", 2)
 MAX_LEN = GEN_DEFAULTS.get("max_len", 4096)
 GEN_SPLIT_MAX_CHARS = GEN_DEFAULTS.get("split_max_chars", 200)
 
-# --- Model directory check (VoxCPM2 only) ---
 def check_models_available() -> Tuple[bool, List[str]]:
     missing = []
     if not os.path.isdir(VOXCPM2_MODEL_PATH):
         missing.append(VOXCPM2_MODEL_PATH)
+    if not os.path.isdir(INDEXTTS2_MODEL_PATH):
+        missing.append(INDEXTTS2_MODEL_PATH)
     return len(missing) == 0, missing
+
+
+def get_download_hints() -> dict[str, str]:
+    hints = {}
+    if not os.path.isdir(VOXCPM2_MODEL_PATH):
+        hints["voxcpm2"] = (
+            "VoxCPM2 模型未找到。下载命令:\n"
+            "  pip install huggingface-hub\n"
+            "  huggingface-cli download openbmb/VoxCPM2 --local-dir pretrained_models/VoxCPM2\n"
+            "  或: python scripts/download_voxcpm2.py"
+        )
+    if not os.path.isdir(INDEXTTS2_MODEL_PATH):
+        hints["indextts2"] = (
+            "IndexTTS 2.0 模型未找到。下载命令:\n"
+            "  pip install huggingface-hub\n"
+            "  huggingface-cli download IndexTeam/IndexTTS-2 --local-dir pretrained_models/IndexTTS2\n"
+            "  或: python scripts/download_indextts2.py"
+        )
+    return hints
 
 # --- Language list ---
 _LANGS = ["Chinese", "English", "Japanese", "Korean", "German", "French", "Russian", "Portuguese", "Spanish", "Italian", "Auto"]
@@ -180,6 +204,10 @@ _DIALECTS = [
 
 # --- Audio extensions ---
 _AUDIO_EXTS = {'.wav', '.mp3', '.ogg', '.flac'}
+
+# --- Input validation limits ---
+MAX_TEXT_LENGTH = 10000
+MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50MB
 
 # --- Persona name validation regex ---
 _PERSONA_NAME_RE = re.compile(r'^[a-zA-Z0-9_\-\u4e00-\u9fff]{1,50}$')

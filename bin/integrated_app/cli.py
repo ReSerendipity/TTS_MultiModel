@@ -2,7 +2,7 @@
 """
 VoxCPM Command Line Interface
 
-VoxCPM2-first CLI for voice design, cloning, and batch processing.
+Multi-engine CLI for voice design, cloning, and batch processing.
 """
 
 import argparse
@@ -386,7 +386,7 @@ def _add_prompt_reference_args(parser):
     parser.add_argument(
         "--reference-audio",
         "-ra",
-        help="Reference audio for voice cloning (VoxCPM2 only)",
+        help="Reference audio for voice cloning",
     )
     parser.add_argument(
         "--denoise",
@@ -396,7 +396,7 @@ def _add_prompt_reference_args(parser):
 
 
 def _add_model_args(parser):
-    parser.add_argument("--model-path", type=str, help="Local VoxCPM model path")
+    parser.add_argument("--model-path", type=str, help="Local model path for the selected engine")
     parser.add_argument(
         "--hf-model-id",
         type=str,
@@ -456,7 +456,7 @@ def _add_lora_args(parser):
 
 def _build_parser():
     parser = argparse.ArgumentParser(
-        description="VoxCPM CLI - VoxCPM2-first voice design, cloning, and batch processing",
+        description="VoxCPM CLI - Multi-engine voice design, cloning, and batch processing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -470,7 +470,7 @@ Examples:
     subparsers = parser.add_subparsers(dest="command")
 
     design_parser = subparsers.add_parser(
-        "design", help="Generate speech with VoxCPM2-first voice design"
+        "design", help="Generate speech with voice design"
     )
     _add_common_generation_args(design_parser)
     _add_prompt_reference_args(design_parser)

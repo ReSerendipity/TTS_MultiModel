@@ -18,7 +18,7 @@ MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
 ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".wma", ".aac"}
 
 
-@router.get("/audio/{filename}")
+@router.get("/audio/{filename}", summary="获取音频", description="获取生成的音频文件")
 async def serve_audio(filename: str):
     file_path = os.path.join(SAVE_DIR, filename)
     real_path = os.path.realpath(file_path)
@@ -34,7 +34,7 @@ async def serve_audio(filename: str):
     return JSONResponse({"status": "error", "message": f"File not found: {filename}"}, status_code=404)
 
 
-@router.get("/persona/audio/{name}")
+@router.get("/persona/audio/{name}", summary="音色音频", description="获取指定音色的参考音频")
 async def serve_persona_audio(name: str, request: Request):
     file_path = os.path.join(PERSONA_DIR, f"{name}.wav")
     real_path = os.path.realpath(file_path)
@@ -49,7 +49,7 @@ async def serve_persona_audio(name: str, request: Request):
     return JSONResponse({"status": "error", "message": f"Persona audio not found: {name}"}, status_code=404)
 
 
-@router.post("/upload/audio")
+@router.post("/upload/audio", summary="上传音频", description="上传音频文件到服务器")
 async def upload_audio(file: UploadFile = File(...)):
     try:
         # Validate file extension
@@ -77,7 +77,7 @@ async def upload_audio(file: UploadFile = File(...)):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
-@router.get("/speaker/sample/{key}")
+@router.get("/speaker/sample/{key}", summary="说话人样本", description="获取预置说话人的样本音频")
 async def speaker_sample(key: str):
     samples_dir = os.path.join(PROJECT_ROOT, "samples", "parity")
     if not os.path.isdir(samples_dir):
@@ -93,7 +93,7 @@ async def speaker_sample(key: str):
     return JSONResponse({"status": "error", "message": f"No sample found for speaker: {key}"}, status_code=404)
 
 
-@router.get("/history/table")
+@router.get("/history/table", summary="历史记录", description="获取生成历史记录表格")
 async def history_table(request: Request):
     keyword = request.query_params.get("keyword", "")
     time_filter = request.query_params.get("time_filter", "all")
@@ -152,7 +152,7 @@ async def history_table(request: Request):
     })
 
 
-@router.post("/batch_export_history")
+@router.post("/batch_export_history", summary="批量导出", description="批量导出历史记录中的音频文件")
 async def batch_export_history(request: Request):
     payload = await request.json()
     ids = payload.get("ids", [])
@@ -161,7 +161,7 @@ async def batch_export_history(request: Request):
     return JSONResponse({"status": "ok", "count": len(ids)})
 
 
-@router.post("/batch_delete_history")
+@router.post("/batch_delete_history", summary="批量删除", description="批量删除历史记录")
 async def batch_delete_history(request: Request):
     """批量隐藏历史记录（不删除实际文件）"""
     payload = await request.json()
@@ -185,7 +185,7 @@ async def batch_delete_history(request: Request):
     return JSONResponse({"status": "ok", "count": count, "action": action})
 
 
-@router.post("/history/hide")
+@router.post("/history/hide", summary="隐藏记录", description="隐藏指定的历史记录")
 async def hide_history_records(request: Request):
     """隐藏历史记录"""
     payload = await request.json()
@@ -198,7 +198,7 @@ async def hide_history_records(request: Request):
     return JSONResponse({"status": "ok", "count": count})
 
 
-@router.post("/history/clear_all")
+@router.post("/history/clear_all", summary="清空记录", description="清空所有历史记录")
 async def clear_all_history(request: Request):
     """清除所有历史记录（默认只隐藏）"""
     payload = await request.json()
@@ -211,7 +211,7 @@ async def clear_all_history(request: Request):
     return JSONResponse({"status": "ok", "count": count, "action": action})
 
 
-@router.post("/history/show")
+@router.post("/history/show", summary="显示记录", description="显示指定的隐藏记录")
 async def show_history_records(request: Request):
     """恢复显示被隐藏的历史记录"""
     payload = await request.json()
@@ -224,7 +224,7 @@ async def show_history_records(request: Request):
     return JSONResponse({"status": "ok", "count": count})
 
 
-@router.post("/history/show_all")
+@router.post("/history/show_all", summary="显示全部", description="显示所有隐藏的记录")
 async def show_all_history(request: Request):
     """恢复显示所有被隐藏的历史记录"""
     history_manager = get_history_manager()
@@ -232,7 +232,7 @@ async def show_all_history(request: Request):
     return JSONResponse({"status": "ok", "count": count})
 
 
-@router.post("/history/sync")
+@router.post("/history/sync", summary="同步记录", description="同步文件系统与数据库的历史记录")
 async def sync_history():
     """从文件系统同步历史记录"""
     history_manager = get_history_manager()

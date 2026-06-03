@@ -108,6 +108,68 @@
         color: var(--text-muted);
     }
 
+    /* Micro counter styles - 字符计数器状态样式 */
+    .vc-char-counter.micro-counter-ok {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10B981;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .vc-char-counter.micro-counter-warn {
+        background: rgba(245, 158, 11, 0.1);
+        color: #F59E0B;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    .vc-char-counter.micro-counter-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: #EF4444;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .vc-char-counter.micro-counter-empty {
+        background: rgba(139, 92, 246, 0.08);
+        color: var(--text-secondary);
+        border: 1px solid rgba(139, 92, 246, 0.15);
+    }
+    .micro-counter-check {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 4px;
+    }
+    .micro-counter-check svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    /* Micro quality badge - 质量指示器样式 */
+    .micro-quality-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-top: 4px;
+    }
+    .micro-quality-badge svg {
+        width: 14px;
+        height: 14px;
+    }
+    .micro-quality-high {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10B981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .micro-quality-medium {
+        background: rgba(245, 158, 11, 0.15);
+        color: #F59E0B;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .micro-quality-low {
+        background: rgba(239, 68, 68, 0.15);
+        color: #EF4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
     /* Spinner */
     .vc-spinner-center {
         display: none;
@@ -116,6 +178,13 @@
     }
     .vc-spinner-icon {
         margin: 0 auto 8px;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 640px) {
+        .advanced-params-body {
+            grid-template-columns: 1fr !important;
+        }
     }
 </style>
 
@@ -128,8 +197,9 @@
     <form id="vc-form" hx-post="/api/generate/voxcpm_clone" hx-target="#vc-result" hx-swap="innerHTML" hx-indicator="#vc-spinner" hx-encoding="multipart/form-data">
         <input type="hidden" name="mode" value="voxcpm_clone">
         <label>{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" class="tts-input-textarea vc-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" oninput="updateVcCharCounter(this); autoResizeTextarea(this)">{{ "default_clone_text"|t(lang) }}</textarea>
-        <div id="vc-char-counter" class="vc-char-counter">0/200</div>
+        <textarea name="text" class="tts-input-textarea vc-auto-resize" rows="3" placeholder="{{ 'default_clone_text'|t(lang) }}" oninput="updateVcCharCounter(this); autoResizeTextarea(this)"></textarea>
+        <div id="vc-char-counter" class="vc-char-counter">0/{{ engine_max_total_chars }}</div>
+        <span id="vc-quality-badge" class="micro-quality-badge" style="display:none;"></span>
         <label>{{ "language"|t(lang) }}</label>
         <select name="lang" class="tts-input-dropdown">
             {% for l in langs %}
@@ -149,6 +219,9 @@
             <div id="vc-tab-saved" class="inner-tab-panel">
                 <label>{{ "select_voice"|t(lang) }}</label>
                 <select name="persona_name" class="tts-input-dropdown">
+                    {% if not persona_list %}
+                    <option value="" disabled selected>{{ "no_voice_placeholder"|t(lang) }}</option>
+                    {% endif %}
                     {% for p in persona_list %}
                     <option value="{{ p }}">{{ p }}</option>
                     {% endfor %}
@@ -210,8 +283,8 @@
         <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
         <h3 class="card-header-title">{{ "clone_result"|t(lang) }}</h3>
     </div>
-    <div id="vc-result">
-        <div id="vc-spinner" class="htmx-indicator vc-spinner-center">
+    <div id="vc-result" aria-live="polite">
+        <div id="vc-spinner" class="htmx-indicator vc-spinner-center" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="{{ 'generating'|t(lang) }}">
             <div class="tts-loading-spinner vc-spinner-icon"></div>
             <div class="tts-loading-text">{{ "cloning"|t(lang) }}</div>
         </div>
@@ -242,6 +315,24 @@
 </div>
 <script>
 (function(){
+    // Custom confirm dialog (replaces native confirm())
+    window.showConfirmDialog = function(message, onConfirm) {
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        var dialog = document.createElement('div');
+        dialog.style.cssText = 'background:var(--bg-primary,#1a1a2e);border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center;';
+        dialog.innerHTML = '<p style="color:var(--text-primary);margin-bottom:20px;font-size:14px;">' + message + '</p><div style="display:flex;gap:12px;justify-content:center;"><button id="confirm-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;">' + (window.I18N && window.I18N['cancel'] || '{{ "cancel"|t(lang) }}') + '</button><button id="confirm-ok" style="padding:8px 20px;border-radius:8px;border:none;background:#10B981;color:#fff;cursor:pointer;">' + (window.I18N && window.I18N['confirm'] || '{{ "confirm"|t(lang) }}') + '</button></div>';
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        document.getElementById('confirm-cancel').onclick = function() { overlay.remove(); };
+        document.getElementById('confirm-ok').onclick = function() { overlay.remove(); onConfirm(); };
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    };
+
+    var vcForm = document.getElementById('vc-form');
+    var submitBtn = vcForm ? vcForm.querySelector('button[type="submit"]') : null;
+    var originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+
     window.switchVcInnerTab = function(tab, btn) {
         document.querySelectorAll('#vc-form .inner-tab-panel').forEach(function(p){ p.style.display = 'none'; });
         document.querySelectorAll('#vc-form .sub-tab-btn').forEach(function(b){ b.classList.remove('active'); });
@@ -254,25 +345,54 @@
     };
 
     window.updateVcCharCounter = function(textarea) {
-        var SPLIT_MAX_CHARS = 200;
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        var ENGINE_MAX_CHARS = {{ engine_max_total_chars }};
         var counter = document.getElementById('vc-char-counter');
-        var submitBtn = document.querySelector('#vc-form button[type="submit"]');
+        var qualityBadge = document.getElementById('vc-quality-badge');
         if (counter) {
             var len = textarea.value.length;
             var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
 
-            var counterMain = '<span class="counter-main">' + len + '/' + SPLIT_MAX_CHARS + '</span>';
+            var counterMain = '<span class="counter-main">' + len + '/' + ENGINE_MAX_CHARS + '</span>';
             var counterDetail = '';
-            if (len > SPLIT_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            counter.classList.remove('warning', 'micro-counter-ok', 'micro-counter-warn', 'micro-counter-danger', 'micro-counter-empty');
+
+            if (len > ENGINE_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments" style="color:#ef4444;">{{ "text_too_long"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-danger');
+            } else if (len > SPLIT_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-warn');
             } else if (len > 0) {
                 counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-ok');
+                counterDetail += '<span class="micro-counter-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>';
+            } else {
+                counter.classList.add('micro-counter-empty');
             }
 
             counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
             counter.classList.remove('warning');
-            if (len >= SPLIT_MAX_CHARS || len >= SPLIT_MAX_CHARS * 0.8) counter.classList.add('warning');
+            if (len >= ENGINE_MAX_CHARS) counter.classList.add('warning');
             if (submitBtn) submitBtn.disabled = false;
+
+            if (qualityBadge) {
+                if (len === 0) {
+                    qualityBadge.style.display = 'none';
+                } else if (len <= SPLIT_MAX_CHARS) {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-high';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "quality_high"|t(lang) }}';
+                } else if (len <= SPLIT_MAX_CHARS * 3) {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-medium';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ' + '{{ "quality_split"|t(lang) }}';
+                } else {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-low';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ' + '{{ "quality_low"|t(lang) }}';
+                }
+            }
         }
     };
 
@@ -282,12 +402,12 @@
         var textarea = form.querySelector('textarea[name=text]');
         if (!textarea || !textarea.value.trim()) return null;
         var len = textarea.value.length;
-        var maxLen = 200;
-        var segments = Math.ceil(len / maxLen);
-        return { textLength: len, segmentCount: segments, maxLen: maxLen };
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        var segments = Math.ceil(len / SPLIT_MAX_CHARS);
+        return { textLength: len, segmentCount: segments, maxLen: SPLIT_MAX_CHARS };
     };
 
-    // Frontend validation: prevent empty text submission + segment confirmation
+    // Frontend validation: prevent empty text, reference audio check, segment confirmation, and anti-duplicate-submit
     document.getElementById('vc-form').addEventListener('submit', function(e) {
         var textarea = this.querySelector('textarea[name="text"]');
         if (textarea && !textarea.value.trim()) {
@@ -300,18 +420,57 @@
             return false;
         }
 
+        // #4 Reference audio validation: check if upload tab is active and no file selected
+        var uploadTab = document.getElementById('vc-tab-upload');
+        var savedTab = document.getElementById('vc-tab-saved');
+        if (uploadTab && uploadTab.style.display !== 'none') {
+            var fileInput = this.querySelector('input[type="file"][name="ref_audio_path"]');
+            if (fileInput && (!fileInput.files || fileInput.files.length === 0)) {
+                e.preventDefault();
+                var statusEl2 = document.getElementById('vc-status');
+                if (statusEl2) {
+                    statusEl2.className = 'status-message error';
+                    statusEl2.textContent = '{{ "select_ref_audio"|t(lang) }}';
+                }
+                return false;
+            }
+        }
+
         var info = window.getVcSegmentInfo();
         if (info && info.segmentCount > 1) {
             e.preventDefault();
-            var confirmed = confirm(
-                '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}\n' +
-                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}\n' +
-                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}\n\n' +
-                '{{ "confirm_continue"|t(lang) }}'
-            );
-            if (!confirmed) return false;
+            var msg = '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}<br>' +
+                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}<br>' +
+                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}<br><br>' +
+                '{{ "confirm_continue"|t(lang) }}';
+            showConfirmDialog(msg, function() {
+                // Re-submit after confirmation
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle;"></span>{{ "generating"|t(lang) }}';
+                }
+                document.getElementById('vc-form').submit();
+            });
+            return false;
+        }
+
+        // #1 & #12 Anti-duplicate-submit: disable button and show spinner
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle;"></span>{{ "generating"|t(lang) }}';
         }
     });
+
+    // #1 Reset button state when HTMX request completes
+    document.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target && evt.detail.target.id === 'vc-result') {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            }
+        }
+    });
+
     document.getElementById('vc-form').addEventListener('htmx:afterSettle', function(e) {
         if (e.detail.successful) {
             var audioEl = document.getElementById('vc-audio');
@@ -342,7 +501,7 @@
         var tempo = document.getElementById('vc-pp-tempo').value;
         var enhance = document.getElementById('vc-pp-enhance').checked ? 'true' : 'false';
         var statusEl = document.getElementById('vc-status');
-        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Processing...</div>';
+        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">' + ((window.I18N && window.I18N['processing']) || 'Processing...') + '</div>';
         try {
             var resp = await fetch('/api/generate/post-process', {
                 method: 'POST',

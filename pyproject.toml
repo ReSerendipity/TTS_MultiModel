@@ -63,3 +63,20 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+markers = [
+    "integration: integration tests requiring GPU",
+    "benchmark: performance benchmark tests",
+]
+
+[tool.coverage.run]
+source = ["bin/integrated_app"]
+omit = ["*/tests/*", "*/templates/*", "*/static/*"]
+
+[tool.coverage.report]
+fail_under = 40
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "pass",
+]

@@ -69,6 +69,76 @@
             align-items: center;
             gap: 4px;
         }
+        .it2-char-counter .counter-segments {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+        .it2-char-counter .counter-detail {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+    /* Micro counter styles - 字符计数器状态样式 */
+    .it2-char-counter.micro-counter-ok {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10B981;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .it2-char-counter.micro-counter-warn {
+        background: rgba(245, 158, 11, 0.1);
+        color: #F59E0B;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    .it2-char-counter.micro-counter-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: #EF4444;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .it2-char-counter.micro-counter-empty {
+        background: rgba(139, 92, 246, 0.08);
+        color: var(--text-secondary);
+        border: 1px solid rgba(139, 92, 246, 0.15);
+    }
+    .micro-counter-check {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 4px;
+    }
+    .micro-counter-check svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    /* Micro quality badge - 质量指示器样式 */
+    .micro-quality-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-top: 4px;
+    }
+    .micro-quality-badge svg {
+        width: 14px;
+        height: 14px;
+    }
+    .micro-quality-high {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10B981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .micro-quality-medium {
+        background: rgba(245, 158, 11, 0.15);
+        color: #F59E0B;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .micro-quality-low {
+        background: rgba(239, 68, 68, 0.15);
+        color: #EF4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
 
         /* Emotion control panel */
         .it2-emotion-panel {
@@ -148,6 +218,8 @@
             background-color: var(--bg-secondary, #f3f4f6);
             transition: all 0.2s ease;
             user-select: none;
+            font-family: inherit;
+            line-height: inherit;
         }
         .it2-emotion-preset::before {
             content: '';
@@ -321,12 +393,17 @@
             grid-template-columns: 1fr 1fr;
             gap: 16px;
         }
+
+        @media (max-width: 640px) {
+            .it2-emotion-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
     </style>
     <form id="it2-form" hx-post="/api/generate/indextts2" hx-target="#it2-result" hx-swap="innerHTML" hx-indicator="#it2-spinner">
         <input type="hidden" name="mode" value="indextts2">
         <label for="it2-text">{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="it2-text" class="tts-input-textbox it2-full-width it2-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateIt2CharCounter(this); autoResizeTextarea(this)">{{ "indextts2_default_text"|t(lang) }}</textarea>
-        <div id="it2-char-counter" class="it2-char-counter">0/200</div>
+        <textarea name="text" id="it2-text" class="tts-input-textbox it2-full-width it2-auto-resize" rows="3" placeholder="{{ 'indextts2_default_text'|t(lang) }}" required oninput="updateIt2CharCounter(this); autoResizeTextarea(this)"></textarea>
+        <div id="it2-char-counter" class="it2-char-counter">0/{{ engine_max_total_chars }}</div>
+        <span id="it2-quality-badge" class="micro-quality-badge" style="display:none;"></span>
 
         <label for="it2-lang">{{ "language"|t(lang) }}</label>
         <select name="lang" id="it2-lang" class="tts-input-dropdown it2-full-width">
@@ -347,8 +424,8 @@
             </div>
             <div id="it2-tab-clone" class="inner-tab-panel">
                 <label for="it2-ref-audio">{{ "ref_audio"|t(lang) }}</label>
-                <div class="it2-file-upload" onclick="document.getElementById('it2-ref-audio-input').click()">
-                    <input type="file" id="it2-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-name')">
+                <div class="it2-file-upload" onclick="document.getElementById('it2-ref-audio-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
+                    <input type="file" id="it2-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-name')" aria-label="{{ "ref_audio"|t(lang) }}">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 8px; display: block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <div style="font-size: 13px; color: var(--text-secondary);">{{ "upload_ref"|t(lang) }}</div>
                     <div id="it2-ref-audio-name" class="it2-file-name">{{ "supported_formats"|t(lang) }}</div>
@@ -367,12 +444,12 @@
                     </div>
                 </div>
 
-                <button type="submit" class="primary-btn generate-btn it2-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
+                <button type="submit" class="primary-btn generate-btn it2-full-width-btn" aria-label="{{ "indextts2_generate"|t(lang) }}">{{ "indextts2_generate"|t(lang) }}</button>
             </div>
             <div id="it2-tab-emotion" class="inner-tab-panel" style="display:none;">
                 <label for="it2-ref-audio-emo">{{ "ref_audio"|t(lang) }}</label>
-                <div class="it2-file-upload" onclick="document.getElementById('it2-ref-audio-emo-input').click()">
-                    <input type="file" id="it2-ref-audio-emo-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-emo-name')">
+                <div class="it2-file-upload" onclick="document.getElementById('it2-ref-audio-emo-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
+                    <input type="file" id="it2-ref-audio-emo-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-emo-name')" aria-label="{{ "ref_audio"|t(lang) }}" disabled>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 8px; display: block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <div style="font-size: 13px; color: var(--text-secondary);">{{ "upload_ref"|t(lang) }}</div>
                     <div id="it2-ref-audio-emo-name" class="it2-file-name">{{ "supported_formats"|t(lang) }}</div>
@@ -427,16 +504,16 @@
 
                         <!-- Preset emotions -->
                         <div class="it2-emotion-presets">
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('neutral', this)">{{ "emotion_neutral"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('happy', this)">{{ "emotion_happy"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('angry', this)">{{ "emotion_angry"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('sad', this)">{{ "emotion_sad"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('surprised', this)">{{ "emotion_surprised"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('calm', this)">{{ "emotion_calm"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('melancholic', this)">{{ "emotion_melancholic"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('excited', this)">{{ "emotion_excited"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('gentle', this)">{{ "emotion_gentle"|t(lang) }}</span>
-                            <span class="it2-emotion-preset" onclick="applyIt2PresetEmotion('whisper', this)">{{ "emotion_whisper"|t(lang) }}</span>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('neutral', this)" aria-label="{{ "emotion_neutral"|t(lang) }}">{{ "emotion_neutral"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('happy', this)" aria-label="{{ "emotion_happy"|t(lang) }}">{{ "emotion_happy"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('angry', this)" aria-label="{{ "emotion_angry"|t(lang) }}">{{ "emotion_angry"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('sad', this)" aria-label="{{ "emotion_sad"|t(lang) }}">{{ "emotion_sad"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('surprised', this)" aria-label="{{ "emotion_surprised"|t(lang) }}">{{ "emotion_surprised"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('calm', this)" aria-label="{{ "emotion_calm"|t(lang) }}">{{ "emotion_calm"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('melancholic', this)" aria-label="{{ "emotion_melancholic"|t(lang) }}">{{ "emotion_melancholic"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('excited', this)" aria-label="{{ "emotion_excited"|t(lang) }}">{{ "emotion_excited"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('gentle', this)" aria-label="{{ "emotion_gentle"|t(lang) }}">{{ "emotion_gentle"|t(lang) }}</button>
+                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('whisper', this)" aria-label="{{ "emotion_whisper"|t(lang) }}">{{ "emotion_whisper"|t(lang) }}</button>
                         </div>
 
                         <!-- Emotion alpha -->
@@ -490,7 +567,7 @@
                     </div>
                 </div>
 
-                <button type="submit" class="primary-btn generate-btn it2-full-width-btn" style="margin-top: 16px;">{{ "indextts2_generate"|t(lang) }}</button>
+                <button type="submit" class="primary-btn generate-btn it2-full-width-btn" style="margin-top: 16px;" aria-label="{{ "indextts2_generate"|t(lang) }}">{{ "indextts2_generate"|t(lang) }}</button>
             </div>
         </div>
     </form>
@@ -517,6 +594,14 @@
         document.querySelectorAll('#it2-form .sub-tab-btn').forEach(function(b){ b.classList.remove('active'); });
         document.getElementById('it2-tab-' + tab).style.display = '';
         btn.classList.add('active');
+        // 在切换标签时禁用非激活的 file input，防止字段名冲突
+        var fileInputs = document.querySelectorAll('#it2-form input[type="file"]');
+        fileInputs.forEach(function(input) {
+            var tabPanel = input.closest('.inner-tab-panel');
+            if (tabPanel) {
+                input.disabled = (tabPanel.style.display === 'none');
+            }
+        });
     };
 
     // Switch emotion mode
@@ -579,25 +664,55 @@
 
     // Character counter
     window.updateIt2CharCounter = function(textarea) {
-        var SPLIT_MAX_CHARS = 200;
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        var ENGINE_MAX_CHARS = {{ engine_max_total_chars }};
         var counter = document.getElementById('it2-char-counter');
         var submitBtn = document.querySelector('#it2-form button[type="submit"]');
+        var qualityBadge = document.getElementById('it2-quality-badge');
         if (counter) {
             var len = textarea.value.length;
             var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
 
-            var counterMain = '<span class="counter-main">' + len + '/' + SPLIT_MAX_CHARS + '</span>';
+            var counterMain = '<span class="counter-main">' + len + '/' + ENGINE_MAX_CHARS + '</span>';
             var counterDetail = '';
-            if (len > SPLIT_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            counter.classList.remove('warning', 'micro-counter-ok', 'micro-counter-warn', 'micro-counter-danger', 'micro-counter-empty');
+
+            if (len > ENGINE_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments" style="color:#ef4444;">{{ "text_too_long"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-danger');
+            } else if (len > SPLIT_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-warn');
             } else if (len > 0) {
                 counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-ok');
+                counterDetail += '<span class="micro-counter-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>';
+            } else {
+                // Empty state: show neutral styling
+                counter.classList.add('micro-counter-empty');
             }
 
             counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
-            counter.classList.remove('warning');
-            if (len >= SPLIT_MAX_CHARS || len >= SPLIT_MAX_CHARS * 0.8) counter.classList.add('warning');
+            if (len >= ENGINE_MAX_CHARS) counter.classList.add('warning');
             if (submitBtn) submitBtn.disabled = false;
+
+            if (qualityBadge) {
+                if (len === 0) {
+                    qualityBadge.style.display = 'none';
+                } else if (len <= SPLIT_MAX_CHARS) {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-high';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "quality_high"|t(lang) }}';
+                } else if (len <= SPLIT_MAX_CHARS * 3) {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-medium';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ' + '{{ "quality_split"|t(lang) }}';
+                } else {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-low';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ' + '{{ "quality_low"|t(lang) }}';
+                }
+            }
         }
     };
 
@@ -665,6 +780,12 @@
                 var resultEl = document.getElementById('it2-result');
                 if (!resultEl) return;
                 var audioSrc = resultEl.querySelector('audio');
+                if (audioSrc) {
+                    var successBadge = document.createElement('div');
+                    successBadge.className = 'micro-success-badge';
+                    successBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "gen_success"|t(lang) }}';
+                    resultEl.insertBefore(successBadge, resultEl.firstChild);
+                }
                 if (audioSrc && window.globalAudioPlayer) {
                     var filename = audioSrc.src.split('/').pop().split('?')[0];
                     window.globalAudioPlayer.play(audioSrc.src, filename);
@@ -684,5 +805,14 @@
 
     // Initialize seed input
     toggleIt2SeedInput(document.getElementById('it2-use-random-seed'));
+
+    // 初始化时禁用非激活标签页的 file input
+    var fileInputs = document.querySelectorAll('#it2-form input[type="file"]');
+    fileInputs.forEach(function(input) {
+        var tabPanel = input.closest('.inner-tab-panel');
+        if (tabPanel) {
+            input.disabled = (tabPanel.style.display === 'none');
+        }
+    });
 })();
 </script>

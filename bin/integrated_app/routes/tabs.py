@@ -5,8 +5,8 @@ import os
 
 from ..persona_manager import get_persona_list, get_total_persona_count, get_persona_detail_table
 from ..utils import get_generation_history_enhanced, get_total_history_count, get_history_table_data_paginated
-from ..config import _LANGS, _DIALECTS
-from ..model_manager import current_engine
+from ..config import _LANGS, _DIALECTS, GEN_SPLIT_MAX_CHARS
+from ..model_registry import registry
 from ..i18n import t, get_lang, register_i18n_filters
 
 router = APIRouter()
@@ -21,7 +21,8 @@ _TAB_TEMPLATES = {
     "ultimate_clone": "tabs/ultimate_clone.html",
     "prompt_continue": "tabs/prompt_continue.html",
     "script": "tabs/script.html",
-    "voxcpm2": "tabs/voxcpm2.html",
+    "voxcpm2": "tabs/settings.html",
+    "settings": "tabs/settings.html",
     "indextts2": "tabs/indextts2.html",
     "indextts2_clone": "tabs/indextts2_clone.html",
     "indextts2_emotion": "tabs/indextts2_emotion.html",
@@ -34,18 +35,43 @@ _TAB_TEMPLATES = {
 }
 
 
-def _common_context(request: Request):
+# VoxCPM2相关的标签页（这些页面使用VoxCPM2模型，字符上限8192）
+_VOXCPM2_TABS = {"voice_design", "voice_clone", "ultimate_clone", "prompt_continue", "voxcpm2"}
+
+# IndexTTS2相关的标签页（这些页面使用IndexTTS2模型，字符上限3072）
+_INDEXTTS2_TABS = {"indextts2", "indextts2_clone", "indextts2_emotion", "indextts2_duration"}
+
+
+def _common_context(request: Request, tab_name: str = ""):
     lang = get_lang(request)
+    # Use configurable split_max_chars from AdvancedParamsConfig
+    try:
+        from ..config_models import AdvancedParamsConfig
+        split_chars = AdvancedParamsConfig().split_max_chars
+    except Exception:
+        split_chars = GEN_SPLIT_MAX_CHARS
+    
+    # Model-specific total character limits: 根据标签页决定，而非registry.current_engine
+    if tab_name in _VOXCPM2_TABS:
+        engine_max_chars = 8192  # VoxCPM2字符上限
+    elif tab_name in _INDEXTTS2_TABS:
+        engine_max_chars = 3072  # IndexTTS2字符上限
+    else:
+        # 其他标签页（script、settings、history等）使用当前引擎或默认值
+        engine_max_chars = 8192 if registry.current_engine == "voxcpm2" else 3072
+    
     return {
         "request": request,
-        "current_engine": current_engine,
+        "current_engine": registry.current_engine,
         "langs": _LANGS,
         "dialects": _DIALECTS,
         "lang": lang,
+        "gen_split_max_chars": split_chars,
+        "engine_max_total_chars": engine_max_chars,
     }
 
 
-@router.get("/tab/{tab_name}")
+@router.get("/tab/{tab_name}", summary="标签页")
 async def get_tab(request: Request, tab_name: str):
     template_name = _TAB_TEMPLATES.get(tab_name)
     if not template_name:
@@ -61,7 +87,7 @@ async def get_tab(request: Request, tab_name: str):
             f'<p>Tab "{tab_name}" template not found</p></div>'
         )
 
-    ctx = _common_context(request)
+    ctx = _common_context(request, tab_name=tab_name)
 
     if tab_name == "voice_design":
         ctx["persona_list"] = get_persona_list()

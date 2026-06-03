@@ -1,15 +1,16 @@
-"""ModelRegistry: centralized, thread-safe model state management for VoxCPM2.
+"""ModelRegistry: centralized, thread-safe model state management.
 
 Single source of truth for all model state.  Implemented as a thread-safe
-singleton with RLock-protected property access for the six core state
+singleton with RLock-protected property access for the core state
 variables:
 
-    voxcpm_model   -- VoxCPM2 main model instance
-    voxcpm_asr     -- ASR model instance
-    current_engine -- Active engine name  (e.g. "voxcpm2")
-    current_type   -- Active model type
-    current_size   -- Active model size variant
-    model_loaded   -- Whether a model is currently loaded (derived, read-only)
+    voxcpm_model      -- VoxCPM2 main model instance
+    voxcpm_asr        -- ASR model instance
+    indextts2_engine  -- IndexTTS 2.0 engine instance
+    current_engine    -- Active engine name  (e.g. "voxcpm2" or "indextts2")
+    current_type      -- Active model type
+    current_size      -- Active model size variant
+    model_loaded      -- Whether a model is currently loaded (derived, read-only)
 
 Usage::
 
@@ -23,17 +24,33 @@ Usage::
 
     # Batch update (single lock acquisition)
     registry.set_voxcpm_loaded(model, asr=asr_model)
+    registry.set_indextts2_loaded(engine)
 
     # Query helpers
-    registry.is_voxcpm_ready()
+    registry.is_engine_ready()
     registry.get_current_model_info()
 """
 
 import logging
 import threading
+from enum import Enum
 from typing import Any, Optional
 
 logger = logging.getLogger("tts_multimodel")
+
+class EngineName(str, Enum):
+    VOXCPM2 = "voxcpm2"
+    INDEXTTS2 = "indextts2"
+
+ENGINE_DISPLAY_NAMES: dict[str, str] = {
+    EngineName.VOXCPM2.value: "VoxCPM2",
+    EngineName.INDEXTTS2.value: "IndexTTS 2.0",
+}
+
+ENGINE_VRAM_REQUIREMENTS: dict[str, float] = {
+    EngineName.VOXCPM2.value: 6.5,
+    EngineName.INDEXTTS2.value: 6.0,
+}
 
 
 class ModelRegistry:
@@ -50,6 +67,7 @@ class ModelRegistry:
 
     For multi-attribute updates that must be atomic, use the batch
     methods (:meth:`set_voxcpm_loaded`, :meth:`clear_voxcpm`,
+    :meth:`set_indextts2_loaded`, :meth:`clear_indextts2`,
     :meth:`clear_all`) which acquire the lock once for the whole
     operation.
     """
@@ -76,11 +94,11 @@ class ModelRegistry:
         # --- Core model state (property-backed, thread-safe) ---
         self._voxcpm_model = None
         self._voxcpm_asr = None
-        self._current_engine: str | None = "voxcpm2"
-        self._current_type: str = "voxcpm2"
-        self._current_size: str = "voxcpm2"
+        self._current_engine: str | None = None
+        self._current_type: str = ""
+        self._current_size: str = ""
 
-        # --- IndexTTS 2.0 state ---
+        # --- IndexTTS 2.0 state (property-backed, thread-safe) ---
         self._indextts2_engine = None
         self._indextts2_model_path: str = ""
 
@@ -144,6 +162,16 @@ class ModelRegistry:
             self._voxcpm_asr = value
 
     @property
+    def indextts2_engine(self):
+        with self._lock:
+            return self._indextts2_engine
+
+    @indextts2_engine.setter
+    def indextts2_engine(self, value):
+        with self._lock:
+            self._indextts2_engine = value
+
+    @property
     def current_engine(self) -> str | None:
         with self._lock:
             return self._current_engine
@@ -175,9 +203,9 @@ class ModelRegistry:
 
     @property
     def model_loaded(self) -> bool:
-        """Read-only: ``True`` when a model instance is present."""
+        """Read-only: ``True`` when any engine model instance is present."""
         with self._lock:
-            return self._voxcpm_model is not None
+            return self._voxcpm_model is not None or self._indextts2_engine is not None
 
     # ------------------------------------------------------------------
     # Batch update helpers (single lock acquisition)
@@ -205,9 +233,22 @@ class ModelRegistry:
             self.voxcpm_ultimate = ultimate
             self.voxcpm_voiceclone_enabled = voiceclone
             self.voxcpm_control_enabled = control
-            self._current_engine = "voxcpm2"
-            self._current_type = "voxcpm2"
-            self._current_size = "voxcpm2"
+            self._current_engine = EngineName.VOXCPM2.value
+            self._current_type = EngineName.VOXCPM2.value
+            self._current_size = EngineName.VOXCPM2.value
+
+    def set_indextts2_loaded(self, engine) -> None:
+        """Atomically set all IndexTTS 2.0 loaded state.
+
+        Sets *indextts2_engine* and resets ``current_engine /
+        current_type / current_size`` to ``"indextts2"`` -- all under a
+        single lock acquisition.
+        """
+        with self._lock:
+            self._indextts2_engine = engine
+            self._current_engine = EngineName.INDEXTTS2.value
+            self._current_type = EngineName.INDEXTTS2.value
+            self._current_size = EngineName.INDEXTTS2.value
 
     def clear_voxcpm(self) -> None:
         """Atomically clear all VoxCPM2 model references and flags.
@@ -224,18 +265,29 @@ class ModelRegistry:
             self.voxcpm_voiceclone_enabled = False
             self.voxcpm_control_enabled = False
 
+    def clear_indextts2(self) -> None:
+        """Atomically clear all IndexTTS 2.0 engine references.
+
+        Sets *indextts2_engine* to ``None``.  Does **not** change
+        ``current_engine / type / size`` (use :meth:`clear_all` for a
+        full reset).
+        """
+        with self._lock:
+            self._indextts2_engine = None
+
     def clear_all(self) -> None:
         """Atomically reset all core state to defaults.
 
-        Model / ASR become ``None``, engine becomes ``None``, type and
-        size revert to ``"voxcpm2"``.
+        Model / ASR / IndexTTS2 engine become ``None``, engine becomes
+        ``None``, type and size revert to empty strings.
         """
         with self._lock:
             self._voxcpm_model = None
             self._voxcpm_asr = None
+            self._indextts2_engine = None
             self._current_engine = None
-            self._current_type = "voxcpm2"
-            self._current_size = "voxcpm2"
+            self._current_type = ""
+            self._current_size = ""
             self.voxcpm_enhancer_model = None
             self.voxcpm_ultimate = False
             self.voxcpm_voiceclone_enabled = False
@@ -249,15 +301,35 @@ class ModelRegistry:
         with self._lock:
             return (
                 self._voxcpm_model is not None
-                and self._current_engine == "voxcpm2"
+                and self._current_engine == EngineName.VOXCPM2.value
+            )
+
+    def is_indextts2_ready(self) -> bool:
+        with self._lock:
+            return (
+                self._indextts2_engine is not None
+                and self._current_engine == EngineName.INDEXTTS2.value
             )
 
     def is_engine_ready(self) -> bool:
-        return self.is_voxcpm_ready()
+        """Check if the current engine is ready.
+
+        Delegates to the appropriate engine-specific check based on
+        ``current_engine``.
+        """
+        with self._lock:
+            engine = self._current_engine
+        if engine == EngineName.VOXCPM2.value:
+            return self.is_voxcpm_ready()
+        elif engine == EngineName.INDEXTTS2.value:
+            return self.is_indextts2_ready()
+        return False
 
     def get_current_model_info(self) -> dict[str, Any]:
+        """Return info dict for the currently active engine."""
         with self._lock:
-            if self._voxcpm_model is not None and self._current_engine == "voxcpm2":
+            engine = self._current_engine
+            if engine == EngineName.VOXCPM2.value and self._voxcpm_model is not None:
                 return {
                     "engine": self._current_engine,
                     "type": self._current_type,
@@ -267,11 +339,25 @@ class ModelRegistry:
                     "voiceclone_enabled": self.voxcpm_voiceclone_enabled,
                     "control_enabled": self.voxcpm_control_enabled,
                 }
+            elif engine == EngineName.INDEXTTS2.value and self._indextts2_engine is not None:
+                return {
+                    "engine": self._current_engine,
+                    "type": self._current_type,
+                    "size": self._current_size,
+                    "ready": True,
+                }
             return {"ready": False}
 
     def switch_to(self, engine: str) -> None:
+        if engine not in EngineName._value2member_map_:
+            raise ValueError(f"Unknown engine: {engine!r}")
         with self._lock:
             self._current_engine = engine
+
+    def get_engine_display_name(self, engine: str | None = None) -> str:
+        """Return the display name for the given engine (or current engine)."""
+        eng = engine or self.current_engine
+        return ENGINE_DISPLAY_NAMES.get(eng, eng or "None")
 
 
 # ------------------------------------------------------------------

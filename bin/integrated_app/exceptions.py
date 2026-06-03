@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """统一异常层次结构与错误处理装饰器"""
 
+import asyncio
 import functools
 
 
@@ -43,11 +44,23 @@ class EngineSwitchError(TTSError):
 
 def tts_error_handler(func):
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def sync_wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except TTSError:
             raise
         except Exception as e:
             raise GenerationError(f"未知错误: {type(e).__name__}: {e}") from e
-    return wrapper
+
+    @functools.wraps(func)
+    async def async_wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except TTSError:
+            raise
+        except Exception as e:
+            raise GenerationError(f"未知错误: {type(e).__name__}: {e}") from e
+
+    if asyncio.iscoroutinefunction(func):
+        return async_wrapper
+    return sync_wrapper

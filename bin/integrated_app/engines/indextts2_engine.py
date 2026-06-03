@@ -322,6 +322,12 @@ class IndexTTS2Engine:
             "device": self.device,
         }
 
+    def is_ready(self) -> bool:
+        return hasattr(self, 'tts') and self.tts is not None
+
+    def load(self) -> None:
+        self._load_model()
+
     def unload(self):
         """卸载模型释放显存/内存"""
         logger.info("[IndexTTS2] 开始卸载模型...")
@@ -410,3 +416,38 @@ class IndexTTS2Engine:
     def min_ram_gb(self) -> float:
         """返回最低内存需求 (GB)"""
         return 16.0
+
+    def generate_voice_design(
+        self,
+        text: str,
+        instruction: str = "",
+        normalize: bool = True,
+    ):
+        raise NotImplementedError
+
+    def generate_voice_clone(
+        self,
+        text: str,
+        reference_audio_path: Optional[str] = None,
+        instruction: str = "",
+        normalize: bool = True,
+        **kwargs,
+    ):
+        raise NotImplementedError
+
+    def generate_script(
+        self,
+        text: str,
+        speaker_map: dict,
+        persona_map: dict = None,
+        **kwargs,
+    ):
+        raise NotImplementedError
+
+    def generate_streaming(
+        self,
+        text: str,
+        reference_audio_path: Optional[str] = None,
+        **kwargs,
+    ):
+        raise NotImplementedError

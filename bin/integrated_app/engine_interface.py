@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Abstract engine interface using Python Protocol for type-safe duck typing.
-Updated for VoxCPM2-only architecture with extensible model support.
+Supports VoxCPM2 and IndexTTS 2.0 dual-engine architecture.
 """
 
 from typing import Protocol, Generator, Tuple, Any, Optional, runtime_checkable
@@ -155,13 +155,42 @@ class EngineRegistry(Protocol):
     """Protocol for engine registry that manages engine discovery and instantiation."""
 
     def register(self, name: str, engine_class: type) -> None:
-        """Register an engine class by name."""
         ...
 
     def get(self, name: str) -> Optional[type]:
-        """Get an engine class by name."""
         ...
 
     def list_engines(self) -> list:
-        """List all registered engine names."""
         ...
+
+
+class InMemoryEngineRegistry:
+
+    def __init__(self):
+        self._engines: dict[str, type] = {}
+        self._metadata: dict[str, dict] = {}
+
+    def register(self, name: str, engine_class: type, display_name: str = "", vram_requirement: float = 6.0) -> None:
+        self._engines[name] = engine_class
+        self._metadata[name] = {
+            "display_name": display_name or name,
+            "vram_requirement": vram_requirement,
+        }
+
+    def get(self, name: str) -> Optional[type]:
+        return self._engines.get(name)
+
+    def list_engines(self) -> list[str]:
+        return list(self._engines.keys())
+
+    def get_display_name(self, name: str) -> str:
+        return self._metadata.get(name, {}).get("display_name", name)
+
+    def get_vram_requirement(self, name: str) -> float:
+        return self._metadata.get(name, {}).get("vram_requirement", 6.0)
+
+    def is_registered(self, name: str) -> bool:
+        return name in self._engines
+
+
+engine_registry = InMemoryEngineRegistry()

@@ -23,6 +23,13 @@
         var progressInterval = null;
         var isHidden = false;
         var isInitialized = false;
+        var waveformCanvas, waveContainer, waveTooltip, clipBtn;
+        var audioCtx, analyser, source, dataArray, bufferLength;
+        var animFrameId = null;
+        var waveformPeaks = null;
+        var clipMode = false;
+        var clipStart = null, clipEnd = null;
+        var clipOverlay = null;
 
         function initPlayer() {
             if (isInitialized) return;
@@ -47,6 +54,12 @@
 
             isInitialized = true;
             console.log('[GlobalAudio] Player initialized');
+
+            // Waveform elements
+            waveformCanvas = document.getElementById('gap-waveform');
+            waveContainer = document.getElementById('gap-wave-container');
+            waveTooltip = document.getElementById('gap-wave-tooltip');
+            clipBtn = document.getElementById('gap-clip-btn');
 
             // Event Listeners
             playBtn.addEventListener('click', togglePlay);
@@ -88,24 +101,66 @@
             audioEl.playbackRate = 1;
             if (speedBtns.length > 1) speedBtns[1].classList.add('active');
 
+            // Waveform hover tooltip
+            if (waveformCanvas) {
+                waveformCanvas.addEventListener('mousemove', function(e) {
+                    if (!waveformPeaks || !audioEl.duration) return;
+                    var rect = waveformCanvas.getBoundingClientRect();
+                    var x = e.clientX - rect.left;
+                    var pct = x / rect.width;
+                    var idx = Math.floor(pct * waveformPeaks.length);
+                    if (idx < 0) idx = 0;
+                    if (idx >= waveformPeaks.length) idx = waveformPeaks.length - 1;
+                    var time = pct * audioEl.duration;
+                    var amp = waveformPeaks[idx];
+                    waveTooltip.textContent = formatTime(time) + ' | ' + Math.round(amp * 100) + '%';
+                    waveTooltip.style.display = 'block';
+                    waveTooltip.style.left = x + 'px';
+                    waveTooltip.style.top = '-20px';
+                });
+                waveformCanvas.addEventListener('mouseleave', function() {
+                    waveTooltip.style.display = 'none';
+                });
+            }
+
+            // Clip button
+            if (clipBtn) {
+                clipBtn.addEventListener('click', toggleClipMode);
+            }
+
+            // Download button
+            var downloadBtn = document.getElementById('gap-download-btn');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', function() {
+                    if (!audioEl || !audioEl.src) return;
+                    var a = document.createElement('a');
+                    a.href = audioEl.src;
+                    a.download = (titleEl ? titleEl.textContent : 'audio') + '.wav';
+                    a.click();
+                });
+            }
+
             // Audio events
             audioEl.addEventListener('ended', function() {
                 playBtn.innerHTML = '&#9654;';
                 playBtn.classList.remove('playing');
                 stopProgressUpdate();
                 progressFill.style.width = '0%';
+                if (clipMode) exitClipMode();
             });
 
             audioEl.addEventListener('pause', function() {
                 playBtn.innerHTML = '&#9654;';
                 playBtn.classList.remove('playing');
                 stopProgressUpdate();
+                if (animFrameId) cancelAnimationFrame(animFrameId);
             });
 
             audioEl.addEventListener('play', function() {
                 playBtn.innerHTML = '&#10074;&#10074;';
                 playBtn.classList.add('playing');
                 startProgressUpdate();
+                drawWaveformLive();
             });
         }
 
@@ -188,6 +243,7 @@
                 return;
             }
             audioEl.src = src;
+            decodeAudioToWaveform(src);
             titleEl.textContent = title || '播放中...';
             showPlayer();
             audioEl.play().then(function() {
@@ -217,6 +273,312 @@
             }
         }
 
+        function decodeAudioToWaveform(src) {
+            waveformPeaks = null;
+            waveContainer.style.display = 'none';
+            if (!window.AudioContext && !window.webkitAudioContext) return;
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            fetch(src)
+                .then(function(res) { return res.arrayBuffer(); })
+                .then(function(buffer) {
+                    audioCtx.decodeAudioData(buffer, function(decodedBuffer) {
+                        var rawData = decodedBuffer.getChannelData(0);
+                        var steps = Math.min(300, rawData.length);
+                        var stepSize = Math.floor(rawData.length / steps);
+                        waveformPeaks = [];
+                        for (var i = 0; i < steps; i++) {
+                            var max = 0;
+                            for (var j = 0; j < stepSize; j++) {
+                                var val = Math.abs(rawData[i * stepSize + j]);
+                                if (val > max) max = val;
+                            }
+                            waveformPeaks.push(max);
+                        }
+                        waveContainer.style.display = 'block';
+                        drawStaticWaveform();
+                        initLiveAnalyser();
+                    }, function(e) {
+                        console.warn('[Waveform] 解码失败:', e);
+                    });
+                })
+                .catch(function(err) {
+                    console.error('[Waveform] 获取音频数据失败:', err);
+                });
+        }
+
+        function drawStaticWaveform() {
+            if (!waveformCanvas || !waveformPeaks) return;
+            var ctx = waveformCanvas.getContext('2d');
+            var w = waveformCanvas.width;
+            var h = waveformCanvas.height;
+            ctx.clearRect(0, 0, w, h);
+            
+            var barWidth = w / waveformPeaks.length;
+            for (var i = 0; i < waveformPeaks.length; i++) {
+                var amp = waveformPeaks[i];
+                var barH = Math.max(1, amp * h * 0.9);
+                ctx.fillStyle = 'rgba(124, 110, 246, 0.5)';
+                ctx.fillRect(i * barWidth, (h - barH) / 2, barWidth - 0.5, barH);
+            }
+        }
+
+        function initLiveAnalyser() {
+            if (!audioCtx || !audioEl) return;
+            if (!analyser) {
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                try {
+                    source = audioCtx.createMediaElementSource(audioEl);
+                    source.connect(analyser);
+                    analyser.connect(audioCtx.destination);
+                } catch(e) {
+                    console.warn('[Waveform] 分析器连接失败:', e);
+                }
+            }
+            bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+        }
+
+        function drawWaveformLive() {
+            if (!analyser || !waveformCanvas || !waveformPeaks) return;
+            var ctx = waveformCanvas.getContext('2d');
+            var w = waveformCanvas.width;
+            var h = waveformCanvas.height;
+            
+            function render() {
+                animFrameId = requestAnimationFrame(render);
+                analyser.getByteFrequencyData(dataArray);
+                
+                ctx.clearRect(0, 0, w, h);
+                var barWidth = w / waveformPeaks.length;
+                
+                for (var i = 0; i < waveformPeaks.length; i++) {
+                    var amp = waveformPeaks[i];
+                    var barH = Math.max(1, amp * h * 0.9);
+                    ctx.fillStyle = 'rgba(124, 110, 246, 0.15)';
+                    ctx.fillRect(i * barWidth, (h - barH) / 2, barWidth - 0.5, barH);
+                }
+                
+                var liveBars = Math.min(bufferLength, waveformPeaks.length);
+                for (var i = 0; i < liveBars; i++) {
+                    var liveAmp = dataArray[i] / 255;
+                    var barH = Math.max(1, liveAmp * h * 0.95);
+                    var gradient = ctx.createLinearGradient(0, (h - barH) / 2, 0, (h + barH) / 2);
+                    gradient.addColorStop(0, 'rgba(139, 92, 246, 0.9)');
+                    gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.8)');
+                    gradient.addColorStop(1, 'rgba(139, 92, 246, 0.9)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(i * barWidth, (h - barH) / 2, barWidth - 0.5, barH);
+                }
+                
+                if (audioEl.duration) {
+                    var playPct = audioEl.currentTime / audioEl.duration;
+                    var playX = playPct * w;
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(playX - 1, 0, 2, h);
+                }
+                
+                if (clipMode && clipStart !== null && clipEnd !== null) {
+                    var x1 = Math.min(clipStart, clipEnd) * w;
+                    var x2 = Math.max(clipStart, clipEnd) * w;
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.2)';
+                    ctx.fillRect(x1, 0, x2 - x1, h);
+                    ctx.strokeStyle = '#10B981';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x1, 0, x2 - x1, h);
+                }
+            }
+            render();
+        }
+
+        function toggleClipMode() {
+            if (clipMode) {
+                exitClipMode();
+            } else {
+                enterClipMode();
+            }
+        }
+
+        function enterClipMode() {
+            clipMode = true;
+            clipStart = null;
+            clipEnd = null;
+            clipBtn.classList.add('gap-clip-active');
+            
+            if (waveformCanvas) {
+                var isDragging = false;
+                waveformCanvas._clipMouseDown = function(e) {
+                    isDragging = true;
+                    var rect = waveformCanvas.getBoundingClientRect();
+                    var clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+                    var pct = (clientX - rect.left) / rect.width;
+                    clipStart = pct;
+                    clipEnd = pct;
+                };
+                waveformCanvas._clipMouseMove = function(e) {
+                    if (!isDragging) return;
+                    var rect = waveformCanvas.getBoundingClientRect();
+                    var clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+                    var pct = (clientX - rect.left) / rect.width;
+                    if (pct < 0) pct = 0;
+                    if (pct > 1) pct = 1;
+                    clipEnd = pct;
+                };
+                waveformCanvas._clipMouseUp = function(e) {
+                    isDragging = false;
+                    if (clipStart !== null && clipEnd !== null) {
+                        var t1 = Math.min(clipStart, clipEnd) * audioEl.duration;
+                        var t2 = Math.max(clipStart, clipEnd) * audioEl.duration;
+                        if (t2 - t1 < 0.1) {
+                            clipStart = null;
+                            clipEnd = null;
+                            return;
+                        }
+                        showClipConfirm(t1, t2);
+                    }
+                };
+                waveformCanvas.addEventListener('mousedown', waveformCanvas._clipMouseDown);
+                waveformCanvas.addEventListener('mousemove', waveformCanvas._clipMouseMove);
+                waveformCanvas.addEventListener('mouseup', waveformCanvas._clipMouseUp);
+                waveformCanvas._clipTouchStart = function(e) { e.preventDefault(); waveformCanvas._clipMouseDown(e); };
+                waveformCanvas._clipTouchMove = function(e) { e.preventDefault(); waveformCanvas._clipMouseMove(e); };
+                waveformCanvas._clipTouchEnd = function(e) { waveformCanvas._clipMouseUp(e); };
+                waveformCanvas.addEventListener('touchstart', waveformCanvas._clipTouchStart, { passive: false });
+                waveformCanvas.addEventListener('touchmove', waveformCanvas._clipTouchMove, { passive: false });
+                waveformCanvas.addEventListener('touchend', waveformCanvas._clipTouchEnd);
+            }
+        }
+
+        function exitClipMode() {
+            clipMode = false;
+            clipStart = null;
+            clipEnd = null;
+            clipBtn.classList.remove('gap-clip-active');
+            if (waveformCanvas) {
+                if (waveformCanvas._clipMouseDown) waveformCanvas.removeEventListener('mousedown', waveformCanvas._clipMouseDown);
+                if (waveformCanvas._clipMouseMove) waveformCanvas.removeEventListener('mousemove', waveformCanvas._clipMouseMove);
+                if (waveformCanvas._clipMouseUp) waveformCanvas.removeEventListener('mouseup', waveformCanvas._clipMouseUp);
+                if (waveformCanvas._clipTouchStart) waveformCanvas.removeEventListener('touchstart', waveformCanvas._clipTouchStart);
+                if (waveformCanvas._clipTouchMove) waveformCanvas.removeEventListener('touchmove', waveformCanvas._clipTouchMove);
+                if (waveformCanvas._clipTouchEnd) waveformCanvas.removeEventListener('touchend', waveformCanvas._clipTouchEnd);
+            }
+            if (clipOverlay) { clipOverlay.remove(); clipOverlay = null; }
+        }
+
+        function showClipConfirm(t1, t2) {
+            var existing = document.getElementById('gap-clip-confirm');
+            if (existing) existing.remove();
+            
+            var overlay = document.createElement('div');
+            overlay.id = 'gap-clip-confirm';
+            var i18nClipTitle = (document.getElementById('gap-i18n-clip-title') || {}).textContent || '截取片段';
+            var i18nExport = (document.getElementById('gap-i18n-export') || {}).textContent || '导出';
+            var i18nCancel = (document.getElementById('gap-i18n-cancel') || {}).textContent || '取消';
+            overlay.innerHTML = '<div class="gap-clip-popup"><div class="gap-clip-title">&#9986; ' + i18nClipTitle + '</div><div class="gap-clip-time">' + formatTime(t1) + ' - ' + formatTime(t2) + '</div><div class="gap-clip-actions"><button class="gap-clip-action-btn" onclick="gapExportClip(' + t1.toFixed(2) + ',' + t2.toFixed(2) + ')">&#128190; ' + i18nExport + '</button><button class="gap-clip-action-btn gap-clip-cancel" onclick="document.getElementById(\'gap-clip-confirm\').remove()">&#10005; ' + i18nCancel + '</button></div></div>';
+            overlay.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;';
+            document.body.appendChild(overlay);
+            clipOverlay = overlay;
+        }
+
+        function gapExportClip(start, end) {
+            if (!audioEl || !audioEl.src) return;
+            var duration = end - start;
+            if (duration <= 0) return;
+
+            var clipPopup = document.getElementById('gap-clip-confirm');
+            if (clipPopup) {
+                var actionsDiv = clipPopup.querySelector('.gap-clip-actions');
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<div style="color:#10B981;font-size:13px;">&#8987; ' + ((document.getElementById('gap-i18n-exporting') || {}).textContent || '导出中...') + '</div>';
+                }
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', audioEl.src);
+            xhr.responseType = 'arraybuffer';
+            xhr.onload = function() {
+                var offCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, Math.ceil(duration * 44100), 44100);
+                offCtx.decodeAudioData(xhr.response, function(buffer) {
+                    var startSample = Math.floor(start * buffer.sampleRate);
+                    var endSample = Math.floor(end * buffer.sampleRate);
+                    if (startSample >= buffer.length) startSample = 0;
+                    if (endSample > buffer.length) endSample = buffer.length;
+                    var clipLen = endSample - startSample;
+                    var clipBuffer = offCtx.createBuffer(buffer.numberOfChannels, clipLen, buffer.sampleRate);
+                    for (var ch = 0; ch < buffer.numberOfChannels; ch++) {
+                        var srcData = buffer.getChannelData(ch);
+                        var dstData = clipBuffer.getChannelData(ch);
+                        for (var i = 0; i < clipLen; i++) {
+                            dstData[i] = srcData[startSample + i];
+                        }
+                    }
+                    var src = offCtx.createBufferSource();
+                    src.buffer = clipBuffer;
+                    src.connect(offCtx.destination);
+                    src.start(0);
+                    offCtx.startRendering().then(function(rendered) {
+                        var wavBlob = audioBufferToWav(rendered);
+                        var url = URL.createObjectURL(wavBlob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'clip_' + formatTime(start).replace(':', '') + '_' + formatTime(end).replace(':', '') + '.wav';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        if (clipOverlay) { clipOverlay.remove(); clipOverlay = null; }
+                    });
+                }, function(e) {
+                    console.warn('[Clip] 解码失败:', e);
+                    if (clipOverlay) { clipOverlay.remove(); clipOverlay = null; }
+                });
+            };
+            xhr.send();
+        }
+
+        function audioBufferToWav(buffer) {
+            var numCh = buffer.numberOfChannels;
+            var sr = buffer.sampleRate;
+            var len = buffer.length;
+            var bytesPerSample = 2;
+            var blockAlign = numCh * bytesPerSample;
+            var dataSize = len * blockAlign;
+            var headerSize = 44;
+            var totalSize = headerSize + dataSize;
+            var ab = new ArrayBuffer(totalSize);
+            var view = new DataView(ab);
+
+            function writeStr(offset, str) { for (var i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); }
+            writeStr(0, 'RIFF');
+            view.setUint32(4, totalSize - 8, true);
+            writeStr(8, 'WAVE');
+            writeStr(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numCh, true);
+            view.setUint32(24, sr, true);
+            view.setUint32(28, sr * blockAlign, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bytesPerSample * 8, true);
+            writeStr(36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            var channels = [];
+            for (var ch = 0; ch < numCh; ch++) channels.push(buffer.getChannelData(ch));
+            var offset = headerSize;
+            for (var i = 0; i < len; i++) {
+                for (var ch = 0; ch < numCh; ch++) {
+                    var sample = Math.max(-1, Math.min(1, channels[ch][i]));
+                    sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(offset, sample, true);
+                    offset += 2;
+                }
+            }
+            return new Blob([ab], { type: 'audio/wav' });
+        }
+
         // Initialize when DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function() {
@@ -242,9 +604,11 @@
             get element() { return document.getElementById('global-audio-element'); },
             set element(val) { /* no-op, getter handles it */ },
             isHidden: function() { return isHidden; },
-            resetHidden: function() { isHidden = false; }
+            resetHidden: function() { isHidden = false; },
+            exportClip: gapExportClip
         };
         window.globalAudioPlayer = globalPlayerObj;
+        window.gapExportClip = gapExportClip;
     })();
     </script>
     <meta charset="UTF-8">
@@ -633,6 +997,108 @@
         }
         .global-audio-player .gap-speed-btn:hover { border-color: var(--primary); color: var(--primary); }
         .global-audio-player .gap-speed-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* === Waveform Visualization === */
+        .global-audio-player .gap-wave-container {
+            position: relative;
+            width: 100%;
+            height: 40px;
+            background: rgba(0,0,0,0.15);
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+        .global-audio-player #gap-waveform {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .global-audio-player .gap-wave-tooltip {
+            position: absolute;
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border-medium);
+            white-space: nowrap;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* === Clip Button === */
+        .global-audio-player .gap-clip-btn {
+            font-size: 16px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border-medium);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .global-audio-player .gap-clip-btn:hover {
+            border-color: #10B981;
+            color: #10B981;
+        }
+        .global-audio-player .gap-clip-btn.gap-clip-active {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: #10B981;
+            color: #10B981;
+            animation: gapClipPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes gapClipPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.3); }
+            50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+        }
+
+        /* === Clip Popup === */
+        .gap-clip-popup {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-medium);
+            border-radius: 12px;
+            padding: 20px 24px;
+            min-width: 280px;
+            box-shadow: var(--shadow-elevated);
+            animation: micro-slide-in-up 0.3s ease-out;
+        }
+        .gap-clip-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        .gap-clip-time {
+            font-size: 14px;
+            color: #10B981;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        .gap-clip-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .gap-clip-action-btn {
+            flex: 1;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-medium);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .gap-clip-action-btn:hover {
+            border-color: #10B981;
+            color: #10B981;
+        }
+        .gap-clip-action-btn.gap-clip-cancel:hover {
+            border-color: var(--border-medium);
+            color: var(--text-secondary);
+        }
 
         /* Main content needs bottom padding for audio player */
         .main-content { display: flex; flex-direction: column; min-height: 0; position: relative; }
@@ -1161,6 +1627,7 @@
             .main-content { margin-left: 0; }
             .top-bar-mobile-toggle { display: flex; }
             .sidebar-overlay.visible { display: block; opacity: 1; }
+            .global-audio-player { left: 0 !important; }
         }
 
         /* === Help Floating Popup === */
@@ -2687,8 +3154,8 @@
             </div>
 
             <nav class="sidebar-nav" aria-label="功能菜单">
-                <div class="sidebar-nav-section">
-                    <div class="sidebar-nav-label">{{ "nav_section" | t(lang) }}</div>
+                <div class="sidebar-nav-section" data-section-model="voxcpm2">
+                    <div class="sidebar-nav-label">VoxCPM2</div>
                     <!-- VoxCPM2 专属菜单 -->
                     <button class="sidebar-item" data-tab="voice_design" data-model="voxcpm2"
                             hx-get="/tab/voice_design?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
@@ -2720,12 +3187,6 @@
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg>
                         <span class="sidebar-label-text">{{ "tab_prompt_continue" | t(lang) }}</span>
                     </button>
-                    <button class="sidebar-item" data-tab="voxcpm2" data-model="voxcpm2"
-                            hx-get="/tab/voxcpm2?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
-                            onclick="window.activateSidebarTab(this)">
-                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                        <span class="sidebar-label-text">{{ "tab_settings" | t(lang) }}</span>
-                    </button>
                     <button class="sidebar-item" data-tab="lora" data-model="voxcpm2"
                             hx-get="/tab/lora?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
                             onclick="window.activateSidebarTab(this)">
@@ -2738,7 +3199,9 @@
                         <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z"/></svg>
                         <span class="sidebar-label-text">{{ "tab_lora_training" | t(lang) }}</span>
                     </button>
-                    <!-- IndexTTS 2.0 专属菜单 -->
+                </div>
+                <div class="sidebar-nav-section" data-section-model="indextts2">
+                    <div class="sidebar-nav-label">IndexTTS 2.0</div>
                     <button class="sidebar-item" data-tab="indextts2_clone" data-model="indextts2"
                             hx-get="/tab/indextts2_clone?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
                             onclick="window.activateSidebarTab(this)">
@@ -2761,6 +3224,12 @@
                 <div class="sidebar-nav-section">
                     <div class="sidebar-nav-label">{{ "tools_section" | t(lang) }}</div>
                     <!-- 通用菜单 — 全部整合到"工具"区域 -->
+                    <button class="sidebar-item" data-tab="settings" data-model="all"
+                            hx-get="/tab/settings?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
+                            onclick="window.activateSidebarTab(this)">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_settings" | t(lang) }}</span>
+                    </button>
                     <button class="sidebar-item" data-tab="history" data-model="all"
                             hx-get="/tab/history?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML"
                             onclick="window.activateSidebarTab(this)">
@@ -2818,19 +3287,19 @@
                     </button>
                     <button class="model-tab active" data-model="none" onclick="window.switchModel('none')">
                         <span class="model-tab-icon">⚪</span>
-                        <span class="model-tab-label">None</span>
+                        <span class="model-tab-label">{{ "model_none"|t(lang) }}</span>
                     </button>
                 </div>
                 <!-- 引擎状态指示器 -->
                 <span class="engine-status" id="engine-status">
                     <span class="engine-status-dot" id="engine-status-dot"></span>
-                    <span class="engine-status-text" id="engine-status-text">None</span>
+                    <span class="engine-status-text" id="engine-status-text">{{ "model_none"|t(lang) }}</span>
                 </span>
                 <!-- Mini System Monitor Widget -->
                 <div class="mini-monitor" id="mini-monitor" onclick="openHealthPanel()" title="{{ "click_for_details"|t(lang) }}">
                     <div class="mini-monitor-item">
                         <svg class="mini-monitor-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></svg>
-                        <span class="mini-monitor-label">GPU</span>
+                        <span class="mini-monitor-label">{{ "gpu_short"|t(lang) }}</span>
                         <span class="mini-monitor-value" id="mini-gpu-util">--%</span>
                     </div>
                     <div class="mini-monitor-divider"></div>
@@ -3308,7 +3777,13 @@
             voice_clone: window.I18N["tab_voice_clone"],
             ultimate_clone: window.I18N["tab_ultimate_clone"],
             script: window.I18N["tab_script"],
-            voxcpm2: window.I18N["tab_settings"],
+            prompt_continue: window.I18N["tab_prompt_continue"],
+            settings: window.I18N["tab_settings"],
+            indextts2_clone: window.I18N["tab_indextts2_clone"],
+            indextts2_emotion: window.I18N["tab_indextts2_emotion"],
+            indextts2_duration: window.I18N["tab_indextts2_duration"],
+            lora: window.I18N["tab_lora"],
+            lora_training: window.I18N["tab_lora_training"],
             history: window.I18N["tab_history"],
             persona: window.I18N["tab_persona"],
             help: window.I18N["tab_help"]
@@ -3497,10 +3972,20 @@
         // ============================================================
         // Model Switching
         // ============================================================
+        window._modelSwitching = false;
+
         window.switchModel = function(modelName) {
+            if (window._modelSwitching) return;
+
             var tabs = document.querySelectorAll('.model-tab');
             tabs.forEach(function(tab) {
                 tab.classList.toggle('active', tab.dataset.model === modelName);
+            });
+
+            var sections = document.querySelectorAll('.sidebar-nav-section[data-section-model]');
+            sections.forEach(function(sec) {
+                var secModel = sec.dataset.sectionModel;
+                sec.style.display = (secModel === modelName || modelName === 'none') ? '' : 'none';
             });
             
             var items = document.querySelectorAll('.sidebar-item[data-model]');
@@ -3514,10 +3999,74 @@
             if (firstVisible) {
                 window.activateSidebarTab(firstVisible);
             }
-            
+
             if (modelName === 'none') {
-                window.updateEngineStatus('none', 'None', '');
+                window.updateEngineStatus('none', (window.I18N && window.I18N['model_none']) || 'None', '');
+                if (window._unloadCurrentModel) {
+                    window._unloadCurrentModel();
+                }
+                return;
             }
+
+            if (window._modelSwitching) return;
+            window._modelSwitching = true;
+
+            window.updateEngineStatus('loading', modelName, (window.I18N && window.I18N['switching_engine']) || 'Switching engine...');
+
+            fetch('/api/model/status').then(function(res) { return res.json(); }).then(function(statusData) {
+                var isLoaded = statusData && statusData.loaded;
+                var currentEngine = statusData ? statusData.engine : null;
+                var isSwitching = isLoaded && currentEngine && currentEngine !== modelName;
+                var apiPath = isSwitching ? '/api/switch_engine' : '/api/model/load';
+                return fetch(apiPath, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'engine=' + encodeURIComponent(modelName)
+                }).then(function(res) { return res.json(); });
+            }).then(function(data) {
+                window._modelSwitching = false;
+                if (data.status === 'ok') {
+                    window.updateEngineStatus('loaded', modelName, (window.I18N && window.I18N['ready']) || 'Ready');
+                } else if (data.message === '引擎已就绪，无需切换') {
+                    window.updateEngineStatus('loaded', modelName, (window.I18N && window.I18N['ready']) || 'Ready');
+                } else {
+                    window.updateEngineStatus('error', modelName, data.message || (window.I18N && window.I18N['error']) || 'Error');
+                    setTimeout(function() {
+                        var currentBtn = document.querySelector('.model-tab.active');
+                        var prevModel = currentBtn ? currentBtn.dataset.model : 'none';
+                        if (prevModel !== modelName) {
+                            document.querySelectorAll('.model-tab').forEach(function(t) {
+                                t.classList.toggle('active', t.dataset.model === prevModel);
+                            });
+                        }
+                    }, 100);
+                }
+            }).catch(function(err) {
+                window._modelSwitching = false;
+                window.updateEngineStatus('error', modelName, (window.I18N && window.I18N['error']) || 'Error');
+                console.error('Failed to switch model:', err);
+            });
+        };
+
+        window._unloadCurrentModel = function() {
+            if (window._modelSwitching) return;
+            window._modelSwitching = true;
+            window.updateEngineStatus('loading', (window.I18N && window.I18N['model_none']) || 'None', (window.I18N && window.I18N['unloading_model']) || 'Unloading model...');
+            fetch('/api/model/unload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }).then(function(res) { return res.json(); }).then(function(data) {
+                window._modelSwitching = false;
+                if (data.status === 'ok') {
+                    window.updateEngineStatus('none', (window.I18N && window.I18N['model_none']) || 'None', '');
+                } else {
+                    window.updateEngineStatus('error', (window.I18N && window.I18N['model_none']) || 'None', data.message || (window.I18N && window.I18N['error']) || 'Error');
+                }
+            }).catch(function(err) {
+                window._modelSwitching = false;
+                window.updateEngineStatus('error', (window.I18N && window.I18N['model_none']) || 'None', (window.I18N && window.I18N['error']) || 'Error');
+                console.error('Failed to unload model:', err);
+            });
         };
 
         // ============================================================
@@ -3531,7 +4080,7 @@
             statusEl.classList.remove('loaded', 'loading', 'error');
             
             if (status === 'none') {
-                statusText.textContent = 'None';
+                statusText.textContent = (window.I18N && window.I18N['model_none']) || 'None';
                 statusText.style.fontWeight = '700';
             } else if (status === 'loading') {
                 statusEl.classList.add('loading');
@@ -3539,7 +4088,7 @@
                 statusText.style.fontWeight = '600';
             } else if (status === 'loaded') {
                 statusEl.classList.add('loaded');
-                statusText.textContent = modelName + ' | ' + (window.I18N && window.I18N["ready"]) || (modelName + ' | Ready');
+                statusText.textContent = modelName + ' | ' + ((window.I18N && window.I18N["ready"]) || 'Ready');
                 statusText.style.fontWeight = '600';
             } else if (status === 'error') {
                 statusEl.classList.add('error');
@@ -3564,7 +4113,7 @@
                     ultimate_clone: window.I18N && window.I18N["tab_ultimate_clone"] || 'Ultimate Clone',
                     script: window.I18N && window.I18N["tab_script"] || 'Script',
                     prompt_continue: window.I18N && window.I18N["tab_prompt_continue"] || 'Prompt Continue',
-                    voxcpm2: window.I18N && window.I18N["tab_settings"] || 'Settings',
+                    settings: window.I18N && window.I18N["tab_settings"] || 'Settings',
                     indextts2: window.I18N && window.I18N["tab_indextts2"] || 'IndexTTS 2.0',
                     indextts2_clone: window.I18N && window.I18N["tab_indextts2_clone"] || 'Voice Clone',
                     indextts2_emotion: window.I18N && window.I18N["tab_indextts2_emotion"] || 'Emotion Control',
@@ -3738,7 +4287,7 @@
                 });
             }
 
-            // Init mini monitor widget (always-on top bar)
+            // Init mini monitor widget (always-on top bar) - 只获取一次数据，不轮询
             if (window.initMiniMonitor) {
                 window.initMiniMonitor();
             }
@@ -3775,176 +4324,205 @@
 
                 console.log('[KeyboardManager] All shortcuts registered');
             }
+
+            // 网络状态监听
+            window.addEventListener('offline', function() {
+                showNetworkToast((window.I18N && window.I18N['network_disconnected']) || '网络已断开，请检查连接', 'error');
+            });
+            window.addEventListener('online', function() {
+                showNetworkToast((window.I18N && window.I18N['network_reconnected']) || '网络已恢复', 'success');
+            });
+            function showNetworkToast(message, type) {
+                var existing = document.getElementById('network-toast');
+                if (existing) existing.remove();
+                var toast = document.createElement('div');
+                toast.id = 'network-toast';
+                toast.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:10px 20px;text-align:center;color:#fff;font-size:13px;z-index:10001;';
+                toast.style.background = type === 'error' ? '#EF4444' : '#10B981';
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                if (type === 'success') {
+                    setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 3000);
+                    setTimeout(function() { toast.remove(); }, 3500);
+                }
+            }
+
+            // 首次使用引导
+            if (!localStorage.getItem('app_onboarded')) {
+                var hint = document.createElement('div');
+                hint.id = 'onboard-hint';
+                hint.style.cssText = 'position:fixed;top:60px;right:20px;background:var(--bg-secondary,#16213e);border:1px solid var(--border-subtle);border-radius:12px;padding:16px 20px;z-index:9999;max-width:300px;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+                hint.innerHTML = '<div style="font-weight:600;margin-bottom:8px;color:var(--text-primary);">' + ((window.I18N && window.I18N['welcome']) || '欢迎使用！') + '</div><div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">' + ((window.I18N && window.I18N['onboard_steps']) || '1. 输入文本 → 2. 选择音色 → 3. 点击生成') + '</div><button onclick="localStorage.setItem(\'app_onboarded\',\'1\');this.parentElement.remove();" style="padding:6px 16px;border-radius:6px;border:none;background:#10B981;color:#fff;cursor:pointer;font-size:13px;">' + ((window.I18N && window.I18N['got_it']) || '知道了') + '</button>';
+                document.body.appendChild(hint);
+            }
         });
 
         // ---- 统一 SSE 事件流：单一 EventSource 替代原先 4 个独立连接 ----
-        var unifiedEventSource = new EventSource('/api/sse/events');
-        unifiedEventSource.onerror = function() {
-            setTimeout(function() {
-                if (unifiedEventSource.readyState === EventSource.CLOSED) {
-                    unifiedEventSource = new EventSource('/api/sse/events');
-                }
-            }, 3000);
-        };
+        var unifiedEventSource = null;
 
-        // status 事件处理 (原 /sse/status)
-        unifiedEventSource.addEventListener('status', function(e) {
-            try {
-                var data = JSON.parse(e.data);
-                var statusBar = document.getElementById('status-bar');
-                var navStatus = document.getElementById('nav-status-text');
-                var engineStatusEl = document.getElementById('engine-status');
-                var engineStatusText = document.getElementById('engine-status-text');
-                if (statusBar) {
-                    statusBar.innerHTML = '<span class="tts-status-indicator tts-status-ready">' + window.I18N["ready"] + '</span> <span class="status-pulse"></span> ' + data.status_text;
-                }
-                if (navStatus) {
-                    navStatus.textContent = data.status_text.replace(/\*\*/g, '');
-                }
-                if (data.model_type && engineStatusEl && engineStatusText) {
-                    var engineName = data.engine === 'voxcpm2' ? 'VoxCPM2' : data.engine;
-                    var statusText = engineName + ' | ' + (data.model_type !== 'none' ? window.I18N["ready"] : window.I18N["not_loaded"]);
-                    if (data.model_type !== 'none') {
-                        engineStatusEl.classList.remove('error');
-                        engineStatusText.textContent = engineName + ' | ' + window.I18N["ready"];
-                    } else {
-                        engineStatusEl.classList.add('error');
-                        engineStatusText.textContent = statusText;
+        function createSSEConnection() {
+            if (unifiedEventSource) {
+                try { unifiedEventSource.close(); } catch(ex) {}
+            }
+            unifiedEventSource = new EventSource('/api/sse/events');
+
+            unifiedEventSource.onerror = function() {
+                setTimeout(function() {
+                    if (unifiedEventSource.readyState === EventSource.CLOSED) {
+                        createSSEConnection();
                     }
-                    // Filter sidebar on first status update
-                    if (!window._sidebarInitialized && window.updateSidebarByEngine) {
-                        window._sidebarInitialized = true;
-                        window.updateSidebarByEngine(data.engine || '');
+                }, 3000);
+            };
+
+            unifiedEventSource.addEventListener('status', function(e) {
+                try {
+                    var data = JSON.parse(e.data);
+                    var statusBar = document.getElementById('status-bar');
+                    var navStatus = document.getElementById('nav-status-text');
+                    var engineStatusEl = document.getElementById('engine-status');
+                    var engineStatusText = document.getElementById('engine-status-text');
+                    if (statusBar) {
+                        statusBar.innerHTML = '<span class="tts-status-indicator tts-status-ready">' + window.I18N["ready"] + '</span> <span class="status-pulse"></span> ' + data.status_text;
+                    }
+                    if (navStatus) {
+                        navStatus.textContent = data.status_text.replace(/\*\*/g, '');
+                    }
+                    if (data.model_type && engineStatusEl && engineStatusText) {
+                        var engineName = data.engine === 'voxcpm2' ? 'VoxCPM2' : data.engine;
+                        var statusText = engineName + ' | ' + (data.model_type !== 'none' ? window.I18N["ready"] : window.I18N["not_loaded"]);
+                        if (data.model_type !== 'none') {
+                            engineStatusEl.classList.remove('error');
+                            engineStatusText.textContent = engineName + ' | ' + window.I18N["ready"];
+                        } else {
+                            engineStatusEl.classList.add('error');
+                            engineStatusText.textContent = statusText;
+                        }
+                        if (!window._sidebarInitialized && window.updateSidebarByEngine) {
+                            window._sidebarInitialized = true;
+                            window.updateSidebarByEngine(data.engine || '');
+                        }
+                    }
+                } catch(err) {}
+            });
+
+            unifiedEventSource.addEventListener('progress', function(e) {
+                var progressBar = document.getElementById('progress-bar');
+                if (progressBar && e.data) {
+                    progressBar.innerHTML = e.data;
+                }
+                if (window.appState) window.appState.setGenerating(true);
+
+                var cancelBtn = document.getElementById('progress-cancel-btn');
+                if (cancelBtn) cancelBtn.classList.add('visible');
+
+                try {
+                    var data = JSON.parse(e.data);
+                    if (window.updateProgressDetail) {
+                        window.updateProgressDetail(
+                            data.phase || '',
+                            data.progress ? data.progress + '%' : '',
+                            data.speed || '',
+                            data.remaining || ''
+                        );
+                    }
+                } catch(ex) {
+                    if (window.updateProgressDetail) {
+                        var phaseMatch = e.data.match(/tts-progress-phase[^>]*>([^<]+)/);
+                        var pctMatch = e.data.match(/tts-progress-percentage[^>]*>([^<]+)/);
+                        var speedMatch = e.data.match(/tts-progress-speed[^>]*>([^<]+)/);
+                        var remainingMatch = e.data.match(/tts-progress-remaining[^>]*>([^<]+)/);
+                        window.updateProgressDetail(
+                            phaseMatch ? phaseMatch[1] : '',
+                            pctMatch ? pctMatch[1] : '',
+                            speedMatch ? speedMatch[1] : '',
+                            remainingMatch ? remainingMatch[1] : ''
+                        );
                     }
                 }
-            } catch(err) {}
-        });
+            });
 
-        // progress 事件处理 (原 /sse/progress)
-        unifiedEventSource.addEventListener('progress', function(e) {
-            var progressBar = document.getElementById('progress-bar');
-            if (progressBar && e.data) {
-                progressBar.innerHTML = e.data;
-            }
-            if (window.appState) window.appState.setGenerating(true);
-
-            // Show cancel button during generation
-            var cancelBtn = document.getElementById('progress-cancel-btn');
-            if (cancelBtn) cancelBtn.classList.add('visible');
-
-            // Parse progress for detail panel
-            try {
-                var data = JSON.parse(e.data);
-                if (window.updateProgressDetail) {
-                    window.updateProgressDetail(
-                        data.phase || '',
-                        data.progress ? data.progress + '%' : '',
-                        data.speed || '',
-                        data.remaining || ''
-                    );
-                }
-            } catch(ex) {
-                // Non-JSON progress HTML - extract info if possible
-                if (window.updateProgressDetail) {
-                    // Extract phase from the progress bar HTML if available
-                    var phaseMatch = e.data.match(/tts-progress-phase[^>]*>([^<]+)/);
-                    var pctMatch = e.data.match(/tts-progress-percentage[^>]*>([^<]+)/);
-                    var speedMatch = e.data.match(/tts-progress-speed[^>]*>([^<]+)/);
-                    var remainingMatch = e.data.match(/tts-progress-remaining[^>]*>([^<]+)/);
-                    window.updateProgressDetail(
-                        phaseMatch ? phaseMatch[1] : '',
-                        pctMatch ? pctMatch[1] : '',
-                        speedMatch ? speedMatch[1] : '',
-                        remainingMatch ? remainingMatch[1] : ''
-                    );
-                }
-            }
-        });
-
-        // complete 事件处理 (原 /sse/progress 的 complete 事件)
-        unifiedEventSource.addEventListener('complete', function(e) {
-            if (window.appState) window.appState.setGenerating(false);
-            // Hide cancel button after completion
-            var cancelBtn = document.getElementById('progress-cancel-btn');
-            if (cancelBtn) {
-                cancelBtn.classList.remove('visible', 'cancelled');
-                cancelBtn.querySelector('span').textContent = window.I18N["cancel"];
-            }
-        });
-
-        // cancelled 事件处理 (原 /sse/cancel)
-        unifiedEventSource.addEventListener('cancelled', function(e) {
-            try {
-                var data = JSON.parse(e.data);
+            unifiedEventSource.addEventListener('complete', function(e) {
                 if (window.appState) window.appState.setGenerating(false);
                 var cancelBtn = document.getElementById('progress-cancel-btn');
                 if (cancelBtn) {
-                    cancelBtn.classList.remove('visible');
-                    cancelBtn.classList.add('cancelled');
-                    cancelBtn.querySelector('span').textContent = window.I18N["stopped"];
+                    cancelBtn.classList.remove('visible', 'cancelled');
+                    cancelBtn.querySelector('span').textContent = window.I18N["cancel"];
                 }
-                showToast(data.message || window.I18N["cancel_generation"], 'warning', 2000);
-            } catch(err) {}
-        });
+            });
 
-        // engine_switch 事件处理 (原 /sse/engine_switch)
-        unifiedEventSource.addEventListener('engine_switch', function(e) {
-            try {
-                var data = JSON.parse(e.data);
-                var engineDisplay = document.getElementById('engine-status-text');
-                var engineStatusEl = document.getElementById('engine-status');
-                if (data.active && engineDisplay) {
-                    if (data.status === 'in_progress') {
-                        engineDisplay.textContent = data.step || window.I18N["loading"];
-                        if (window.appState) window.appState.setSwitchingEngine(true);
-                    } else if (data.status === 'completed') {
-                        var engName = '';
-                        var engRadioValue = '';
-                        if (data.engine === 'voxcpm2') {
-                            engName = 'VoxCPM2';
-                            engRadioValue = 'VoxCPM2';
-                            engineDisplay.textContent = engName + ' | ' + window.I18N["ready"];
-                        } else {
-                            engineDisplay.textContent = data.engine + ' | ' + window.I18N["ready"];
-                            engRadioValue = data.engine;
-                        }
-                        if (engineStatusEl) engineStatusEl.classList.remove('error');
-                        if (window.appState) window.appState.setSwitchingEngine(false);
-                        
-                        // Update radio button selection to match the new engine
-                        var engineRadios = document.querySelectorAll('#top-engine-selector input[type="radio"]');
-                        engineRadios.forEach(function(radio) {
-                            radio.checked = (radio.value === engRadioValue);
-                        });
-                        
-                        // Update sidebar visibility based on new engine
-                        if (window.updateSidebarByEngine) {
-                            window.updateSidebarByEngine(data.engine || '');
-                        }
-                        // Auto-switch tab if current tab is not available for new engine
-                        if (window.autoSwitchTabForEngine) {
-                            window.autoSwitchTabForEngine(data.engine);
-                        }
-                        // Update top page title with current engine
-                        var pageTitle = document.getElementById('top-page-title');
-                        if (pageTitle) {
-                            var currentTab = document.querySelector('.sidebar-item.active:not(.sidebar-item-hidden)');
-                            if (currentTab) {
-                                var tabId = currentTab.getAttribute('data-tab');
-                                var pageTitles = {
-                                    voice_design: window.I18N["tab_voice_design"], voice_clone: window.I18N["tab_voice_clone"],
-                                    ultimate_clone: window.I18N["tab_ultimate_clone"], voxcpm2: window.I18N["tab_settings"], history: window.I18N["tab_history"], persona: window.I18N["tab_persona"], help: window.I18N["tab_help"]
-                                };
-                                pageTitle.textContent = pageTitles[tabId] || 'TTS MultiModel';
-                            }
-                        }
-                    } else if (data.status === 'failed') {
-                        engineDisplay.textContent = (window.I18N["lora_switch"] || 'Switch') + ' ' + (window.I18N["error"] || '') + ': ' + (data.error || window.I18N["unknown_error"]);
-                        if (window.appState) window.appState.setSwitchingEngine(false);
+            unifiedEventSource.addEventListener('cancelled', function(e) {
+                try {
+                    var data = JSON.parse(e.data);
+                    if (window.appState) window.appState.setGenerating(false);
+                    var cancelBtn = document.getElementById('progress-cancel-btn');
+                    if (cancelBtn) {
+                        cancelBtn.classList.remove('visible');
+                        cancelBtn.classList.add('cancelled');
+                        cancelBtn.querySelector('span').textContent = window.I18N["stopped"];
                     }
-                }
-            } catch(err) {}
-        });
+                    showToast(data.message || window.I18N["cancel_generation"], 'warning', 2000);
+                } catch(err) {}
+            });
+
+            unifiedEventSource.addEventListener('engine_switch', function(e) {
+                try {
+                    var data = JSON.parse(e.data);
+                    var engineDisplay = document.getElementById('engine-status-text');
+                    var engineStatusEl = document.getElementById('engine-status');
+                    if (data.active && engineDisplay) {
+                        if (data.status === 'in_progress') {
+                            engineDisplay.textContent = data.step || window.I18N["loading"];
+                            if (window.appState) window.appState.setSwitchingEngine(true);
+                        } else if (data.status === 'completed') {
+                            var engName = '';
+                            var engRadioValue = '';
+                            var engineNames = {voxcpm2: 'VoxCPM2', indextts2: 'IndexTTS 2.0'};
+                            engName = engineNames[data.engine] || data.engine;
+                            engRadioValue = data.engine === 'voxcpm2' ? 'VoxCPM2' : data.engine;
+                            engineDisplay.textContent = engName + ' | ' + window.I18N["ready"];
+                            if (engineStatusEl) engineStatusEl.classList.remove('error');
+                            if (window.appState) window.appState.setSwitchingEngine(false);
+                            
+                            var engineRadios = document.querySelectorAll('#top-engine-selector input[type="radio"]');
+                            engineRadios.forEach(function(radio) {
+                                radio.checked = (radio.value === engRadioValue);
+                            });
+                            
+                            if (window.updateSidebarByEngine) {
+                                window.updateSidebarByEngine(data.engine || '');
+                            }
+                            if (window.autoSwitchTabForEngine) {
+                                window.autoSwitchTabForEngine(data.engine);
+                            }
+                            var pageTitle = document.getElementById('top-page-title');
+                            if (pageTitle) {
+                                var currentTab = document.querySelector('.sidebar-item.active:not(.sidebar-item-hidden)');
+                                if (currentTab) {
+                                    var tabId = currentTab.getAttribute('data-tab');
+                                    var pageTitles = {
+                                        voice_design: window.I18N["tab_voice_design"], voice_clone: window.I18N["tab_voice_clone"],
+                                        ultimate_clone: window.I18N["tab_ultimate_clone"], script: window.I18N["tab_script"],
+                                        prompt_continue: window.I18N["tab_prompt_continue"], lora: window.I18N["tab_lora"],
+                                        lora_training: window.I18N["tab_lora_training"],
+                                        indextts2_clone: window.I18N["tab_indextts2_clone"],
+                                        indextts2_emotion: window.I18N["tab_indextts2_emotion"],
+                                        indextts2_duration: window.I18N["tab_indextts2_duration"],
+                                        settings: window.I18N["tab_settings"], history: window.I18N["tab_history"],
+                                        persona: window.I18N["tab_persona"], help: window.I18N["tab_help"]
+                                    };
+                                    pageTitle.textContent = pageTitles[tabId] || 'TTS MultiModel';
+                                }
+                            }
+                        } else if (data.status === 'failed') {
+                            engineDisplay.textContent = (window.I18N["lora_switch"] || 'Switch') + ' ' + (window.I18N["error"] || '') + ': ' + (data.error || window.I18N["unknown_error"]);
+                            if (window.appState) window.appState.setSwitchingEngine(false);
+                        }
+                    }
+                } catch(err) {}
+            });
+        }
+
+        createSSEConnection();
 
         // Shortcut Help Panel functions
         window.toggleShortcutHelp = function() {
@@ -4052,7 +4630,7 @@
             overlay.classList.add('visible');
             fetchHealthData();
             if (window._healthPollTimer) clearInterval(window._healthPollTimer);
-            window._healthPollTimer = setInterval(fetchHealthData, 10000);
+            window._healthPollTimer = setInterval(fetchHealthData, 30000);
         };
 
         window.closeHealthPanel = function(e) {
@@ -4068,7 +4646,11 @@
         function fetchHealthData() {
             fetch('/api/system/health')
                 .then(function(r) { return r.json(); })
-                .then(function(data) { updateHealthPanel(data); })
+                .then(function(data) {
+                    updateHealthPanel(data);
+                    // 同时更新 Mini Monitor
+                    updateMiniMonitor(data);
+                })
                 .catch(function(err) { console.warn('[Health] Fetch failed:', err); });
         }
 
@@ -4122,10 +4704,10 @@
             }
         }
 
-        // Mini Monitor Widget
+        // Mini Monitor Widget - 只在初始化时获取一次数据，不自动轮询
         window.initMiniMonitor = function() {
             fetchMiniMonitorData();
-            setInterval(fetchMiniMonitorData, 10000);
+            // 移除自动轮询，只在 Health Panel 打开时更新
         };
 
         function fetchMiniMonitorData() {
@@ -4253,6 +4835,10 @@
             <div class="gap-title" id="gap-title">未播放音频</div>
             <div class="gap-time" id="gap-time">00:00 / 00:00</div>
         </div>
+        <div class="gap-wave-container" id="gap-wave-container" style="display:none;">
+            <canvas id="gap-waveform" width="600" height="40"></canvas>
+            <div class="gap-wave-tooltip" id="gap-wave-tooltip" style="display:none;"></div>
+        </div>
         <div class="gap-progress">
             <div class="gap-progress-bar" id="gap-progress-bar">
                 <div class="gap-progress-fill" id="gap-progress-fill"></div>
@@ -4269,9 +4855,68 @@
             <button class="gap-speed-btn" data-speed="1.5">1.5x</button>
             <button class="gap-speed-btn" data-speed="2">2x</button>
         </div>
-        <button class="gap-close" id="gap-close-btn" title="关闭">&#10005;</button>
+        <button class="gap-clip-btn" id="gap-clip-btn" title="{{ 'clip_fragment'|t(lang) }}">&#9986;</button>
+        <button class="gap-control-btn" id="gap-download-btn" title="下载" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:16px;padding:4px 8px;">⬇</button>
+        <button class="gap-close" id="gap-close-btn" title="{{ 'close'|t(lang) }}">&#10005;</button>
         <audio id="global-audio-element" preload="auto"></audio>
+        <span id="gap-i18n-clip-title" style="display:none">{{ 'clip_fragment'|t(lang) }}</span>
+        <span id="gap-i18n-export" style="display:none">{{ 'export'|t(lang) }}</span>
+        <span id="gap-i18n-cancel" style="display:none">{{ 'cancel'|t(lang) }}</span>
+        <span id="gap-i18n-exporting" style="display:none">{{ 'exporting'|t(lang) }}</span>
     </div>
+
+    <script>
+    (function() {
+        function addRippleEffect(e) {
+            var btn = e.currentTarget;
+            if (btn.disabled) return;
+            var rect = btn.getBoundingClientRect();
+            var size = Math.max(rect.width, rect.height);
+            var x = e.clientX - rect.left - size / 2;
+            var y = e.clientY - rect.top - size / 2;
+            var ripple = document.createElement('span');
+            ripple.className = 'micro-ripple-effect';
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            btn.appendChild(ripple);
+            setTimeout(function() { ripple.remove(); }, 600);
+        }
+
+        function initMicroInteractions() {
+            document.querySelectorAll('.primary-btn.generate-btn').forEach(function(btn) {
+                if (btn.dataset.microInit) return;
+                btn.dataset.microInit = '1';
+                btn.addEventListener('click', addRippleEffect);
+            });
+
+            document.querySelectorAll('.primary-btn:not(.generate-btn)').forEach(function(btn) {
+                if (btn.dataset.microInit) return;
+                btn.dataset.microInit = '1';
+                btn.addEventListener('click', addRippleEffect);
+            });
+
+            document.querySelectorAll('.micro-tooltip').forEach(function(el) {
+                if (el.dataset.microTooltipInit) return;
+                el.dataset.microTooltipInit = '1';
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMicroInteractions);
+        } else {
+            initMicroInteractions();
+        }
+
+        var microObserver = new MutationObserver(function() {
+            initMicroInteractions();
+        });
+        microObserver.observe(document.getElementById('tab-content') || document.body, {
+            childList: true,
+            subtree: true
+        });
+    })();
+    </script>
 
 </body>
 </html>

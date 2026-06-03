@@ -111,6 +111,13 @@ def start_app():
     if actual_port != port:
         logger.info(f"端口 {port} 被占用，使用可用端口 {actual_port}")
 
+    _port_file = os.path.join(_root_dir, ".server_port")
+    try:
+        with open(_port_file, "w", encoding="utf-8") as pf:
+            pf.write(actual_port)
+    except Exception:
+        pass
+
     threading.Thread(target=auto_open_browser, args=(ip, actual_port), daemon=True).start()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

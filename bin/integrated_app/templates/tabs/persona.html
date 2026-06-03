@@ -30,14 +30,14 @@
         <input type="text" id="persona-search" class="persona-search-input" placeholder="{{ 'keyword_search'|t(lang) }}">
         <div class="persona-view-switcher">
             <div class="view-toggle">
-                <span class="view-toggle-btn active" data-view="list" onclick="switchVoiceView('list')">{{ "list_view"|t(lang) }}</span>
-                <span class="view-toggle-btn" data-view="card" onclick="switchVoiceView('card')">{{ "card_view"|t(lang) }}</span>
+                <span class="view-toggle-btn active" data-view="list" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="switchVoiceView('list')">{{ "list_view"|t(lang) }}</span>
+                <span class="view-toggle-btn" data-view="card" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="switchVoiceView('card')">{{ "card_view"|t(lang) }}</span>
             </div>
         </div>
     </div>
     <div class="persona-action-bar">
-        <button class="primary-btn persona-action-btn" onclick="searchPersona()">{{ "search"|t(lang) }}</button>
-        <button class="stop-btn persona-action-btn" onclick="clearPersonaSearch()">
+        <button class="primary-btn persona-action-btn" onclick="searchPersona()" aria-label="{{ 'search'|t(lang) }}">{{ "search"|t(lang) }}</button>
+        <button class="stop-btn persona-action-btn" onclick="clearPersonaSearch()" aria-label="{{ 'clear_search'|t(lang) }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             {{ "clear_search"|t(lang) }}
         </button>
@@ -357,8 +357,8 @@
         </div>
     </div>
     <div class="persona-bottom-actions skeleton-content hidden" id="persona-actions">
-        <button class="secondary-btn" onclick="playSelectedPersona()">{{ "play"|t(lang) }}</button>
-        <button class="stop-btn" onclick="deleteSelectedPersona()">{{ "delete"|t(lang) }}</button>
+        <button class="secondary-btn" onclick="playSelectedPersona()" aria-label="{{ 'play'|t(lang) }}">{{ "play"|t(lang) }}</button>
+        <button class="stop-btn" onclick="deleteSelectedPersona()" aria-label="{{ 'delete'|t(lang) }}">{{ "delete"|t(lang) }}</button>
     </div>
     <div id="persona-delete-status" class="persona-delete-status"></div>
 </div>
@@ -369,6 +369,21 @@
     var sk = document.getElementById('persona-skeleton');
     var emptyState = document.getElementById('persona-empty-state');
     var statCard = document.getElementById('persona-stat-card');
+
+    // Toast notification (replaces alert)
+    window.showToast = window.showToast || function(message, type, duration) {
+        var existing = document.querySelector('.persona-toast');
+        if (existing) existing.remove();
+        var toast = document.createElement('div');
+        toast.className = 'persona-toast';
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;z-index:10000;max-width:360px;';
+        toast.style.background = type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#F59E0B';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        var fadeTime = duration || 2500;
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, fadeTime);
+        setTimeout(function() { toast.remove(); }, fadeTime + 300);
+    };
     
     console.log('[Persona] Initializing... total_persona_count:', totalPersonaCount);
     console.log('[Persona] listEl:', !!listEl, 'sk:', !!sk, 'emptyState:', !!emptyState);
@@ -587,7 +602,7 @@
             var html = '';
             records.forEach(function(r){
                 var safeName = r[0].replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                html += '<tr class="persona-row" onclick="selectPersonaRow(this)" style="cursor:pointer;">' +
+                html += '<tr class="persona-row" onclick="selectPersonaRow(this)" style="cursor:pointer;" aria-label="{{ 'voice_name'|t(lang) }} ' + safeName + '">' +
                     '<td style="padding:8px 12px;">' +
                     '<button class="persona-play-btn" onclick="event.stopPropagation(); playPersonaAudio(\'' + safeName + '\', this)" title="{{ 'preview_voice'|t(lang) }}" aria-label="{{ 'preview_voice'|t(lang) }} ' + safeName + '">' +
                     '<span class="persona-play-icon">&#9654;</span></button></td>' +
@@ -661,7 +676,7 @@
                 '<div class="voice-card-ref-text">' + (refText.length > 60 ? refText.substring(0, 60) + '...' : refText) + '</div>' +
                 '<div class="voice-card-footer">' +
                 '<span class="voice-card-time">' + created + '</span>' +
-                '<button class="voice-card-select-btn" onclick="selectPersonaFromCard(\'' + safeName + '\')">{{ "select"|t(lang) }}</button>' +
+                '<button class="voice-card-select-btn" onclick="selectPersonaFromCard(\'' + safeName + '\')" aria-label="{{ 'select'|t(lang) }} ' + safeName + '">{{ "select"|t(lang) }}</button>' +
                 '</div>' +
                 '</div>';
         });

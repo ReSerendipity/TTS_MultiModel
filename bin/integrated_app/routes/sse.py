@@ -37,7 +37,7 @@ def _format_time_estimate(seconds: float) -> str:
         return f"约 {mins} 分 {secs} 秒"
 
 
-@router.get("/api/sse/events")
+@router.get("/api/sse/events", summary="SSE 事件流", description="Server-Sent Events 实时事件推送端点")
 async def sse_events(request: Request):
     """统一 SSE 事件流端点。
 
@@ -47,22 +47,18 @@ async def sse_events(request: Request):
     from ..model_manager import (
         _gen_tracker,
         _progress_mgr,
-        current_engine,
-        current_size,
-        current_type,
-        voxcpm_model,
     )
+    from ..model_registry import registry
 
     async def event_stream():
         start_time = time.time()
-        # time_estimate 端点的局部状态
         gen_start_time = None
         last_depth = 0
+        idle_count = 0
+        last_heartbeat = time.time()
 
         try:
             while True:
-                if time.time() - start_time > 600:
-                    break
                 if await request.is_disconnected():
                     break
 
@@ -86,15 +82,15 @@ async def sse_events(request: Request):
 
                 # ---- status 事件 (原 /sse/status, 2s 轮询) ----
                 status_text = _gen_tracker.status_text() if _gen_tracker else "空闲"
-                eng = current_engine or "none"
-                mtype = current_type or "none"
-                msize = current_size or "none"
+                eng = registry.current_engine or "none"
+                mtype = registry.current_type or "none"
+                msize = registry.current_size or "none"
                 status_data = json.dumps({
                     "status_text": status_text,
                     "engine": eng,
                     "model_type": mtype,
                     "model_size": msize,
-                    "model_loaded": voxcpm_model is not None,
+                    "model_loaded": registry.model_loaded,
                 }, ensure_ascii=False)
                 yield f"event: status\ndata: {status_data}\n\n"
 
@@ -106,7 +102,7 @@ async def sse_events(request: Request):
                         "step": "",
                         "status": "idle",
                         "engine": "",
-                        "model_size": "VoxCPM2",
+                        "model_size": "None",
                     }, ensure_ascii=False)
                     yield f"event: engine_switch\ndata: {es_data}\n\n"
                 else:
@@ -114,7 +110,9 @@ async def sse_events(request: Request):
                     status = switch_state.get("status", "in_progress")
                     error = switch_state.get("error", None)
                     engine = switch_state.get("engine", "")
-                    model_size = switch_state.get("model_size", "VoxCPM2")
+                    from ..model_registry import ENGINE_DISPLAY_NAMES
+                    default_size = ENGINE_DISPLAY_NAMES.get(registry.current_engine, registry.current_engine or "None")
+                    model_size = switch_state.get("model_size", default_size)
                     es_data = json.dumps({
                         "active": True,
                         "step": step,
@@ -162,7 +160,27 @@ async def sse_events(request: Request):
                             yield f"event: time_estimate\ndata: {te_data}\n\n"
                     last_depth = current_depth
 
-                await asyncio.sleep(0.5)
+                if time.time() - last_heartbeat >= 30:
+                    yield "event: heartbeat\ndata: {}\n\n"
+                    last_heartbeat = time.time()
+
+                has_active = False
+                if _progress_mgr and _progress_mgr._phase != "":
+                    has_active = True
+                if _gen_tracker and _gen_tracker.queue_depth > 0:
+                    has_active = True
+                switch_state = getattr(request.app.state, "engine_switch_state", None)
+                if switch_state is not None:
+                    has_active = True
+
+                if has_active:
+                    idle_count = 0
+                    interval = 0.3
+                else:
+                    idle_count += 1
+                    interval = min(0.5 + idle_count * 0.5, 3.0)
+
+                await asyncio.sleep(interval)
 
         except asyncio.CancelledError:
             pass

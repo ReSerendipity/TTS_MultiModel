@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  tts:
+    build: .
+    ports:
+      - "7869:7869"
+    volumes:
+      - ./pretrained_models:/app/pretrained_models
+      - ./outputs:/app/outputs
+      - ./personas:/app/personas
+      - ./cache:/app/cache
+    environment:
+      - TTS_AUTO_LOAD_MODEL=1
+      - TTS_AUTO_LOAD_ENGINE=voxcpm2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped

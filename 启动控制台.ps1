@@ -1,8 +1,28 @@
-# PowerShell Startup Script - VoxCPM Studio
-# Hotkeys: q - Quit, r - Load Model, u - Unload Model
+# PowerShell Startup Script - TTS MultiModel Voice Studio
+# Hotkeys: q - Quit, r - Load Model, u - Unload Model, s - Model Status
 
 $ErrorActionPreference = "Continue"
 $WarningPreference = "Continue"
+$Script:ConfirmExit = $false
+
+function Request-ExitConfirmation {
+    Write-Host ""
+    Write-Host "[WARN] Press Y to confirm exit, or any other key to cancel..." -ForegroundColor Yellow -NoNewline
+    $confirmation = $host.UI.RawUI.ReadKey("NoEcho, IncludeKeyDown")
+    if ($confirmation.Character -eq 'y' -or $confirmation.Character -eq 'Y') {
+        Write-Host " [Y] Exiting..." -ForegroundColor Green
+        return $true
+    }
+    Write-Host " [Cancelled]" -ForegroundColor Cyan
+    return $false
+}
+
+[Console]::TreatControlCAsInput = $false
+[Console]::CancelKeyPress.Add_Invoked({
+    param($sender, $e)
+    $e.Cancel = $true
+    $Script:ConfirmExit = $true
+})
 
 # --- Path Configuration ---
 $Script:ROOT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -12,8 +32,9 @@ $Script:BIN_DIR = Join-Path $Script:ROOT_DIR "bin"
 
 # --- Server Configuration ---
 $Script:SERVER_IP = "127.0.0.1"
-$Script:SERVER_PORT = "7869"
-$Script:BASE_URL = "https://${Script:SERVER_IP}:${Script:SERVER_PORT}"
+$Script:DEFAULT_PORT = 7869
+$Script:SERVER_PORT = $null
+$Script:BASE_URL = $null
 
 # --- Environment Variables ---
 $env:PATH = "$($Script:BIN_DIR);$($Script:WPY_PATH);$($Script:WPY_PATH)\Scripts;$env:PATH"
@@ -27,10 +48,46 @@ $Script:AppProcess = $null
 
 # --- Core Functions ---
 
+function Resolve-ServerPort {
+    $portFile = Join-Path $Script:ROOT_DIR ".server_port"
+    if (Test-Path $portFile) {
+        try {
+            $port = (Get-Content $portFile -Raw).Trim()
+            if ($port -match '^\d+$' -and [int]$port -ge 1 -and [int]$port -le 65535) {
+                $Script:SERVER_PORT = $port
+                $Script:BASE_URL = "http://${Script:SERVER_IP}:${port}"
+                return $true
+            }
+        } catch {}
+    }
+
+    for ($p = $Script:DEFAULT_PORT; $p -lt $Script:DEFAULT_PORT + 10; $p++) {
+        try {
+            $tcpClient = New-Object System.Net.Sockets.TcpClient
+            $tcpClient.Connect($Script:SERVER_IP, $p)
+            $tcpClient.Close()
+            try {
+                $response = Invoke-RestMethod -Uri "http://${Script:SERVER_IP}:${p}/api/health/ping" -Method Get -TimeoutSec 3
+                if ($response.status -eq "ok") {
+                    $Script:SERVER_PORT = [string]$p
+                    $Script:BASE_URL = "http://${Script:SERVER_IP}:${p}"
+                    return $true
+                }
+            } catch {}
+        } catch {}
+    }
+    return $false
+}
+
 function Start-Application {
     if ($null -ne $Script:AppProcess -and !$Script:AppProcess.HasExited) {
         Write-Host "[INFO] Application is already running" -ForegroundColor Yellow
         return
+    }
+
+    $portFile = Join-Path $Script:ROOT_DIR ".server_port"
+    if (Test-Path $portFile) {
+        Remove-Item $portFile -Force -ErrorAction SilentlyContinue
     }
 
     Write-Host "[START] Launching TTS MultiModel application..." -ForegroundColor Cyan
@@ -98,25 +155,10 @@ function Stop-Application {
     finally {
         $Script:AppProcess.Dispose()
         $Script:AppProcess = $null
-    }
-}
-
-function Initialize-TlsBypass {
-    try {
-        Add-Type -TypeDefinition @"
-using System.Net;
-public class TlsBypass {
-    public static void Setup() {
-        ServicePointManager.SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-        # ⚠️ 安全风险：仅适用于本地自签名证书场景
-        ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-    }
-}
-"@ -ErrorAction SilentlyContinue
-        [TlsBypass]::Setup()
-    }
-    catch {
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
+        $portFile = Join-Path $Script:ROOT_DIR ".server_port"
+        if (Test-Path $portFile) {
+            Remove-Item $portFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -127,11 +169,14 @@ function Invoke-ApiCall {
         [hashtable]$Payload = @{}
     )
 
+    if (!$Script:BASE_URL) {
+        Write-Host "[ERROR] Server port not resolved, cannot make API call" -ForegroundColor Red
+        return $null
+    }
+
     $url = "$($Script:BASE_URL)$Endpoint"
 
     try {
-        Initialize-TlsBypass
-
         if ($Method -eq "Get") {
             $response = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 30
         }
@@ -153,9 +198,28 @@ function Get-ModelStatus {
 }
 
 function Invoke-LoadModel {
-    Write-Host "[LOAD] Sending model load request..." -ForegroundColor Cyan
+    Write-Host "[LOAD] Querying available models..." -ForegroundColor Cyan
 
-    $result = Invoke-ApiCall -Endpoint "/api/model/load" -Payload @{ engine = "voxcpm2"; size = "voxcpm2" }
+    $status = Get-ModelStatus
+    if ($null -eq $status) {
+        Write-Host "[ERROR] Cannot reach server, please check if it is running" -ForegroundColor Red
+        return
+    }
+
+    $engine = $null
+    if ($status.current_engine) {
+        $engine = $status.current_engine
+    }
+    elseif ($status.available_engines -and $status.available_engines.Count -gt 0) {
+        $engine = $status.available_engines[0]
+    }
+    else {
+        $engine = "voxcpm2"
+    }
+
+    Write-Host "[LOAD] Loading model: $engine" -ForegroundColor Cyan
+
+    $result = Invoke-ApiCall -Endpoint "/api/model/load" -Payload @{ engine = $engine; size = $engine }
 
     if ($null -ne $result) {
         if ($result.status -eq "ok") {
@@ -182,18 +246,35 @@ function Invoke-UnloadModel {
     }
 }
 
+function Show-ModelStatus {
+    Write-Host "[STATUS] Querying model status..." -ForegroundColor Cyan
+
+    $result = Get-ModelStatus
+    if ($null -ne $result) {
+        Write-Host "  Engine:  $($result.current_engine)" -ForegroundColor White
+        Write-Host "  Status:  $($result.status)" -ForegroundColor White
+        if ($result.available_engines) {
+            Write-Host "  Available: $($result.available_engines -join ', ')" -ForegroundColor White
+        }
+    }
+}
+
 function Show-Help {
     Write-Host ""
     Write-Host "======================================================" -ForegroundColor Magenta
-    Write-Host "         VoxCPM Studio Console" -ForegroundColor Magenta
+    Write-Host "      TTS MultiModel Voice Studio Console" -ForegroundColor Magenta
     Write-Host "======================================================" -ForegroundColor Magenta
     Write-Host ""
     Write-Host "  Hotkeys:" -ForegroundColor Cyan
     Write-Host "    [R] - Load Model" -ForegroundColor White
     Write-Host "    [U] - Unload Model" -ForegroundColor White
+    Write-Host "    [S] - Model Status" -ForegroundColor White
     Write-Host "    [Q] - Quit Application" -ForegroundColor White
     Write-Host "    [H] - Show Help" -ForegroundColor White
     Write-Host ""
+    if ($Script:SERVER_PORT) {
+        Write-Host "  Server: http://${Script:SERVER_IP}:${Script:SERVER_PORT}" -ForegroundColor DarkGray
+    }
     Write-Host "======================================================" -ForegroundColor Magenta
     Write-Host ""
 }
@@ -205,17 +286,16 @@ function Wait-ForServer {
     $startTime = Get-Date
 
     while (((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-        try {
-            $tcpClient = New-Object System.Net.Sockets.TcpClient
-            $tcpClient.Connect($Script:SERVER_IP, [int]$Script:SERVER_PORT)
-            $tcpClient.Close()
-            Write-Host "[OK] Server is ready!" -ForegroundColor Green
-            Start-Sleep -Seconds 3
-            return $true
+        if (Resolve-ServerPort) {
+            try {
+                $response = Invoke-RestMethod -Uri "$($Script:BASE_URL)/api/health/ping" -Method Get -TimeoutSec 3
+                if ($response.status -eq "ok") {
+                    Write-Host "[OK] Server is ready on port $($Script:SERVER_PORT)!" -ForegroundColor Green
+                    return $true
+                }
+            } catch {}
         }
-        catch {
-            Start-Sleep -Seconds 3
-        }
+        Start-Sleep -Seconds 2
     }
 
     Write-Host "[WARN] Server did not become ready within $TimeoutSeconds seconds" -ForegroundColor Red
@@ -238,6 +318,17 @@ function Main {
     Write-Host ""
 
     while ($true) {
+        if ($Script:ConfirmExit) {
+            $Script:ConfirmExit = $false
+            if (Request-ExitConfirmation) {
+                Write-Host "[QUIT] Shutting down..." -ForegroundColor Red
+                Stop-Application
+                Write-Host "[DONE] Goodbye!" -ForegroundColor Green
+                Start-Sleep -Milliseconds 500
+                exit 0
+            }
+        }
+
         if ($host.UI.RawUI.KeyAvailable) {
             $key = $host.UI.RawUI.ReadKey("NoEcho, IncludeKeyDown")
 
@@ -258,6 +349,11 @@ function Main {
                 85 {
                     Write-Host ""
                     Invoke-UnloadModel
+                }
+
+                83 {
+                    Write-Host ""
+                    Show-ModelStatus
                 }
 
                 72 {

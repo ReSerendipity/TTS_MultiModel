@@ -1,6 +1,6 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
         <h3 class="card-header-title">{{ "tab_indextts2_clone"|t(lang) }}</h3>
     </div>
     <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "indextts2_clone_desc"|t(lang) }}</div>
@@ -35,7 +35,7 @@
         </div>
         <label for="it2c-text">{{ "synthesis_text"|t(lang) }}</label>
         <textarea name="text" id="it2c-text" class="it2c-full-width it2c-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateIt2cCharCounter(this)"></textarea>
-        <div id="it2c-char-counter" class="it2c-char-counter">0/500</div>
+        <div id="it2c-char-counter" class="it2c-char-counter">0/{{ engine_max_total_chars }}</div>
         <label>{{ "duration_mode"|t(lang) }}</label>
         <div style="margin-bottom:10px;">
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
@@ -60,7 +60,7 @@
 </div>
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
         <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
     </div>
     <div id="it2c-result" aria-live="polite">
@@ -88,7 +88,7 @@
         }
     };
     window.updateIt2cCharCounter = function(textarea) {
-        var MAX_CHARS = 500;
+        var MAX_CHARS = {{ engine_max_total_chars }};
         var counter = document.getElementById('it2c-char-counter');
         if (counter) {
             var len = textarea.value.length;

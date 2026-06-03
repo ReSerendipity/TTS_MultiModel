@@ -1,5 +1,7 @@
+import importlib
 import logging
 import os
+import pkgutil
 import threading
 import time
 from logging.handlers import RotatingFileHandler
@@ -11,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .auth import APIAuthMiddleware
+from .middleware.request_id import RequestIDMiddleware, RequestIDLogFilter
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_BASE_DIR))
@@ -77,16 +80,37 @@ def setup_logging():
     )
     file_handler.setFormatter(
         logging.Formatter(
-            "[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            "[%(asctime)s] [%(levelname)s] [%(request_id)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
     )
+    file_handler.addFilter(RequestIDLogFilter())
     root_logger.addHandler(file_handler)
     if not root_logger.level or root_logger.level == logging.NOTSET:
         root_logger.setLevel(logging.INFO)
 
 
+def _auto_discover_routers(routes_package):
+    routers = []
+    for importer, modname, ispkg in pkgutil.iter_modules(routes_package.__path__):
+        mod = importlib.import_module(f".routes.{modname}", package="integrated_app")
+        if hasattr(mod, "router"):
+            routers.append(mod.router)
+    return routers
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="TTS MultiModel Voice Studio")
+    app = FastAPI(
+        title="TTS MultiModel Voice Studio",
+        description="多模型语音合成平台，支持 VoxCPM2 和 IndexTTS2 引擎",
+        version="2.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+    )
+
+    app.add_middleware(
+        RequestIDMiddleware,
+    )
 
     app.add_middleware(
         CORSMiddleware,
@@ -113,7 +137,8 @@ def create_app() -> FastAPI:
     templates_dir = os.path.join(_BASE_DIR, "templates")
     os.makedirs(templates_dir, exist_ok=True)
     templates = Jinja2Templates(directory=templates_dir)
-    templates.env.auto_reload = True
+    debug_mode = os.environ.get("TTS_DEBUG", "0") == "1"
+    templates.env.auto_reload = debug_mode
     from .i18n import register_i18n_filters
     register_i18n_filters(templates.env)
     app.state.templates = templates
@@ -150,17 +175,14 @@ def create_app() -> FastAPI:
             "missing_models": getattr(app.state, "missing_models", []),
         }
 
-    from .routes import audio, generate, model, pages, persona, sse, system, tabs
+    from . import routes
+    for r in _auto_discover_routers(routes):
+        app.include_router(r)
+
+    from .routes.model import switch_router
+    app.include_router(switch_router)
+
     from .routes.training import router as training_router
-    app.include_router(pages.router)
-    app.include_router(tabs.router)
-    app.include_router(audio.router)
-    app.include_router(generate.router)
-    app.include_router(model.router)
-    app.include_router(model.switch_router)
-    app.include_router(persona.router)
-    app.include_router(sse.router)
-    app.include_router(system.router)
     app.include_router(training_router)
 
     def startup_event():
@@ -175,26 +197,35 @@ def create_app() -> FastAPI:
             logger.info("[启动] 自动加载已禁用，请通过界面手动加载模型")
             return
 
+        auto_engine = os.environ.get("TTS_AUTO_LOAD_ENGINE", "voxcpm2")
+
         app.state.model_loading = True
         app.state.model_load_progress = "正在初始化..."
 
         def _load_in_background():
+            from .middleware.request_id import set_request_id
+            set_request_id(f"bg-{threading.current_thread().name}")
             try:
-                from .model_manager import load_voxcpm2
-                logger.info("[启动] 后台加载 VoxCPM2 模型中...")
-                gen = load_voxcpm2()
+                if auto_engine == "indextts2":
+                    from .model_manager import load_indextts2
+                    logger.info("[启动] 后台加载 IndexTTS 2.0 模型中...")
+                    gen = load_indextts2()
+                else:
+                    from .model_manager import load_voxcpm2
+                    logger.info("[启动] 后台加载 VoxCPM2 模型中...")
+                    gen = load_voxcpm2()
                 for status_text, _, _, _ in gen:
                     app.state.model_load_progress = status_text
                     logger.info(f"[启动] {status_text}")
                 app.state.models_ok = True
                 app.state.model_loading = False
                 app.state.model_load_progress = "模型已就绪"
-                logger.info("[启动] VoxCPM2 模型已就绪，服务完全启动")
+                logger.info(f"[启动] {auto_engine} 模型已就绪，服务完全启动")
             except Exception as e:
                 app.state.models_ok = False
                 app.state.model_loading = False
                 app.state.model_load_progress = f"加载失败: {e}"
-                logger.error(f"[启动] VoxCPM2 模型后台加载失败: {e}")
+                logger.error(f"[启动] {auto_engine} 模型后台加载失败: {e}")
                 logger.info("[启动] 用户可通过界面手动加载模型")
 
         load_thread = threading.Thread(target=_load_in_background, daemon=True, name="model-startup-load")

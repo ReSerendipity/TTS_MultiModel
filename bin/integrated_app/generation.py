@@ -53,7 +53,11 @@ def split_text_for_tts(text: str, max_chars: int = None) -> List[str]:
       5. 中文分号（；）
     """
     if max_chars is None:
-        max_chars = GEN_SPLIT_MAX_CHARS
+        try:
+            from .config_models import AdvancedParamsConfig
+            max_chars = AdvancedParamsConfig().split_max_chars
+        except Exception:
+            max_chars = GEN_SPLIT_MAX_CHARS
     if len(text) <= max_chars:
         return [text]
 
@@ -150,10 +154,10 @@ def merge_audio_segments(audio_segments: List[np.ndarray], sr: int, silence_dura
 
     for seg in audio_segments:
         # 统一转换为 float64 进行处理
-        seg = seg.astype(np.float64)
+        seg = seg.astype(np.float32)
         # 归一化：如果值域超出 [-1, 1]，进行缩放
         max_val = np.max(np.abs(seg))
-        if max_val > 1.0:
+        if max_val > np.float32(1.0):
             seg = seg / max_val
         # 多声道转单声道
         if seg.ndim > 1:

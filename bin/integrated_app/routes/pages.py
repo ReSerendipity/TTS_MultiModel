@@ -37,7 +37,7 @@ async def index(request: Request):
     )
 
 
-@router.get("/favicon.ico")
+@router.get("/favicon.ico", summary="网站图标")
 async def favicon():
     svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%236B5CE7"/><text x="50" y="68" font-size="50" font-weight="bold" fill="white" text-anchor="middle" font-family="Arial">TTS</text></svg>'
     return HTMLResponse(content=svg_content, media_type="image/svg+xml")

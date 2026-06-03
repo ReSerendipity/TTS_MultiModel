@@ -58,7 +58,7 @@ def _detect_out_sample_rate(pretrained_path: str) -> int:
         return 0
 
 
-@router.post("/start")
+@router.post("/start", summary="开始训练", description="启动 LoRA 微调训练")
 async def start_training(request: Request):
     global _training_process, _training_log
 
@@ -201,7 +201,7 @@ async def start_training(request: Request):
         return JSONResponse({"status": "error", "message": str(e)})
 
 
-@router.post("/stop")
+@router.post("/stop", summary="停止训练", description="停止正在进行的训练")
 async def stop_training():
     global _training_process
     if _training_process is not None and _training_process.poll() is None:
@@ -214,7 +214,7 @@ async def stop_training():
     return JSONResponse({"status": "ok", "message": "No training running"})
 
 
-@router.get("/log")
+@router.get("/log", summary="训练日志", description="获取训练日志")
 async def get_training_log():
     global _training_process, _training_log
     running = _training_process is not None and _training_process.poll() is None

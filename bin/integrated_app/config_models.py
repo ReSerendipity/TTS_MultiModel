@@ -5,6 +5,22 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Dict, List
 
 
+class AdvancedParamsConfig(BaseModel):
+    """高级生成参数配置（不可变，替代全局 _ADVANCED_PARAMS 字典）"""
+    max_len: int = Field(default=3000, ge=3000, le=3000, description="最大生成长度（固定3000）")
+    split_max_chars: int = Field(default=200, ge=200, le=200, description="每段最大字符数（固定200）")
+    retry_badcase: bool = Field(default=True, description="自动重试坏案例")
+    retry_badcase_max_times: int = Field(default=3, ge=0, le=10, description="最大重试次数")
+    retry_badcase_ratio_threshold: float = Field(default=6.0, gt=0, description="重试时长比率阈值")
+    trim_silence_vad: bool = Field(default=True, description="VAD 静音裁切")
+    target_lufs: float = Field(default=-16.0, ge=-30, le=0, description="目标响度 (LUFS)")
+    idle_timeout: int = Field(default=300, ge=60, le=3600, description="空闲超时时间 (秒)")
+
+    def to_dict(self) -> Dict:
+        """转换为字典（用于传递给模型生成函数）"""
+        return self.model_dump()
+
+
 class ServerConfig(BaseModel):
     """Server-related configuration."""
     host: str = Field(default="127.0.0.1", description="Bind address")
@@ -37,6 +53,7 @@ class ModelConfig(BaseModel):
     """Model path and parameters configuration."""
     base_dir: str = Field(default="models", description="Base directory for model weights")
     voxcpm_vram: float = Field(default=6.0, gt=0, description="VoxCPM2 VRAM requirement (GB)")
+    indextts2_vram: float = Field(default=6.0, gt=0, description="IndexTTS 2.0 VRAM requirement (GB)")
 
 
 class I18nConfig(BaseModel):

@@ -6,6 +6,7 @@ that automatically adjusts capacity based on GPU memory utilization.
 
 import logging
 import threading
+import time
 from collections import OrderedDict
 from typing import Any
 
@@ -122,9 +123,13 @@ class AdaptiveLRUCache(LRUCache):
         (0, 20),
     ]
 
-    def __init__(self, default_maxsize: int = 15) -> None:
+    def __init__(self, default_maxsize: int = 15, adapt_interval: float = 30.0) -> None:
         super().__init__(maxsize=default_maxsize)
         self._adapt_lock = threading.Lock()
+        self._adapt_interval = adapt_interval
+        self._last_adapt_time = 0.0
+        self._put_count = 0
+        self._adapt_every_n = 10
 
     @staticmethod
     def _get_gpu_memory_percent() -> float:
@@ -190,9 +195,13 @@ class AdaptiveLRUCache(LRUCache):
         return target
 
     def put(self, key: str, value: Any) -> None:
-        """Insert item after adapting cache capacity if needed."""
-        self.adapt_capacity()
         super().put(key, value)
+        self._put_count += 1
+        now = time.monotonic()
+        if len(self._cache) >= self._maxsize or now - self._last_adapt_time >= self._adapt_interval or self._put_count >= self._adapt_every_n:
+            self.adapt_capacity()
+            self._last_adapt_time = now
+            self._put_count = 0
 
     def clear(self) -> None:
         """Clear all cached items and reset statistics."""

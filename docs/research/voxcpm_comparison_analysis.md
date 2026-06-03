@@ -1,5 +1,7 @@
 # TTS_MultiModel 项目与 VoxCPM 官方模型对比分析报告
 
+> 最后更新: 2026-06-02
+
 ## 1. 报告概述
 
 本报告基于对 VoxCPM 三个官方网站（GitHub、HuggingFace、voxcpm.com）的深入研究，对比分析当前 TTS_MultiModel 集成项目与 VoxCPM 官方模型在功能、架构、性能等方面的差距，并提供具体的改进建议。

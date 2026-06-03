@@ -1,5 +1,7 @@
 # TTS MultiModel - 模型扩展指南
 
+> 最后更新: 2026-06-02
+
 > 本文档说明如何向 TTS MultiModel 项目添加新的 TTS 模型引擎
 
 ## 项目架构概述

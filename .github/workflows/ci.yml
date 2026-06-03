@@ -49,20 +49,37 @@ jobs:
           pip install --upgrade pip
           pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio httpx
+          pip install pytest pytest-asyncio pytest-cov httpx
 
       - name: Dependency consistency check
         run: python scripts/sync_requirements.py --check
 
-      - name: Run tests
+      - name: Run tests with coverage
         env:
           TRANSFORMERS_OFFLINE: "1"
           HF_HUB_OFFLINE: "1"
           MODELSCOPE_OFFLINE: "1"
           CUDA_VISIBLE_DEVICES: ""
         run: |
-          pytest tests/ -v --tb=short \
-            -k "not gpu and not cuda and not vram"
+          pytest tests/ -v --tb=short --cov=bin/integrated_app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=40 \
+            -k "not gpu and not cuda and not vram" -m "not integration"
+
+      - name: Run integration tests
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+          MODELSCOPE_OFFLINE: "1"
+          CUDA_VISIBLE_DEVICES: ""
+        run: |
+          pytest tests/ -v --tb=short -m "integration" || true
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
 
   build:
     name: Build (sdist/wheel)

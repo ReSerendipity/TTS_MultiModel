@@ -231,11 +231,13 @@ class GPUMemoryMonitor:
         """Check if there is enough free VRAM to load the specified model.
 
         Args:
-            model_name: Model identifier (currently only "voxcpm2" is supported).
+            model_name: Model identifier ("voxcpm2" or "indextts2").
 
         Returns:
             Tuple of (can_load: bool, free_bytes: int).
         """
+        from .model_registry import ENGINE_VRAM_REQUIREMENTS
         info = GPUMemoryMonitor.get_vram_info()
-        needed = int(6.5 * 1024**3)  # VoxCPM2 needs ~6.5GB
+        needed_gb = ENGINE_VRAM_REQUIREMENTS.get(model_name, 6.5)
+        needed = int(needed_gb * 1024**3)
         return info["free"] >= needed, info["free"]

@@ -26,10 +26,10 @@
     <!-- 搜索栏和过滤器，始终渲染 -->
     <div class="history-filters" id="history-filters" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
         <span class="filter-bar-label">{{ "time"|t(lang) }}:</span>
-        <span class="time-filter-chip active" data-time="all" onclick="filterHistoryTime('all')">{{ "all"|t(lang) }}</span>
-        <span class="time-filter-chip" data-time="today" onclick="filterHistoryTime('today')">{{ "today"|t(lang) }}</span>
-        <span class="time-filter-chip" data-time="week" onclick="filterHistoryTime('week')">{{ "week"|t(lang) }}</span>
-        <span class="time-filter-chip" data-time="month" onclick="filterHistoryTime('month')">{{ "month"|t(lang) }}</span>
+        <span class="time-filter-chip active" data-time="all" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('all')">{{ "all"|t(lang) }}</span>
+        <span class="time-filter-chip" data-time="today" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('today')">{{ "today"|t(lang) }}</span>
+        <span class="time-filter-chip" data-time="week" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('week')">{{ "week"|t(lang) }}</span>
+        <span class="time-filter-chip" data-time="month" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('month')">{{ "month"|t(lang) }}</span>
         <label class="hidden-toggle-label" style="margin-left:12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
             <input type="checkbox" id="show-hidden-checkbox" onchange="toggleHiddenRecords()">
             <span id="show-hidden-label-text">{{ "show_hidden"|t(lang, default="显示隐藏记录") }}</span>
@@ -381,6 +381,20 @@
     var loadedRecords = {{ history_loaded | default(0) }};
     var isLoading = false;
     var PAGE_SIZE = 20;
+
+    // Toast notification (replaces alert)
+    function showToast(message, type) {
+        var existing = document.querySelector('.history-toast');
+        if (existing) existing.remove();
+        var toast = document.createElement('div');
+        toast.className = 'history-toast';
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;z-index:10000;max-width:360px;';
+        toast.style.background = type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#F59E0B';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 2500);
+        setTimeout(function() { toast.remove(); }, 2800);
+    }
 
     // Update info text
     function updateInfoText() {
@@ -804,7 +818,7 @@
     window.batchShowHistory = function() {
         var selected = document.querySelectorAll('.history-row-checkbox:checked');
         if (selected.length === 0) {
-            alert('{{ "select_rows_alert"|t(lang, default="请先选择要恢复显示的记录") }}');
+            showToast('{{ "select_rows_alert"|t(lang, default="请先选择要恢复显示的记录") }}', 'error');
             return;
         }
 
@@ -821,7 +835,7 @@
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (data.status === 'ok') {
-                alert(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}');
+                showToast(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
                 // Uncheck all checkboxes
                 document.querySelectorAll('.history-row-checkbox').forEach(function(cb) {
                     cb.checked = false;
@@ -836,11 +850,11 @@
                     refreshHistory();
                 }
             } else {
-                alert(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}');
+                showToast(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
             }
         })
         .catch(function(){
-            alert('{{ "network_error"|t(lang, default="网络错误，请重试") }}');
+            showToast('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
         });
     };
 
@@ -856,7 +870,7 @@
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (data.status === 'ok') {
-                alert(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}');
+                showToast(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
                 // Refresh current view
                 if (includeHidden) {
                     refreshHistoryWithHidden(true);
@@ -864,11 +878,11 @@
                     refreshHistory();
                 }
             } else {
-                alert(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}');
+                showToast(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
             }
         })
         .catch(function(){
-            alert('{{ "network_error"|t(lang, default="网络错误，请重试") }}');
+            showToast('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
         });
     };
 })();

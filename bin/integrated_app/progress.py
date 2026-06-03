@@ -246,6 +246,15 @@ class ProgressManager:
         with self._lock:
             return self._is_cancelled
 
+    def should_stop(self):
+        """Check if the operation should stop (cancelled or complete).
+
+        Returns:
+            True if the operation should stop, False otherwise.
+        """
+        with self._lock:
+            return self._is_cancelled or self._is_complete
+
     def add_chars_processed(self, char_count):
         """Accumulate the count of processed characters.
 

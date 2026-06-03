@@ -1,6 +1,6 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg></span>
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg></span>
         <h3 class="card-header-title">{{ "tab_indextts2_emotion"|t(lang) }}</h3>
     </div>
     <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "indextts2_emotion_desc"|t(lang) }}</div>
@@ -123,13 +123,13 @@
         </div>
         <label for="it2e-text">{{ "synthesis_text"|t(lang) }}</label>
         <textarea name="text" id="it2e-text" class="it2e-full-width it2e-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateIt2eCharCounter(this)"></textarea>
-        <div id="it2e-char-counter" class="it2e-char-counter">0/500</div>
+        <div id="it2e-char-counter" class="it2e-char-counter">0/{{ engine_max_total_chars }}</div>
         <button type="submit" class="primary-btn generate-btn it2e-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
     </form>
 </div>
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
         <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
     </div>
     <div id="it2e-result" aria-live="polite">
@@ -162,7 +162,7 @@
         document.getElementById('it2e-preset-emotion').value = emotion;
     };
     window.updateIt2eCharCounter = function(textarea) {
-        var MAX_CHARS = 500;
+        var MAX_CHARS = {{ engine_max_total_chars }};
         var counter = document.getElementById('it2e-char-counter');
         if (counter) {
             var len = textarea.value.length;

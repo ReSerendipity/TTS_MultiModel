@@ -19,14 +19,14 @@ router = APIRouter(prefix="/api/persona", tags=["persona"])
 logger = logging.getLogger("tts_multimodel")
 
 
-@router.get("/list")
+@router.get("/list", summary="音色列表", description="获取所有可用音色列表")
 async def persona_list(request: Request):
     include_official = request.query_params.get("include_official", "false").lower() == "true"
     personas = get_persona_list(include_official=include_official)
     return JSONResponse({"status": "ok", "personas": personas, "total": get_total_persona_count()})
 
 
-@router.get("/options")
+@router.get("/options", summary="音色选项", description="获取音色下拉选项 HTML")
 async def persona_options(request: Request):
     include_official = request.query_params.get("include_official", "true").lower() == "true"
     personas = get_persona_list(include_official=include_official)
@@ -36,7 +36,7 @@ async def persona_options(request: Request):
     return HTMLResponse(options_html)
 
 
-@router.get("/detail")
+@router.get("/detail", summary="音色详情", description="获取指定音色的详细信息")
 async def persona_detail(request: Request):
     name = request.query_params.get("name", "")
     if not name:
@@ -45,7 +45,7 @@ async def persona_detail(request: Request):
     return JSONResponse({"status": "ok", "name": name, "description": desc})
 
 
-@router.post("/save")
+@router.post("/save", summary="保存音色", description="保存当前音色配置")
 async def save_persona(
     request: Request,
     name: str = Form(""),
@@ -66,7 +66,7 @@ async def save_persona(
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
-@router.delete("/{name}")
+@router.delete("/{name}", summary="删除音色")
 async def delete_persona(name: str):
     if not re.match(r'^[a-zA-Z0-9_\-\u4e00-\u9fff]+$', name):
         return JSONResponse({"status": "error", "message": "Invalid persona name"}, status_code=400)
@@ -89,7 +89,7 @@ async def delete_persona(name: str):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
-@router.get("/table")
+@router.get("/table", summary="音色表格", description="获取音色管理表格 HTML")
 async def persona_table(request: Request):
     search_keyword = request.query_params.get("keyword", "") or request.query_params.get("search_keyword", "")
     accept = request.headers.get("accept", "")

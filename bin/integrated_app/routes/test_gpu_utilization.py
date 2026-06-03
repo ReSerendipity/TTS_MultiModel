@@ -27,7 +27,7 @@ def test_imports():
     logger.info("=" * 60)
     logger.info("Test 1: Testing imports...")
     try:
-        from routes.system import (
+        from routes.system.gpu import (
             _get_nvml_handle,
             _get_gpu_utilization,
             _get_gpu_utilization_from_nvml,
@@ -46,7 +46,7 @@ def test_nvml_initialization():
     logger.info("=" * 60)
     logger.info("Test 2: Testing NVML initialization...")
     try:
-        from routes.system import _get_nvml_handle, _nvml_state
+        from routes.system.gpu import _get_nvml_handle, _nvml_state
         
         # First call should initialize NVML
         handle1 = _get_nvml_handle()
@@ -78,7 +78,7 @@ def test_gpu_utilization_nvml():
     logger.info("=" * 60)
     logger.info("Test 3: Testing GPU utilization from NVML...")
     try:
-        from routes.system import _get_gpu_utilization_from_nvml
+        from routes.system.gpu import _get_gpu_utilization_from_nvml
         
         util = _get_gpu_utilization_from_nvml()
         if util is not None:
@@ -100,7 +100,7 @@ def test_gpu_utilization_nvidia_smi():
     logger.info("=" * 60)
     logger.info("Test 4: Testing GPU utilization from nvidia-smi...")
     try:
-        from routes.system import _get_gpu_utilization_from_nvidia_smi
+        from routes.system.gpu import _get_gpu_utilization_from_nvidia_smi
         
         util = _get_gpu_utilization_from_nvidia_smi()
         if util is not None:
@@ -122,7 +122,7 @@ def test_gpu_utilization_unified():
     logger.info("=" * 60)
     logger.info("Test 5: Testing unified GPU utilization function...")
     try:
-        from routes.system import _get_gpu_utilization
+        from routes.system.gpu import _get_gpu_utilization
         
         # Test multiple calls to ensure consistency and caching
         utils = []
@@ -151,7 +151,7 @@ def test_thread_safety():
     logger.info("=" * 60)
     logger.info("Test 6: Testing thread-safety...")
     try:
-        from routes.system import _get_nvml_handle, _nvml_state
+        from routes.system.gpu import _get_nvml_handle, _nvml_state
         
         handles = []
         errors = []
@@ -206,7 +206,7 @@ def test_error_handling():
     logger.info("=" * 60)
     logger.info("Test 7: Testing error handling...")
     try:
-        from routes.system import _nvml_state
+        from routes.system.gpu import _nvml_state
         
         # Check that error state is properly tracked
         logger.info(f"   NVML state: initialized={_nvml_state['initialized']}")

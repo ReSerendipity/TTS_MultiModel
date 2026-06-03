@@ -1,5 +1,7 @@
 # VoxCPM2 官方版本 vs TTS_MultiModel 对比分析报告
 
+> 最后更新: 2026-06-02
+
 > **报告日期**：2026-05-10
 > **调研范围**：官方 VoxCPM2（`C:\Users\FREE\.trae-cn\VoxCPM2\VoxCPM`）与 TTS_MultiModel（`C:\Users\FREE\.trae-cn\TTS_MultiModel`）
 > **分析方法**：源码级逐项对比，所有技术细节均来源于实际代码文件

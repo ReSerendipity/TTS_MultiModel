@@ -34,7 +34,7 @@
     <form id="pc-form" hx-post="/api/generate/voxcpm_prompt_continue" hx-target="#pc-result" hx-swap="innerHTML" hx-indicator="#pc-spinner" hx-encoding="multipart/form-data">
         <label>{{ "synthesis_text"|t(lang) }}</label>
         <textarea name="text" class="tts-input-textarea pc-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" oninput="updatePcCharCounter(this); autoResizeTextarea(this)"></textarea>
-        <div id="pc-char-counter" class="pc-char-counter">0/200</div>
+        <div id="pc-char-counter" class="pc-char-counter">0/{{ engine_max_total_chars }}</div>
         <label style="margin-top:8px;">{{ "language"|t(lang) }}</label>
         <select name="lang" class="tts-input-dropdown" style="width:100%;">
             {% for l in langs %}
@@ -103,21 +103,24 @@
     };
 
     window.updatePcCharCounter = function(textarea) {
-        var SPLIT_MAX_CHARS = 200;
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        var ENGINE_MAX_CHARS = {{ engine_max_total_chars }};
         var counter = document.getElementById('pc-char-counter');
         if (counter) {
             var len = textarea.value.length;
             var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
-            var counterMain = '<span class="counter-main">' + len + '/' + SPLIT_MAX_CHARS + '</span>';
+            var counterMain = '<span class="counter-main">' + len + '/' + ENGINE_MAX_CHARS + '</span>';
             var counterDetail = '';
-            if (len > SPLIT_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            if (len > ENGINE_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments" style="color:#ef4444;">{{ "text_too_long"|t(lang) }}</span>';
+            } else if (len > SPLIT_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
             } else if (len > 0) {
                 counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
             }
             counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
             counter.classList.remove('warning');
-            if (len >= SPLIT_MAX_CHARS || len >= SPLIT_MAX_CHARS * 0.8) counter.classList.add('warning');
+            if (len >= ENGINE_MAX_CHARS) counter.classList.add('warning');
         }
     };
 
@@ -127,7 +130,8 @@
         var textarea = form.querySelector('textarea[name=text]');
         if (!textarea || !textarea.value.trim()) return null;
         var len = textarea.value.length;
-        return { textLength: len, segmentCount: Math.ceil(len / 200), maxLen: 200 };
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        return { textLength: len, segmentCount: Math.ceil(len / SPLIT_MAX_CHARS), maxLen: SPLIT_MAX_CHARS };
     };
 
     // Frontend validation: prevent empty text submission
@@ -205,7 +209,7 @@
         var tempo = document.getElementById('pc-pp-tempo').value;
         var enhance = document.getElementById('pc-pp-enhance').checked ? 'true' : 'false';
         var statusEl = document.getElementById('pc-status');
-        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Processing...</div>';
+        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">' + ((window.I18N && window.I18N['processing']) || 'Processing...') + '</div>';
         try {
             var resp = await fetch('/api/generate/post-process', {
                 method: 'POST',

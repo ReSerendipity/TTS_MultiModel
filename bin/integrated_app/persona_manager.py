@@ -13,7 +13,8 @@ from .config import (
     PERSONA_DIR, _PERSONA_NAME_RE,
 )
 from .exceptions import PersonaError
-from .model_manager import voxcpm_model, _persona_embedding_cache
+from .model_manager import _persona_embedding_cache
+from .model_registry import registry
 from .generation import preprocess_and_save_temp
 from .persona_metadata import (
     PersonaMetadata, load_persona_metadata, save_persona_metadata,
@@ -75,7 +76,7 @@ def fn_save_persona(name: str, audio_input, ref_text: str, overwrite: bool = Fal
             def _verify_persona_async():
                 try:
                     logger.info(f"[音色固化] 后台验证音色 [{name}] 通过官方 generate(reference_wav_path=...)")
-                    _ = voxcpm_model.generate(
+                    _ = registry.voxcpm_model.generate(
                         text=ref_text.strip(),
                         reference_wav_path=wav_path,
                         normalize=True,

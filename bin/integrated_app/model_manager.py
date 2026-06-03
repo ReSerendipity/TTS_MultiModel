@@ -3,7 +3,7 @@
 Provides model loading, unloading, engine switching, LRU caching,
 progress tracking, GPU memory monitoring, and persona cache warmup.
 
-Refactored for VoxCPM2-only architecture.
+Supports VoxCPM2 and IndexTTS 2.0 dual-engine architecture.
 
 State management:
     All core model state (voxcpm_model, voxcpm_asr, current_engine,
@@ -115,6 +115,7 @@ _preload_lock = threading.Lock()
 # always see the latest value.
 voxcpm_model = registry.voxcpm_model       # None
 voxcpm_asr = registry.voxcpm_asr           # None
+indextts2_engine = registry.indextts2_engine  # None
 current_engine = registry.current_engine    # "voxcpm2"
 current_type = registry.current_type        # "voxcpm2"
 current_size = registry.current_size        # "voxcpm2"
@@ -135,9 +136,16 @@ def _sync_globals() -> None:
     external code using ``from ..model_manager import <name>`` inside
     functions sees the latest values.
     """
-    global voxcpm_model, voxcpm_asr, current_engine, current_type, current_size
+    import warnings
+    warnings.warn(
+        "Module-level model variables are deprecated. Use registry.xxx instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    global voxcpm_model, voxcpm_asr, indextts2_engine, current_engine, current_type, current_size
     voxcpm_model = registry.voxcpm_model
     voxcpm_asr = registry.voxcpm_asr
+    indextts2_engine = registry.indextts2_engine
     current_engine = registry.current_engine
     current_type = registry.current_type
     current_size = registry.current_size
@@ -165,6 +173,8 @@ def warmup_persona_cache() -> None:
         _persona_warmup_done["done"] = True
 
     def _do_warmup():
+        from .middleware.request_id import set_request_id
+        set_request_id(f"bg-{threading.current_thread().name}")
         try:
             from .config import PERSONA_DIR
             from .persona_manager import load_persona_embedding
@@ -202,7 +212,7 @@ def warmup_persona_cache() -> None:
     t.start()
 
 
-def _check_model_ready() -> bool:
+def _check_voxcpm2_lock() -> bool:
     """Non-blocking check if the model lock is available.
 
     Returns:
@@ -212,6 +222,9 @@ def _check_model_ready() -> bool:
         return False
     _model_lock.release()
     return True
+
+
+_check_model_ready = _check_voxcpm2_lock  # backward-compatible alias
 
 
 def unload_model() -> None:
@@ -234,8 +247,8 @@ def unload_model() -> None:
             del old_asr
 
         # Unload IndexTTS2 engine
-        old_engine = registry._indextts2_engine
-        registry._indextts2_engine = None
+        old_engine = registry.indextts2_engine
+        registry.indextts2_engine = None
         if old_engine is not None:
             try:
                 old_engine.unload()
@@ -260,13 +273,12 @@ def unload_model() -> None:
                         pass
                 if device is not None:
                     GPUBackendManager.ipc_collect(device)
-            time.sleep(0.5)
+            GPUBackendManager.synchronize(device)
             GPUBackendManager.empty_cache()
             if device is not None:
                 allocated = GPUBackendManager.memory_allocated(device)
                 reserved = GPUBackendManager.memory_reserved(device)
                 logger.info(f"释放后显存: 已分配 {allocated / 1024**3:.2f}GB, 保留 {reserved / 1024**3:.2f}GB")
-        time.sleep(0.3)
         _sync_globals()
 
 
@@ -340,10 +352,7 @@ def load_voxcpm2() -> Generator:
                 disable_pbar=True,
                 device=device_string,
             )
-            registry.voxcpm_asr = new_asr
-            registry.current_engine = "voxcpm2"
-            registry.current_type = "voxcpm2"
-            registry.current_size = "voxcpm2"
+            registry.set_voxcpm_loaded(new_model, asr=new_asr)
             status_text = "VoxCPM2 引擎就绪"
 
             try:
@@ -395,7 +404,8 @@ def load_indextts2() -> Generator:
             )
 
         # Step 1: VRAM/RAM check
-        needed_vram_gb = 6.0  # IndexTTS 2.0 minimum requirement
+        from .model_registry import ENGINE_VRAM_REQUIREMENTS
+        needed_vram_gb = ENGINE_VRAM_REQUIREMENTS.get("indextts2", 6.0)
         status_text = "正在检查系统资源..."
         yield status_text, None, None, None
 
@@ -423,10 +433,7 @@ def load_indextts2() -> Generator:
         logger.info(f"[IndexTTS2] IndexTTS 2.0 引擎加载完成，耗时: {load_time:.1f}秒")
 
         # Set registry state
-        registry._indextts2_engine = new_engine
-        registry.current_engine = "indextts2"
-        registry.current_type = "indextts2"
-        registry.current_size = "indextts2"
+        registry.set_indextts2_loaded(new_engine)
 
         status_text = "IndexTTS 2.0 引擎就绪"
         logger.info(f"[IndexTTS2] {status_text}")
@@ -469,8 +476,8 @@ def preload_model(engine="voxcpm2", size="voxcpm2") -> None:
     Only one preload task runs at a time (guarded by _preload_lock).
 
     Args:
-        engine: Target engine name (currently only "voxcpm2" is supported).
-        size: Model size variant (currently ignored for VoxCPM2).
+        engine: Target engine name ("voxcpm2" or "indextts2").
+        size: Model size variant (currently ignored).
     """
     with _preload_lock:
         if _preload_state["in_progress"]:
@@ -483,6 +490,8 @@ def preload_model(engine="voxcpm2", size="voxcpm2") -> None:
         _preload_state["error"] = None
 
     def _do_preload():
+        from .middleware.request_id import set_request_id
+        set_request_id(f"bg-{threading.current_thread().name}")
         try:
             if engine == "voxcpm2":
                 logger.info("[预加载] 开始预读 VoxCPM2 模型文件到系统内存...")
@@ -495,6 +504,14 @@ def preload_model(engine="voxcpm2", size="voxcpm2") -> None:
                 if os.path.exists(VOXCPM2_ASR_PATH):
                     _read_files_to_cache(VOXCPM2_ASR_PATH)
                     logger.info("[预加载] VoxCPM2 ASR 模型文件已预读到系统缓存")
+
+            elif engine == "indextts2":
+                logger.info("[预加载] 开始预读 IndexTTS 2.0 模型文件到系统内存...")
+                if os.path.exists(INDEXTTS2_MODEL_PATH):
+                    _read_files_to_cache(INDEXTTS2_MODEL_PATH)
+                    logger.info("[预加载] IndexTTS 2.0 模型文件已预读到系统缓存")
+                else:
+                    logger.warning(f"[预加载] IndexTTS 2.0 模型路径不存在: {INDEXTTS2_MODEL_PATH}")
 
             with _preload_lock:
                 _preload_state["completed"] = True
@@ -614,7 +631,7 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
         prev_engine = registry.current_engine
         prev_voxcpm_model = registry.voxcpm_model
         prev_voxcpm_asr = registry.voxcpm_asr
-        prev_indextts2_engine = registry._indextts2_engine
+        prev_indextts2_engine = registry.indextts2_engine
 
         backend = GPUBackendManager.detect_backend()
 
@@ -623,10 +640,8 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
         gpu_device = get_gpu_device()
         logger.info(f"[引擎切换] 使用设备 {gpu_device if gpu_device is not None else 'CPU'} 进行显存检查")
 
-        if engine_name == "voxcpm2":
-            needed_gb = 6.5
-        else:
-            needed_gb = 6.0  # IndexTTS 2.0 requires 6GB VRAM
+        from .model_registry import ENGINE_VRAM_REQUIREMENTS
+        needed_gb = ENGINE_VRAM_REQUIREMENTS.get(engine_name, 6.0)
 
         if backend != GPUBackend.CPU and gpu_device is not None:
             props = GPUBackendManager.get_device_properties(gpu_device)
@@ -676,7 +691,7 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
             registry.current_engine = prev_engine
             registry.voxcpm_model = prev_voxcpm_model
             registry.voxcpm_asr = prev_voxcpm_asr
-            registry._indextts2_engine = prev_indextts2_engine
+            registry.indextts2_engine = prev_indextts2_engine
             if prev_engine:
                 logger.info(f"[引擎切换] 回滚成功: 引擎已恢复为 {prev_engine}")
             else:
@@ -729,7 +744,6 @@ def _load_voxcpm2_engine(gpu_device, backend) -> Generator:
         logger.info(f"[引擎切换] VoxCPM 模型加载成功，已移动到 {device_string}")
     else:
         logger.info(f"[引擎切换] VoxCPM 模型加载成功，使用 CPU 运行")
-    registry.voxcpm_model = new_model
 
     # Load ASR model
     status_text = "正在加载 ASR 模型..."
@@ -741,12 +755,7 @@ def _load_voxcpm2_engine(gpu_device, backend) -> Generator:
         disable_pbar=True,
         device=device_string,
     )
-    registry.voxcpm_asr = new_asr
-
-    # Complete
-    registry.current_engine = "voxcpm2"
-    registry.current_type = "voxcpm2"
-    registry.current_size = "voxcpm2"
+    registry.set_voxcpm_loaded(new_model, asr=new_asr)
     status_text = "VoxCPM2 引擎就绪"
     logger.info(f"[引擎切换] {status_text}")
     yield status_text, None, None, None

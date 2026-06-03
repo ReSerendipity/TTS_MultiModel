@@ -78,6 +78,63 @@
         color: var(--text-muted);
     }
 
+    /* Micro counter styles - 字符计数器状态样式 */
+    .vd-char-counter.micro-counter-ok {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10B981;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .vd-char-counter.micro-counter-warn {
+        background: rgba(245, 158, 11, 0.1);
+        color: #F59E0B;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    .vd-char-counter.micro-counter-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: #EF4444;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .micro-counter-check {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 4px;
+    }
+    .micro-counter-check svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    /* Micro quality badge - 质量指示器样式 */
+    .micro-quality-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-top: 4px;
+    }
+    .micro-quality-badge svg {
+        width: 14px;
+        height: 14px;
+    }
+    .micro-quality-high {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10B981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .micro-quality-medium {
+        background: rgba(245, 158, 11, 0.15);
+        color: #F59E0B;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .micro-quality-low {
+        background: rgba(239, 68, 68, 0.15);
+        color: #EF4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
         /* Voice preset tags - pill-shaped chips with gradient borders */
         .voice-preset-tag {
             display: inline-block;
@@ -93,6 +150,8 @@
             background-color: var(--bg-secondary, #f3f4f6);
             transition: all 0.2s ease;
             user-select: none;
+            font-family: inherit;
+            line-height: inherit;
         }
         .voice-preset-tag::before {
             content: '';
@@ -194,7 +253,8 @@
         <input type="hidden" name="mode" value="voxcpm_design">
         <label for="vd-text">{{ "synthesis_text"|t(lang) }}</label>
         <textarea name="text" class="tts-input-textbox vd-full-width vd-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateVdCharCounter(this); autoResizeTextarea(this)">{{ "default_voice_design_text"|t(lang) }}</textarea>
-        <div id="vd-char-counter" class="vd-char-counter">0/200</div>
+        <div id="vd-char-counter" class="vd-char-counter">0/{{ engine_max_total_chars }}</div>
+        <span id="vd-quality-badge" class="micro-quality-badge" style="display:none;"></span>
         <label for="vd-lang">{{ "language"|t(lang) }}</label>
         <select name="lang" id="vd-lang" class="tts-input-dropdown vd-full-width">
             {% for l in langs %}
@@ -214,13 +274,22 @@
             <div id="vd-tab-create" class="inner-tab-panel">
                 <label for="vd-instruction">{{ "voice_description"|t(lang) }}</label>
                 <input type="text" name="instruction" id="vd-instruction" placeholder="{{ 'voice_desc_placeholder'|t(lang) }}" class="vd-instruct-input">
+                <div class="micro-format-hint">
+                    <div class="micro-hint-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> {{ "voice_desc_hint"|t(lang) }}</div>
+                    <span>{{ "voice_desc_format"|t(lang) }}</span>
+                    <span class="micro-hint-example">{{ "voice_desc_example"|t(lang) }}</span>
+                </div>
+                <div class="micro-tag-search">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="vd-tag-search" placeholder="{{ 'search_voice_tag'|t(lang) }}" oninput="filterVdTags(this.value)">
+                </div>
                 <div class="voice-preset-tags">
-                    <span class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)">{{ 'loli_voice'|t(lang) }}</span>
-                    <span class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)">{{ 'mature_voice'|t(lang) }}</span>
-                    <span class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)">{{ 'magnetic_male'|t(lang) }}</span>
-                    <span class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)">{{ 'bass_voice'|t(lang) }}</span>
-                    <span class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)">{{ 'youth_voice'|t(lang) }}</span>
-                    <span class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)">{{ 'japanese_sweet'|t(lang) }}</span>
+                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'loli_voice'|t(lang) }}">{{ 'loli_voice'|t(lang) }}</button>
+                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'mature_voice'|t(lang) }}">{{ 'mature_voice'|t(lang) }}</button>
+                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'magnetic_male'|t(lang) }}">{{ 'magnetic_male'|t(lang) }}</button>
+                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'bass_voice'|t(lang) }}">{{ 'bass_voice'|t(lang) }}</button>
+                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'youth_voice'|t(lang) }}">{{ 'youth_voice'|t(lang) }}</button>
+                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'japanese_sweet'|t(lang) }}">{{ 'japanese_sweet'|t(lang) }}</button>
                 </div>
                 <details class="advanced-params" style="margin:12px 0;">
                     <summary style="cursor:pointer;color:var(--text-secondary);font-size:14px;padding:8px 0;border-bottom:1px solid rgba(139,92,246,0.2);">
@@ -257,12 +326,15 @@
                 <div class="vd-shortcut-hint"><span class="kbd">Ctrl+Enter</span></div>
                 <div class="vd-flex-row">
                     <input type="text" name="save_name" placeholder="{{ 'save_voice_name'|t(lang) }}" class="vd-save-name-input">
-                    <button type="button" class="secondary-btn icon-btn vd-save-btn" hx-post="/api/persona/save" hx-target="#vd-status" hx-swap="innerHTML">{{ "save_persona"|t(lang) }}</button>
+                    <button type="button" class="secondary-btn icon-btn vd-save-btn" hx-post="/api/persona/save" hx-target="#vd-status" hx-swap="innerHTML" onclick="return checkVdSaveNameDuplicate(this);">{{ "save_persona"|t(lang) }}</button>
                 </div>
             </div>
             <div id="vd-tab-saved" class="inner-tab-panel" style="display:none;">
                 <label for="vd-persona-name">{{ "select_voice"|t(lang) }}</label>
                 <select name="persona_name" id="vd-persona-name" class="tts-input-dropdown vd-full-width">
+                    {% if not persona_list %}
+                    <option value="" disabled selected>{{ "no_saved_voices"|t(lang) }}</option>
+                    {% endif %}
                     {% for p in persona_list %}
                     {% if p.startswith('[官方]') %}
                     <option value="{{ p.split('(')[-1].rstrip(')') }}" data-type="official">⭐ {{ p }}</option>
@@ -318,6 +390,60 @@
 </div>
 <script>
 (function(){
+    // Toast notification
+    window.showToast = function(message, type) {
+        var existing = document.querySelector('.vd-toast');
+        if (existing) existing.remove();
+        var toast = document.createElement('div');
+        toast.className = 'vd-toast';
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;z-index:10000;max-width:360px;';
+        toast.style.background = type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#F59E0B';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 2500);
+        setTimeout(function() { toast.remove(); }, 2800);
+    };
+
+    // Custom confirm dialog (replaces native confirm())
+    window.showConfirmDialog = function(message, onConfirm) {
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        var dialog = document.createElement('div');
+        dialog.style.cssText = 'background:var(--bg-primary,#1a1a2e);border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center;';
+        dialog.innerHTML = '<p style="color:var(--text-primary);margin-bottom:20px;font-size:14px;">' + message + '</p><div style="display:flex;gap:12px;justify-content:center;"><button id="vd-confirm-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;">' + (window.I18N && window.I18N['cancel'] || '{{ "cancel"|t(lang) }}') + '</button><button id="vd-confirm-ok" style="padding:8px 20px;border-radius:8px;border:none;background:#10B981;color:#fff;cursor:pointer;">' + (window.I18N && window.I18N['confirm'] || '{{ "confirm"|t(lang) }}') + '</button></div>';
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        document.getElementById('vd-confirm-cancel').onclick = function() { overlay.remove(); };
+        document.getElementById('vd-confirm-ok').onclick = function() { overlay.remove(); onConfirm(); };
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    };
+
+    // Check for duplicate persona name before saving
+    window.checkVdSaveNameDuplicate = function(btn) {
+        var nameInput = btn.closest('.vd-flex-row').querySelector('input[name=save_name]');
+        if (!nameInput) return true;
+        var name = nameInput.value.trim();
+        if (!name) return true; // Let server handle empty name
+        var existingNames = Array.from(document.querySelectorAll('#vd-persona-name option')).map(function(opt) { return opt.textContent.trim().replace(/^[⭐🎵]\s*/, ''); });
+        if (existingNames.includes(name)) {
+            showToast((window.I18N && window.I18N['name_exists']) || '该名称已存在，请使用其他名称', 'error');
+            return false;
+        }
+        return true;
+    };
+
+    window.filterVdTags = function(query) {
+        var tags = document.querySelectorAll('#vd-tab-create .voice-preset-tag');
+        var q = query.toLowerCase().trim();
+        tags.forEach(function(tag) {
+            if (!q || tag.textContent.toLowerCase().indexOf(q) !== -1) {
+                tag.style.display = '';
+            } else {
+                tag.style.display = 'none';
+            }
+        });
+    };
+
     window.fillVdInstruct = function(el) {
         var input = document.querySelector('#vd-form input[name=instruct]');
         if (input) { input.value = el.textContent; input.focus(); }
@@ -592,25 +718,55 @@
     };
 
     window.updateVdCharCounter = function(textarea) {
-        var SPLIT_MAX_CHARS = 200;
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        var ENGINE_MAX_CHARS = {{ engine_max_total_chars }};
         var counter = document.getElementById('vd-char-counter');
         var submitBtn = document.querySelector('#vd-form button[type="submit"]');
+        var qualityBadge = document.getElementById('vd-quality-badge');
         if (counter) {
             var len = textarea.value.length;
             var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
 
-            var counterMain = '<span class="counter-main">' + len + '/' + SPLIT_MAX_CHARS + '</span>';
+            var counterMain = '<span class="counter-main">' + len + '/' + ENGINE_MAX_CHARS + '</span>';
             var counterDetail = '';
-            if (len > SPLIT_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments">' + '{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+            counter.classList.remove('warning', 'micro-counter-ok', 'micro-counter-warn', 'micro-counter-danger', 'micro-counter-empty');
+
+            if (len > ENGINE_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments" style="color:#ef4444;">{{ "text_too_long"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-danger');
+            } else if (len > SPLIT_MAX_CHARS) {
+                counterDetail = '<span class="counter-segments">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-warn');
             } else if (len > 0) {
                 counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
+                counter.classList.add('micro-counter-ok');
+                counterDetail += '<span class="micro-counter-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>';
+            } else {
+                // Empty state: show neutral styling
+                counter.classList.add('micro-counter-empty');
             }
 
             counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
-            counter.classList.remove('warning');
-            if (len >= SPLIT_MAX_CHARS || len >= SPLIT_MAX_CHARS * 0.8) counter.classList.add('warning');
+            if (len >= ENGINE_MAX_CHARS) counter.classList.add('warning');
             if (submitBtn) submitBtn.disabled = false;
+
+            if (qualityBadge) {
+                if (len === 0) {
+                    qualityBadge.style.display = 'none';
+                } else if (len <= SPLIT_MAX_CHARS) {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-high';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "quality_high"|t(lang) }}';
+                } else if (len <= SPLIT_MAX_CHARS * 3) {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-medium';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ' + '{{ "quality_split"|t(lang) }}';
+                } else {
+                    qualityBadge.style.display = 'inline-flex';
+                    qualityBadge.className = 'micro-quality-badge micro-quality-low';
+                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ' + '{{ "quality_low"|t(lang) }}';
+                }
+            }
         }
     };
 
@@ -621,12 +777,12 @@
         var textarea = form.querySelector('textarea[name=text]');
         if (!textarea || !textarea.value.trim()) return null;
         var len = textarea.value.length;
-        var maxLen = 200;
-        var segments = Math.ceil(len / maxLen);
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        var segments = Math.ceil(len / SPLIT_MAX_CHARS);
         return {
             textLength: len,
             segmentCount: segments,
-            maxLen: maxLen
+            maxLen: SPLIT_MAX_CHARS
         };
     };
 
@@ -642,17 +798,15 @@
             return false;
         }
 
-        var confirmed = confirm(
-            '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}\n' +
-            '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}\n' +
-            '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}\n\n' +
-            '{{ "confirm_continue"|t(lang) }}'
-        );
+        var msg = '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}<br>' +
+            '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}<br>' +
+            '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}<br><br>' +
+            '{{ "confirm_continue"|t(lang) }}';
 
-        if (confirmed) {
+        showConfirmDialog(msg, function() {
             var form = document.getElementById('vd-form');
             if (form) htmx.trigger(form, 'submit');
-        }
+        });
         return false;
     };
 
@@ -695,13 +849,18 @@
         var info = window.getCurrentSegmentInfo();
         if (info && info.segmentCount > 1) {
             e.preventDefault();
-            var confirmed = confirm(
-                '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}\n' +
-                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}\n' +
-                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}\n\n' +
-                '{{ "confirm_continue"|t(lang) }}'
-            );
-            if (!confirmed) return false;
+            var msg = '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}<br>' +
+                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}<br>' +
+                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}<br><br>' +
+                '{{ "confirm_continue"|t(lang) }}';
+            showConfirmDialog(msg, function() {
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle;"></span>{{ "generating"|t(lang) }}';
+                }
+                document.getElementById('vd-form').submit();
+            });
+            return false;
         }
 
         submitBtn.disabled = true;
@@ -729,6 +888,17 @@
                 }
                 // Show post-processing section when audio is available
                 var wrapper = resultEl.querySelector('[data-audio-filename]');
+                if (audioSrc) {
+                    var successBadge = document.createElement('div');
+                    successBadge.className = 'micro-success-badge';
+                    successBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "gen_success"|t(lang) }}';
+                    resultEl.insertBefore(successBadge, resultEl.firstChild);
+
+                    var quickActions = document.createElement('div');
+                    quickActions.className = 'micro-quick-actions';
+                    quickActions.innerHTML = '<button class="micro-quick-action-btn" onclick="vdReprocess()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ "reprocess"|t(lang) }}</button>';
+                    resultEl.insertBefore(quickActions, successBadge.nextSibling);
+                }
                 var ppSection = document.getElementById('vd-pp-section');
                 if (wrapper && ppSection) {
                     ppSection.style.display = '';
@@ -749,7 +919,7 @@
         var tempo = document.getElementById('vd-pp-tempo').value;
         var enhance = document.getElementById('vd-pp-enhance').checked ? 'true' : 'false';
         var statusEl = document.getElementById('vd-status');
-        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Processing...</div>';
+        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">' + (window.I18N && window.I18N['processing'] || '处理中...') + '</div>';
         try {
             var resp = await fetch('/api/generate/post-process', {
                 method: 'POST',
