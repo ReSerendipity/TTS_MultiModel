@@ -1,19 +1,33 @@
-# TTS MultiModel
+# 🎙️ TTS MultiModel
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078D6.svg?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+
+基于 VoxCPM2 的多模型语音合成平台。支持声音设计、声音克隆、LoRA 微调训练与多角色剧本配音。内置 9 种预置音色，支持中英日韩多语言界面。
 
 A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAPI-based web interface, supporting voice cloning, model training, and high-quality speech synthesis.
 
-## Features
+## 📸 Screenshots
 
-- **Multiple TTS Models**: Support for VoxCPM2 and other advanced TTS models
-- **Voice Cloning**: Create custom voice personas with minimal audio samples
-- **Model Training**: Fine-tune models with your own datasets
-- **Web Interface**: Responsive and modern web UI built with FastAPI + HTMX + Jinja2
-- **Batch Processing**: Support for batch audio generation
-- **History Management**: Track and manage your generation history
-- **Multi-language**: Internationalization support (i18n)
-- **GPU Acceleration**: Optimized for GPU-based inference and training
+> Screenshots coming soon. Contributions welcome!
 
-## Quick Start (Windows)
+## ✨ Features
+
+- 🎤 **Multiple TTS Models** - Support for VoxCPM2 and other advanced TTS models
+- 🎭 **Voice Cloning** - Create custom voice personas with minimal audio samples
+- 🏋️ **Model Training** - Fine-tune models with your own datasets via LoRA
+- 🌐 **Web Interface** - Responsive and modern web UI built with FastAPI + HTMX + Jinja2
+- 📦 **Batch Processing** - Support for batch audio generation
+- 📜 **History Management** - Track and manage your generation history
+- 🌍 **Multi-language** - Internationalization support (i18n) for Chinese, English, Japanese, Korean
+- ⚡ **GPU Acceleration** - Optimized for GPU-based inference and training (CUDA / ROCM / XPU)
+- 🎬 **Script Dubbing** - Multi-character script dubbing support
+- 🔊 **9 Official Speakers** - Pre-configured voice personas covering various voice types
+
+## 🚀 Quick Start (Windows)
 
 ### Prerequisites
 
@@ -30,7 +44,7 @@ A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAP
 
 1. **Download or clone this repository**:
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/ReSerendipity/TTS_MultiModel.git
    cd TTS_MultiModel
    ```
 
@@ -55,7 +69,7 @@ A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAP
 
 2. **Clone and install dependencies**:
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/ReSerendipity/TTS_MultiModel.git
    cd TTS_MultiModel
    pip install -r requirements.txt
    ```
@@ -67,23 +81,19 @@ A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAP
    python bin\clean_launch.py
    ```
 
-## Model Download
+## 🤖 Model Download
 
 The following models need to be downloaded separately and placed in the `pretrained_models/` directory:
 
 ### Required Models
 
-1. **VoxCPM2** - Main TTS model
-   - Place in: `pretrained_models\VoxCPM2\`
-   - Download from HuggingFace or ModelScope
+| Model | Description | Directory |
+|-------|-------------|-----------|
+| VoxCPM2 | Main TTS model | `pretrained_models/VoxCPM2/` |
+| SenseVoiceSmall | ASR (Automatic Speech Recognition) model | `pretrained_models/SenseVoiceSmall/` |
+| speech_zipenhancer | Audio denoiser model | `pretrained_models/speech_zipenhancer/` |
 
-2. **SenseVoiceSmall** - ASR (Automatic Speech Recognition) model
-   - Place in: `pretrained_models\SenseVoiceSmall\`
-   - Download from HuggingFace or ModelScope
-
-3. **speech_zipenhancer** - Audio denoiser model
-   - Place in: `pretrained_models\speech_zipenhancer\`
-   - Download from HuggingFace or ModelScope
+Download from [HuggingFace](https://huggingface.co/) or [ModelScope](https://modelscope.cn/).
 
 ### Model Download Script (Optional)
 
@@ -92,7 +102,7 @@ If a `download_models.py` script is included, you can use it to automate the dow
 python download_models.py
 ```
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 TTS_MultiModel/
@@ -121,7 +131,7 @@ TTS_MultiModel/
 └── LICENSE                      # MIT License
 ```
 
-## Usage
+## 🎯 Usage
 
 ### Starting the Application
 
@@ -163,7 +173,7 @@ The application will auto-open your browser when ready.
 - Start fine-tuning process
 - Monitor training progress in real-time
 
-## Configuration
+## ⚙️ Configuration
 
 Edit `config.yaml` to customize:
 
@@ -179,7 +189,7 @@ Edit `config.yaml` to customize:
   - Host address
   - GPU settings
 
-## Official Speakers
+## 🎙️ Official Speakers
 
 The application comes with 9 pre-configured official speakers:
 
@@ -195,7 +205,19 @@ The application comes with 9 pre-configured official speakers:
 | 老伯 | Experienced and deep elderly voice | 老年男音 |
 | 少女 | Sweet and lovely young girl voice | 少女音 |
 
-## Troubleshooting
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Web Framework | FastAPI |
+| Frontend | HTMX + Jinja2 |
+| TTS Engine | VoxCPM2 |
+| ASR Engine | SenseVoiceSmall |
+| Audio Processing | speech_zipenhancer |
+| Deep Learning | PyTorch + Transformers + FunASR |
+| Language | Python 3.12+ |
+
+## 🔧 Troubleshooting
 
 ### Common Issues
 
@@ -220,7 +242,7 @@ The application comes with 9 pre-configured official speakers:
 
 Check `logs/app.log` for detailed error messages.
 
-## Development
+## 🧪 Development
 
 ### Running Tests
 
@@ -238,25 +260,32 @@ python bin/test_integration.py
   - `engines/`: TTS model implementations
   - `training/`: Model training functionality
 
-## License
+## 🤝 Contributing
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Contributions are welcome! Here's how you can help:
 
-## Documentation
+1. **Report Bugs** - Open an issue with detailed reproduction steps
+2. **Suggest Features** - Open an issue with the `enhancement` label
+3. **Submit Code** - Fork → Branch → Commit → Push → Pull Request
+4. **Improve Documentation** - Fix typos, add examples, translate content
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2025 Doro
+
+## 📚 Documentation
 
 - [Model Download Guide](docs/MODEL_DOWNLOAD_GUIDE.md) - How to download and configure models
 - [Model Extension Guide](docs/MODEL_EXTENSION_GUIDE.md) - How to add new TTS engines
 - [UI Development Guide](docs/UI开发指南_README.md) - Web UI development guide
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 - VoxCPM2 model and related technologies
 - FastAPI and HTMX for the web interface framework
 - All open-source contributors
-
-## Contact
-
-For issues, feature requests, or questions, please open an issue on GitHub.
 
 ---
 
