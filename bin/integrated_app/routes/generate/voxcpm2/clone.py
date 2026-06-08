@@ -93,6 +93,13 @@ async def generate_voxcpm_clone(
                                            cfg_value=cfg, inference_timesteps=steps,
                                            denoise=clone_denoise, normalize=clone_norm)
 
+    def _degraded_run():
+        engine = registry.get_current_engine()
+        degraded_steps = max(steps // 2, 4)
+        return engine.generate_voice_clone(text, instruction, actual_ref_path,
+                                           cfg_value=cfg, inference_timesteps=degraded_steps,
+                                           denoise=False, normalize=clone_norm)
+
     return await _execute_generation(
         text=text,
         run_fn=_run,
@@ -103,6 +110,7 @@ async def generate_voxcpm_clone(
         tempo_factor=tempo_factor,
         voice_enhancement=voice_enhancement,
         target_lufs=target_lufs,
+        degraded_fn=_degraded_run,
     )
 
 
@@ -162,6 +170,17 @@ async def generate_voxcpm_ultimate(
             advanced_seed=seed,
         )
 
+    def _degraded_run():
+        engine = registry.get_current_engine()
+        degraded_steps = max(steps // 2, 4)
+        return engine.generate_ultimate_clone(
+            text, instruction,
+            actual_ref_path if actual_ref_path else None,
+            advanced_cfg=cfg, advanced_norm=advanced_norm,
+            advanced_denoise=0.0, advanced_steps=degraded_steps,
+            advanced_seed=seed,
+        )
+
     return await _execute_generation(
         text=text,
         run_fn=_run,
@@ -172,6 +191,7 @@ async def generate_voxcpm_ultimate(
         tempo_factor=tempo_factor,
         voice_enhancement=voice_enhancement,
         target_lufs=target_lufs,
+        degraded_fn=_degraded_run,
     )
 
 
@@ -227,7 +247,7 @@ async def generate_voxcpm_prompt_continue(
     start_time = time.monotonic()
     try:
         result, msg, degraded_note = await loop.run_in_executor(
-            None, lambda: _run_with_oom_retry(_run, "VoxCPM prompt continue")
+            None, lambda: _run_with_oom_retry(_run, "VoxCPM prompt continue", degraded_fn=_run)
         )
         duration = time.monotonic() - start_time
         if result is None:

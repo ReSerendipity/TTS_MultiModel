@@ -208,11 +208,25 @@ async def streaming_generation(
                                          cfg_value=cfg_value, inference_timesteps=inference_timesteps,
                                          denoise=stream_denoise, seed=seed)
 
+    def _degraded_run():
+        engine = registry.get_current_engine()
+        degraded_steps = max(inference_timesteps // 2, 4)
+        return engine.generate_streaming(text, actual_ref_path,
+                                         cfg_value=cfg_value, inference_timesteps=degraded_steps,
+                                         denoise=False, seed=seed)
+
     start_time = time.monotonic()
     try:
-        result = await loop.run_in_executor(None, _run)
+        from ..utils import _run_with_oom_retry
+        result, msg, degraded_note = await loop.run_in_executor(
+            None, lambda: _run_with_oom_retry(_run, "Streaming", degraded_fn=_degraded_run)
+        )
         duration = time.monotonic() - start_time
-        _log_generation("Streaming", text, "voxcpm2", "streaming", True, duration)
+        if result is None:
+            _log_generation("Streaming", text, "voxcpm2", "streaming", False, duration, error_msg=msg)
+            return _error_html(msg or "生成失败")
+        is_degraded = degraded_note is not None
+        _log_generation("Streaming", text, "voxcpm2", "streaming", True, duration, is_degraded=is_degraded)
         _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
         from ....config import SAVE_DIR
         if isinstance(result, tuple) and len(result) >= 3:
@@ -223,7 +237,10 @@ async def streaming_generation(
             )
         monitor = get_health_monitor()
         monitor.record_generation(success=True)
-        return _success_html(result[2], f"\u6d41\u5f0f\u751f\u6210\u5b8c\u6210\uff01\u8017\u65f6 {duration:.1f}\u79d2")
+        if degraded_note:
+            from ..utils import _partial_success_html
+            return _partial_success_html(result[2], f"流式生成完成！耗时 {duration:.1f}秒", degraded_note)
+        return _success_html(result[2], f"流式生成完成！耗时 {duration:.1f}秒")
     except Exception as e:
         duration = time.monotonic() - start_time
         logger.error(f"Streaming generation failed: {e}")

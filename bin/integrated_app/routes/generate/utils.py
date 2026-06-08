@@ -263,6 +263,7 @@ async def _execute_generation(
     voice_enhancement: str = "false",
     target_lufs: float = -16.0,
     oom_retry: bool = True,
+    degraded_fn=None,
 ):
     try:
         await asyncio.wait_for(
@@ -275,7 +276,7 @@ async def _execute_generation(
         return await _execute_generation_impl(
             text, run_fn, endpoint_name, voice_or_persona,
             model_type, engine, tempo_factor, voice_enhancement,
-            target_lufs, oom_retry,
+            target_lufs, oom_retry, degraded_fn,
         )
     finally:
         _generation_semaphore.release()
@@ -292,13 +293,14 @@ async def _execute_generation_impl(
     voice_enhancement: str = "false",
     target_lufs: float = -16.0,
     oom_retry: bool = True,
+    degraded_fn=None,
 ):
     loop = asyncio.get_running_loop()
     start_time = time.monotonic()
     try:
         if oom_retry:
             result, msg, degraded_note = await loop.run_in_executor(
-                None, lambda: _run_with_oom_retry(run_fn, endpoint_name)
+                None, lambda: _run_with_oom_retry(run_fn, endpoint_name, degraded_fn=degraded_fn)
             )
         else:
             result, msg = await loop.run_in_executor(None, run_fn)

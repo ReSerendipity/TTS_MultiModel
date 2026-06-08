@@ -67,6 +67,16 @@ async def generate_voxcpm_script(
             advanced_seed=seed, lang=lang,
         )
 
+    def _degraded_run():
+        engine = registry.get_current_engine()
+        degraded_steps = max(steps // 2, 4)
+        return engine.generate_script(
+            text, persona_map=persona_map_with_wav if persona_map_with_wav else None,
+            advanced_cfg=cfg, advanced_norm=advanced_norm,
+            advanced_denoise=0.0, advanced_steps=degraded_steps,
+            advanced_seed=seed, lang=lang,
+        )
+
     return await _execute_generation(
         text=text,
         run_fn=_run,
@@ -77,5 +87,5 @@ async def generate_voxcpm_script(
         tempo_factor=tempo_factor,
         voice_enhancement=voice_enhancement,
         target_lufs=target_lufs,
-        oom_retry=False,
+        degraded_fn=_degraded_run,
     )

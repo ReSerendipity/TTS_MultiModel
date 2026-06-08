@@ -60,6 +60,12 @@ async def generate_voxcpm_design(
         return engine.generate_voice_design(text, instruction, cfg_value=cfg, inference_timesteps=steps,
                                             denoise=advanced_denoise, ref_audio_path=actual_ref_path)
 
+    def _degraded_run():
+        engine = registry.get_current_engine()
+        degraded_steps = max(steps // 2, 4)
+        return engine.generate_voice_design(text, instruction, cfg_value=cfg, inference_timesteps=degraded_steps,
+                                            denoise=False, ref_audio_path=actual_ref_path)
+
     return await _execute_generation(
         text=text,
         run_fn=_run,
@@ -70,4 +76,5 @@ async def generate_voxcpm_design(
         tempo_factor=tempo_factor,
         voice_enhancement=voice_enhancement,
         target_lufs=target_lufs,
+        degraded_fn=_degraded_run,
     )
