@@ -189,6 +189,11 @@ async def history_table(request: Request):
         size_mb = file_size / (1024 * 1024) if file_size > 0 else 0
         size_str = f"{size_mb:.1f} MB"
         duration = rec.get("duration_seconds", 0) or 0
+        # duration_seconds may be a string from legacy JSON migration (e.g. "48.7s")
+        try:
+            duration = float(str(duration).rstrip('s'))
+        except (ValueError, TypeError):
+            duration = 0
         duration_str = f"{duration:.1f}s" if duration > 0 else "<1s"
         records.append([
             rec.get("filename", ""),
