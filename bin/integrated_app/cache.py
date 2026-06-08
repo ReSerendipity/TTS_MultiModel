@@ -33,6 +33,7 @@ class LRUCache:
         self._maxsize = maxsize
         self._hits = 0
         self._misses = 0
+        self._lock = threading.Lock()
 
     def get(self, key: str) -> Any | None:
         """Retrieve a cached item by key.
@@ -45,12 +46,13 @@ class LRUCache:
         Returns:
             Cached value if found, None otherwise.
         """
-        if key in self._cache:
-            self._cache.move_to_end(key)
-            self._hits += 1
-            return self._cache[key]
-        self._misses += 1
-        return None
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                self._hits += 1
+                return self._cache[key]
+            self._misses += 1
+            return None
 
     def put(self, key: str, value: Any) -> None:
         """Insert or update a cached item.
@@ -62,18 +64,21 @@ class LRUCache:
             key: Cache key.
             value: Value to cache.
         """
-        if key in self._cache:
-            self._cache.move_to_end(key)
-        self._cache[key] = value
-        while len(self._cache) > self._maxsize:
-            self._cache.popitem(last=False)
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+            self._cache[key] = value
+            while len(self._cache) > self._maxsize:
+                self._cache.popitem(last=False)
 
     def __contains__(self, key: str) -> bool:
-        return key in self._cache
+        with self._lock:
+            return key in self._cache
 
     def __delitem__(self, key: str) -> None:
-        if key in self._cache:
-            del self._cache[key]
+        with self._lock:
+            if key in self._cache:
+                del self._cache[key]
 
     def get_stats(self) -> dict:
         """Return cache performance statistics.
@@ -82,20 +87,22 @@ class LRUCache:
             Dictionary with hits, misses, hit_rate (percentage),
             current size and maxsize.
         """
-        total = self._hits + self._misses
-        hit_rate = (self._hits / total * 100) if total > 0 else 0.0
-        return {
-            "hits": self._hits,
-            "misses": self._misses,
-            "hit_rate": round(hit_rate, 1),
-            "size": len(self._cache),
-            "maxsize": self._maxsize,
-        }
+        with self._lock:
+            total = self._hits + self._misses
+            hit_rate = (self._hits / total * 100) if total > 0 else 0.0
+            return {
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate": round(hit_rate, 1),
+                "size": len(self._cache),
+                "maxsize": self._maxsize,
+            }
 
     def reset_stats(self) -> None:
         """Reset hit and miss counters to zero."""
-        self._hits = 0
-        self._misses = 0
+        with self._lock:
+            self._hits = 0
+            self._misses = 0
 
 
 class AdaptiveLRUCache(LRUCache):
@@ -123,6 +130,8 @@ class AdaptiveLRUCache(LRUCache):
         (0, 20),
     ]
 
+    _MEMORY_LIMIT_MB = 512
+
     def __init__(self, default_maxsize: int = 15, adapt_interval: float = 30.0) -> None:
         super().__init__(maxsize=default_maxsize)
         self._adapt_lock = threading.Lock()
@@ -130,6 +139,35 @@ class AdaptiveLRUCache(LRUCache):
         self._last_adapt_time = 0.0
         self._put_count = 0
         self._adapt_every_n = 10
+        self._total_memory_estimate = 0
+        self._eviction_count = 0
+
+    @staticmethod
+    def _estimate_item_size(value: Any) -> int:
+        """Estimate the memory footprint of a cached value in bytes.
+
+        Args:
+            value: The cached value to estimate.
+
+        Returns:
+            Estimated size in bytes.
+        """
+        try:
+            if isinstance(value, tuple) and len(value) > 0:
+                first = value[0]
+                if hasattr(first, 'nbytes'):
+                    total = first.nbytes
+                    for item in value[1:]:
+                        if hasattr(item, 'nbytes'):
+                            total += item.nbytes
+                        else:
+                            total += getattr(item, '__sizeof__', lambda: 1024)()
+                    return total
+            if hasattr(value, '__sizeof__'):
+                return value.__sizeof__()
+        except Exception:
+            pass
+        return 1024
 
     @staticmethod
     def _get_gpu_memory_percent() -> float:
@@ -195,7 +233,20 @@ class AdaptiveLRUCache(LRUCache):
         return target
 
     def put(self, key: str, value: Any) -> None:
+        size = self._estimate_item_size(value)
+        with self._adapt_lock:
+            if key in self._cache:
+                old_value = self._cache[key]
+                self._total_memory_estimate -= self._estimate_item_size(old_value)
+            self._total_memory_estimate += size
         super().put(key, value)
+        with self._adapt_lock:
+            memory_limit = self._MEMORY_LIMIT_MB * 1024 * 1024
+            while self._total_memory_estimate > memory_limit and len(self._cache) > 0:
+                evicted_key, evicted_value = self._cache.popitem(last=False)
+                evicted_size = self._estimate_item_size(evicted_value)
+                self._total_memory_estimate -= evicted_size
+                self._eviction_count += 1
         self._put_count += 1
         now = time.monotonic()
         if len(self._cache) >= self._maxsize or now - self._last_adapt_time >= self._adapt_interval or self._put_count >= self._adapt_every_n:
@@ -203,8 +254,40 @@ class AdaptiveLRUCache(LRUCache):
             self._last_adapt_time = now
             self._put_count = 0
 
+    def __delitem__(self, key: str) -> None:
+        with self._adapt_lock:
+            if key in self._cache:
+                self._total_memory_estimate -= self._estimate_item_size(self._cache[key])
+        super().__delitem__(key)
+
     def clear(self) -> None:
         """Clear all cached items and reset statistics."""
         with self._adapt_lock:
             self._cache.clear()
-            self.reset_stats()
+            self._total_memory_estimate = 0
+            self._eviction_count = 0
+        self.reset_stats()
+
+    def get_stats(self) -> dict:
+        """Return cache performance statistics including memory tracking.
+
+        Returns:
+            Dictionary with hits, misses, hit_rate, size, maxsize,
+            memory_estimate_mb, eviction_count, and avg_item_size_kb.
+        """
+        with self._adapt_lock:
+            total = self._hits + self._misses
+            hit_rate = (self._hits / total * 100) if total > 0 else 0.0
+            memory_mb = self._total_memory_estimate / (1024 * 1024)
+            cache_size = len(self._cache)
+            avg_kb = (self._total_memory_estimate / cache_size / 1024) if cache_size > 0 else 0.0
+            return {
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate": round(hit_rate, 1),
+                "size": cache_size,
+                "maxsize": self._maxsize,
+                "memory_estimate_mb": round(memory_mb, 2),
+                "eviction_count": self._eviction_count,
+                "avg_item_size_kb": round(avg_kb, 2),
+            }

@@ -16,8 +16,8 @@ from ._base import (
 
 def fn_voxcpm_prompt_continue(text: str, prompt_wav_path: str, prompt_text: str) -> tuple[tuple | None, str]:
     from ...model_manager import _check_voxcpm2_lock
-    from ...model_manager import voxcpm_model as _voxcpm_model
-    if _voxcpm_model is None:
+    from ...model_registry import registry
+    if registry.voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
     @tts_error_handler
@@ -39,12 +39,12 @@ def fn_voxcpm_prompt_continue(text: str, prompt_wav_path: str, prompt_text: str)
 
 
 def _fn_voxcpm_prompt_continue_impl(text: str, prompt_wav_path: str, prompt_text: str, start_time: float = 0) -> tuple[tuple | None, str]:
-    from ...model_manager import voxcpm_model as _voxcpm_model
+    from ...model_registry import registry
 
     _progress_mgr.update_phase("Prompt 延续推理中...")
     logger.info(f"[VoxCPM Prompt延续] Prompt: {prompt_text[:50]}...")
 
-    wav = _voxcpm_model.generate(
+    wav = registry.voxcpm_model.generate(
         text=text,
         prompt_wav_path=prompt_wav_path,
         prompt_text=prompt_text,

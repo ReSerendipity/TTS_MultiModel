@@ -260,19 +260,6 @@
 </div>
 
 <script>
-function showToast(message, type) {
-    var existing = document.querySelector('.settings-toast');
-    if (existing) existing.remove();
-    var toast = document.createElement('div');
-    toast.className = 'settings-toast';
-    toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;z-index:10000;animation:fadeIn 0.3s ease;max-width:360px;';
-    toast.style.background = type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#F59E0B';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 2500);
-    setTimeout(function() { toast.remove(); }, 2800);
-}
-
 (function(){
     var t = function(key) {
         return (window.I18N && window.I18N[key]) || key;
@@ -458,13 +445,13 @@ function showToast(message, type) {
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
-                showToast(t('save_success'), 'success');
+                Toast.show(t('save_success'), 'success');
             } else {
-                showToast(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
             }
         }).catch(function(err) {
             if (btn) btn.disabled = false;
-            showToast(t('save_failed') + ': ' + err.message, 'error');
+            Toast.show(t('save_failed') + ': ' + err.message, 'error');
         });
     };
 
@@ -491,13 +478,13 @@ function showToast(message, type) {
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
-                showToast(t('save_success'), 'success');
+                Toast.show(t('save_success'), 'success');
             } else {
-                showToast(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
             }
         }).catch(function(err) {
             if (btn) btn.disabled = false;
-            showToast(t('save_failed') + ': ' + err.message, 'error');
+            Toast.show(t('save_failed') + ': ' + err.message, 'error');
         });
     };
 
@@ -524,13 +511,13 @@ function showToast(message, type) {
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
-                showToast(t('save_success'), 'success');
+                Toast.show(t('save_success'), 'success');
             } else {
-                showToast(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
             }
         }).catch(function(err) {
             if (btn) btn.disabled = false;
-            showToast(t('save_failed') + ': ' + err.message, 'error');
+            Toast.show(t('save_failed') + ': ' + err.message, 'error');
         });
     };
 

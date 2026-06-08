@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """生成辅助函数：保存、文本分割、音频合并、预处理等"""
+from __future__ import annotations
 
 import os
 import time
 import logging
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import soundfile as sf
 
 from .config import SAVE_DIR, GEN_SPLIT_MAX_CHARS
-from .utils import invalidate_history_cache
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -29,13 +29,11 @@ def save_audio(wav: np.ndarray, sr: int, prefix: str = "audio", format: str = "w
             audio = AudioSegment.from_wav(buf)
             file_path = os.path.join(SAVE_DIR, f"{prefix}_{timestamp}.mp3")
             audio.export(file_path, format="mp3", bitrate="192k")
-            invalidate_history_cache()
             return file_path, os.path.basename(file_path)
         except ImportError:
             pass
     file_path = os.path.join(SAVE_DIR, f"{prefix}_{timestamp}.wav")
     sf.write(file_path, wav, sr)
-    invalidate_history_cache()
     return file_path, os.path.basename(file_path)
 
 
@@ -93,41 +91,153 @@ def split_text_for_tts(text: str, max_chars: int = None) -> List[str]:
     return [s for s in segments if s] if segments else [text]
 
 
+def _is_decimal_point(text: str, idx: int) -> bool:
+    """判断 text[idx] 处的 '.' 是否为数字小数点（前后均为数字）"""
+    if idx < 0 or idx >= len(text) or text[idx] != '.':
+        return False
+    has_digit_before = idx > 0 and text[idx - 1].isdigit()
+    has_digit_after = idx + 1 < len(text) and text[idx + 1].isdigit()
+    return has_digit_before and has_digit_after
+
+
+def _is_abbreviation(text: str, idx: int) -> bool:
+    """判断 text[idx] 处的 '.' 是否属于英文缩写
+
+    识别两种模式：
+    1. 单个大写字母 + 句点，如 U.S.A. 中的每个句点
+    2. 已知缩写词尾部的句点，如 Dr. Mr. vs. 等
+    """
+    if idx < 0 or idx >= len(text) or text[idx] != '.':
+        return False
+
+    # 模式 1：单个大写字母 + 句点（如 U.S.A.）
+    if idx > 0 and text[idx - 1].isupper() and text[idx - 1].isalpha():
+        # 确保大写字母前面是句点或字符串开头，即连续的 大写字母. 模式
+        if idx - 1 == 0 or text[idx - 2] == '.':
+            return True
+
+    # 模式 2：已知缩写词列表
+    _ABBREVIATIONS = (
+        "Dr", "Mr", "Mrs", "Ms", "vs", "etc", "Inc", "Ltd",
+        "Prof", "Sr", "Jr", "No",
+    )
+    for abbr in _ABBREVIATIONS:
+        start = idx - len(abbr)
+        if start >= 0 and text[start:idx].lower() == abbr.lower():
+            # 确保缩写词前面是空格/行首，避免误匹配
+            if start == 0 or not text[start - 1].isalpha():
+                return True
+
+    return False
+
+
+def _is_inside_quotes(text: str, idx: int) -> bool:
+    """判断位置 idx 是否在引号对内部
+
+    支持中文引号 "" 和英文引号 ""。
+    """
+    # 构建引号配对映射
+    quote_pairs = [
+        ('\u201c', '\u201d'),  # 中文 ""
+        ('"', '"'),            # 英文 ""
+    ]
+
+    for open_q, close_q in quote_pairs:
+        open_count = 0
+        for i in range(idx):
+            if text[i] == open_q:
+                open_count += 1
+            elif text[i] == close_q:
+                if open_count > 0:
+                    open_count -= 1
+        # 如果到 idx 位置时还有未闭合的引号，则 idx 在引号内部
+        if open_count > 0:
+            return True
+
+    return False
+
+
+def _build_excluded_positions(text: str) -> set:
+    """构建不应作为分割点的位置集合
+
+    排除以下位置：
+    - 数字小数点
+    - 英文缩写中的句点
+    - 引号内部的所有标点位置
+    """
+    excluded = set()
+
+    # 排除小数点和缩写句点
+    for i, ch in enumerate(text):
+        if ch == '.':
+            if _is_decimal_point(text, i) or _is_abbreviation(text, i):
+                excluded.add(i)
+
+    # 排除引号内部的标点位置
+    punctuation_chars = set('。！？，、.;!?：；')
+    for i, ch in enumerate(text):
+        if ch in punctuation_chars and _is_inside_quotes(text, i):
+            excluded.add(i)
+
+    return excluded
+
+
 def _find_best_split_point(text: str) -> int:
     """在文本中找到最佳语义分割点的位置索引
 
     返回同一优先级中最靠右的标点位置索引，如果未找到则返回 0。
     优先级：中文句末标点 > 中文逗号 > 英文标点 > 中文冒号 > 中文分号
+
+    会跳过不应分割的位置（小数点、缩写、引号内部），
+    如果当前优先级的所有候选点都被排除，则降级到下一优先级。
     """
-    # 优先级 1：中文句号/叹号/问号 — 取最靠右的一个
-    idx = max(text.rfind("。"), text.rfind("！"), text.rfind("？"))
+    excluded = _build_excluded_positions(text)
+
+    def _find_rightmost(candidates, excluded_set):
+        """在候选字符中找到最靠右且未被排除的位置"""
+        best = -1
+        for ch in candidates:
+            idx = len(text) - 1
+            while idx >= 0:
+                idx = text.rfind(ch, 0, idx + 1)
+                if idx <= 0:
+                    break
+                if idx not in excluded_set:
+                    return idx
+                idx -= 1
+        return -1
+
+    # 优先级 1：中文句号/叹号/问号
+    idx = _find_rightmost("。！？", excluded)
     if idx > 0:
         return idx
 
-    # 优先级 2：中文逗号/顿号 — 取最靠右的一个
-    idx = max(text.rfind("，"), text.rfind("、"))
+    # 优先级 2：中文逗号/顿号
+    idx = _find_rightmost("，、", excluded)
     if idx > 0:
         return idx
 
-    # 优先级 3：英文句号/叹号/问号/分号 — 取最靠右的一个
-    idx = max(text.rfind("."), text.rfind("!"), text.rfind("?"), text.rfind(";"))
+    # 优先级 3：英文句号/叹号/问号/分号
+    idx = _find_rightmost(".!?;", excluded)
     if idx > 0:
         return idx
 
     # 优先级 4：中文冒号
-    idx = text.rfind("：")
+    idx = _find_rightmost("：", excluded)
     if idx > 0:
         return idx
 
     # 优先级 5：中文分号
-    idx = text.rfind("；")
+    idx = _find_rightmost("；", excluded)
     if idx > 0:
         return idx
 
+    # 所有优先级的候选点都被排除，回退：在引号外找任意分割点
+    # 如果连回退也找不到，返回 0
     return 0
 
 
-def merge_audio_segments(audio_segments: List[np.ndarray], sr: int, silence_duration: float = 0.3) -> Tuple[Optional[np.ndarray], int]:
+def merge_audio_segments(audio_segments: List[np.ndarray], sr: int, silence_duration: float = 0.3) -> Tuple[np.ndarray | None, int]:
     """合并音频段，使用内存缓冲区操作，段间添加静音
 
     优化说明：

@@ -3,7 +3,7 @@ import os
 from fastapi import Form, Request
 
 from ....config import MAX_TEXT_LENGTH
-from ....engines.voxcpm2_engine import fn_voxcpm_design
+from ....model_registry import registry
 from ..utils import (
     _check_engine_ready,
     _error_html,
@@ -56,8 +56,9 @@ async def generate_voxcpm_design(
             logger.warning(f"[VoxCPM声音设计] 音色 '{safe_name}' 不存在，将使用默认音色")
 
     def _run():
-        return fn_voxcpm_design(text, instruction, cfg_value=cfg, inference_timesteps=steps,
-                                denoise=advanced_denoise, ref_audio_path=actual_ref_path)
+        engine = registry.get_current_engine()
+        return engine.generate_voice_design(text, instruction, cfg_value=cfg, inference_timesteps=steps,
+                                            denoise=advanced_denoise, ref_audio_path=actual_ref_path)
 
     return await _execute_generation(
         text=text,

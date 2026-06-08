@@ -2,9 +2,10 @@ from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 import os
+import html
 
 from ..persona_manager import get_persona_list, get_total_persona_count, get_persona_detail_table
-from ..utils import get_generation_history_enhanced, get_total_history_count, get_history_table_data_paginated
+from ..history_db import get_history_db
 from ..config import _LANGS, _DIALECTS, GEN_SPLIT_MAX_CHARS
 from ..model_registry import registry
 from ..i18n import t, get_lang, register_i18n_filters
@@ -75,16 +76,18 @@ def _common_context(request: Request, tab_name: str = ""):
 async def get_tab(request: Request, tab_name: str):
     template_name = _TAB_TEMPLATES.get(tab_name)
     if not template_name:
+        safe_name = html.escape(tab_name)
         return HTMLResponse(
             f'<div class="card" style="padding:40px;text-align:center;color:var(--text-muted);">'
-            f'<p>Tab "{tab_name}" is under construction</p></div>'
+            f'<p>Tab "{safe_name}" is under construction</p></div>'
         )
 
     template_path = os.path.join(_BASE_DIR, "templates", template_name)
     if not os.path.exists(template_path):
+        safe_name = html.escape(tab_name)
         return HTMLResponse(
             f'<div class="card" style="padding:40px;text-align:center;color:var(--text-muted);">'
-            f'<p>Tab "{tab_name}" template not found</p></div>'
+            f'<p>Tab "{safe_name}" template not found</p></div>'
         )
 
     ctx = _common_context(request, tab_name=tab_name)
@@ -100,13 +103,29 @@ async def get_tab(request: Request, tab_name: str):
     elif tab_name == "history":
         search = request.query_params.get("search_keyword", "")
         time_filter = request.query_params.get("time_filter", "all")
-        paginated = get_history_table_data_paginated(
+        db = get_history_db()
+        paginated = db.get_paginated_records(
             search_keyword=search,
             time_filter=time_filter,
             limit=20,
             offset=0,
         )
-        ctx["history_records"] = paginated["items"] if paginated["items"] else [["暂无记录", "-", "-", "-"]]
+        # Convert dict items to table rows [basename, time, duration, size]
+        items = []
+        for rec in paginated["items"]:
+            file_size = rec.get("file_size_bytes", 0) or 0
+            size_mb = file_size / (1024 * 1024) if file_size > 0 else 0
+            size_str = f"{size_mb:.1f} MB"
+            duration = rec.get("duration_seconds", 0) or 0
+            duration_str = f"{duration:.1f}s" if duration > 0 else "<1s"
+            items.append([
+                rec.get("filename", ""),
+                rec.get("created_at", ""),
+                duration_str,
+                size_str,
+            ])
+        no_records_text = t("history_no_records", lang)
+        ctx["history_records"] = items if items else [[no_records_text, "-", "-", "-"]]
         ctx["history_count"] = paginated["total"]
         ctx["history_loaded"] = paginated["loaded"]
         ctx["history_has_more"] = paginated["hasMore"]

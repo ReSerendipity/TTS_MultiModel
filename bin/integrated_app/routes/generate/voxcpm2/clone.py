@@ -4,11 +4,7 @@ import time
 from fastapi import File, Form, Request, UploadFile
 
 from ....config import MAX_TEXT_LENGTH, MAX_UPLOAD_SIZE_BYTES, SAVE_DIR
-from ....engines.voxcpm2_engine import (
-    fn_voxcpm_clone,
-    fn_voxcpm_ultimate_clone,
-    fn_voxcpm_prompt_continue,
-)
+from ....model_registry import registry
 from ....monitor import get_health_monitor
 from ..utils import (
     ALLOWED_AUDIO_EXTENSIONS,
@@ -92,9 +88,10 @@ async def generate_voxcpm_clone(
     clone_denoise = _parse_bool_form(denoise)
 
     def _run():
-        return fn_voxcpm_clone(text, instruction, actual_ref_path,
-                               cfg_value=cfg, inference_timesteps=steps,
-                               denoise=clone_denoise, normalize=clone_norm)
+        engine = registry.get_current_engine()
+        return engine.generate_voice_clone(text, instruction, actual_ref_path,
+                                           cfg_value=cfg, inference_timesteps=steps,
+                                           denoise=clone_denoise, normalize=clone_norm)
 
     return await _execute_generation(
         text=text,
@@ -156,10 +153,13 @@ async def generate_voxcpm_ultimate(
     advanced_denoise = 1.0 if _parse_bool_form(denoise) else 0.0
 
     def _run():
-        return fn_voxcpm_ultimate_clone(
+        engine = registry.get_current_engine()
+        return engine.generate_ultimate_clone(
             text, instruction,
             actual_ref_path if actual_ref_path else None,
-            cfg, advanced_norm, advanced_denoise, steps, seed,
+            advanced_cfg=cfg, advanced_norm=advanced_norm,
+            advanced_denoise=advanced_denoise, advanced_steps=steps,
+            advanced_seed=seed,
         )
 
     return await _execute_generation(
@@ -221,7 +221,8 @@ async def generate_voxcpm_prompt_continue(
     loop = asyncio.get_running_loop()
 
     def _run():
-        return fn_voxcpm_prompt_continue(text, prompt_wav_path, prompt_text)
+        engine = registry.get_current_engine()
+        return engine.generate_with_prompt(text, prompt_wav_path, prompt_text)
 
     start_time = time.monotonic()
     try:

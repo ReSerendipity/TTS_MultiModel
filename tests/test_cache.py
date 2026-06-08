@@ -1,17 +1,6 @@
 # -*- coding: utf-8 -*-
-import os
-import sys
 import pytest
 from unittest.mock import patch, MagicMock
-
-_BIN_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin")
-if _BIN_DIR not in sys.path:
-    sys.path.insert(0, _BIN_DIR)
-
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("MODELSCOPE_OFFLINE", "1")
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
 
 class TestLRUCache:

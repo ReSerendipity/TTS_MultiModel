@@ -67,3 +67,20 @@ class GenerationTracker:
                 return "空闲"
             wait = self.estimate_wait()
             return f"队列: {self.queue_depth} | 预计等待: {wait:.0f}秒"
+
+    def get_info(self) -> dict:
+        """Get current tracker info as a dictionary.
+
+        Provides a public interface for SSE and other consumers
+        to read tracker state without accessing private attributes.
+
+        Returns:
+            Dictionary with keys: queue_depth, avg_gen_time, phase, status_text.
+        """
+        with self._lock:
+            return {
+                "queue_depth": self.queue_depth,
+                "avg_gen_time": self.avg_gen_time,
+                "phase": self.phase,
+                "status_text": self.status_text(),
+            }

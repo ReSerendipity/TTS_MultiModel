@@ -32,6 +32,7 @@ class TTSEngine(Protocol):
         text: str,
         instruction: str = "",
         normalize: bool = True,
+        **kwargs,
     ) -> Tuple[str, str]:
         """Generate audio from text/voice description.
         
@@ -56,7 +57,7 @@ class TTSEngine(Protocol):
     def generate_script(
         self,
         text: str,
-        speaker_map: dict,
+        speaker_map: dict = None,
         persona_map: dict = None,
         **kwargs,
     ) -> Tuple[str, str]:
@@ -90,13 +91,14 @@ class ControllableTTSEngine(Protocol):
     def generate_ultimate_clone(
         self,
         text: str,
-        lang: str,
-        ref_audio: str,
-        denoise_strength: str,
-        use_random_seed: bool,
-        cfg_scale: float,
-        denoise_steps: int,
-        seed: int,
+        instruction: str = "",
+        ref_audio_path: Optional[str] = None,
+        advanced_cfg: float = 2.0,
+        advanced_norm: bool = True,
+        advanced_denoise: float = 1.0,
+        advanced_steps: int = 10,
+        advanced_seed: int = -1,
+        **kwargs,
     ) -> Tuple[str, str]:
         """Generate audio with full controllable parameters.
         
@@ -109,15 +111,7 @@ class ControllableTTSEngine(Protocol):
         text: str,
         prompt_wav_path: str,
         prompt_text: str,
-        cfg_value: float = 2.0,
-        inference_timesteps: int = 10,
-        normalize: bool = True,
-        denoise: bool = True,
-        retry_badcase: bool = True,
-        retry_badcase_max_times: int = 3,
-        retry_badcase_ratio_threshold: float = 6.0,
-        min_len: int = 2,
-        max_len: int = 4096,
+        **kwargs,
     ) -> Tuple[str, str]:
         """Generate audio with prompt continuation mode.
         
@@ -194,3 +188,32 @@ class InMemoryEngineRegistry:
 
 
 engine_registry = InMemoryEngineRegistry()
+
+
+# Register built-in engines
+def _register_builtin_engines():
+    """Register built-in TTS engines."""
+    try:
+        from .engines.voxcpm2.engine import VoxCPM2Engine
+        engine_registry.register(
+            "voxcpm2",
+            VoxCPM2Engine,
+            display_name="VoxCPM2",
+            vram_requirement=6.0,
+        )
+    except ImportError:
+        pass
+
+    try:
+        from .engines.indextts2_engine import IndexTTS2Engine
+        engine_registry.register(
+            "indextts2",
+            IndexTTS2Engine,
+            display_name="IndexTTS2",
+            vram_requirement=4.0,
+        )
+    except ImportError:
+        pass
+
+
+_register_builtin_engines()

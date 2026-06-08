@@ -1,25 +1,15 @@
 # -*- coding: utf-8 -*-
-import os
-import sys
 import tempfile
 import pytest
 from unittest.mock import patch, MagicMock
-
-_BIN_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin")
-if _BIN_DIR not in sys.path:
-    sys.path.insert(0, _BIN_DIR)
-
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("MODELSCOPE_OFFLINE", "1")
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+from pydantic import ValidationError
 
 
 class TestAdvancedParamsConfig:
     def test_default_values(self):
         from integrated_app.config_models import AdvancedParamsConfig
         cfg = AdvancedParamsConfig()
-        assert cfg.max_len == 4096
+        assert cfg.max_len == 3000
         assert cfg.retry_badcase is True
         assert cfg.retry_badcase_max_times == 3
         assert cfg.retry_badcase_ratio_threshold == 6.0
@@ -36,22 +26,24 @@ class TestAdvancedParamsConfig:
         cfg = AdvancedParamsConfig()
         d = cfg.to_dict()
         assert isinstance(d, dict)
-        assert d["max_len"] == 4096
+        assert d["max_len"] == 3000
         assert d["retry_badcase"] is True
 
     def test_validation_max_len_range(self):
         from integrated_app.config_models import AdvancedParamsConfig
-        with pytest.raises(Exception):
-            AdvancedParamsConfig(max_len=0)
-        with pytest.raises(Exception):
-            AdvancedParamsConfig(max_len=99999)
+        # max_len has no Field constraints, but retry_badcase_ratio_threshold has gt=0
+        with pytest.raises(ValidationError):
+            AdvancedParamsConfig(retry_badcase_ratio_threshold=0)
+        with pytest.raises(ValidationError):
+            AdvancedParamsConfig(retry_badcase_ratio_threshold=-1.0)
 
     def test_validation_retry_max_times_range(self):
         from integrated_app.config_models import AdvancedParamsConfig
-        with pytest.raises(Exception):
-            AdvancedParamsConfig(retry_badcase_max_times=0)
-        with pytest.raises(Exception):
+        # retry_badcase_max_times has ge=0, le=10
+        with pytest.raises(ValidationError):
             AdvancedParamsConfig(retry_badcase_max_times=100)
+        with pytest.raises(ValidationError):
+            AdvancedParamsConfig(retry_badcase_max_times=-1)
 
 
 class TestBuildAdvancedParams:
@@ -69,14 +61,14 @@ class TestBuildAdvancedParams:
     def test_build_no_overrides(self):
         from integrated_app.engines.voxcpm2_engine import build_advanced_params
         cfg = build_advanced_params()
-        assert cfg.max_len == 4096
+        assert cfg.max_len == 3000
 
 
 class TestAdvancedKwargs:
     def test_default_kwargs(self):
         from integrated_app.engines.voxcpm2_engine import _advanced_kwargs
         kwargs = _advanced_kwargs()
-        assert kwargs["max_len"] == 4096
+        assert kwargs["max_len"] == 3000
         assert kwargs["retry_badcase"] is True
         assert kwargs["retry_badcase_max_times"] == 3
         assert kwargs["retry_badcase_ratio_threshold"] == 6.0

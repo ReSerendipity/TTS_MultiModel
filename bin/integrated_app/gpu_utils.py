@@ -32,29 +32,88 @@ def is_oom_error(exc: Exception) -> bool:
 
 
 def free_gpu_memory():
-    """Attempt to free GPU memory aggressively before retry operations."""
+    """Attempt to free GPU memory with tiered cleanup strategy.
+
+    Tier 1 (Lightweight): gc.collect() + empty_cache()
+    Tier 2 (Medium):      + synchronize() + empty_cache()
+    Tier 3 (Heavy):       + clear_workspaces() + ipc_collect() + empty_cache()
+
+    Each tier is only applied if the previous tier did not free enough
+    memory (free VRAM < 500 MB). Logs which tier was needed and timing.
+    """
+    import time
     import torch
     from .gpu_backend import GPUBackendManager, GPUBackend
 
-    gc.collect()
     backend = GPUBackendManager.detect_backend()
+    is_gpu = backend in (GPUBackend.CUDA, GPUBackend.ROCM)
+    is_xpu = backend == GPUBackend.XPU
 
-    if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-        torch.cuda.synchronize()
+    # --- Tier 1: Lightweight ---
+    t0 = time.time()
+    gc.collect()
+    if is_gpu or is_xpu:
+        GPUBackendManager.empty_cache()
+    tier1_time = time.time() - t0
+    logger.debug(f"[GPU清理] Tier 1 (轻量) 完成，耗时 {tier1_time:.3f}s")
+
+    # Check if memory is still critical (only for CUDA/ROCM/XPU)
+    if is_gpu or is_xpu:
+        try:
+            device = get_gpu_device()
+            mem_info = GPUBackendManager.get_memory_info(device)
+            free_bytes = mem_info[3]
+            if free_bytes >= 500 * 1024 * 1024:  # 500 MB
+                logger.info(f"[GPU清理] Tier 1 即已释放足够显存 (空闲 {free_bytes / 1024**2:.0f}MB)，跳过后续层级")
+                return
+        except Exception:
+            pass  # 无法检测则继续下一层级
+
+    # --- Tier 2: Medium ---
+    t1 = time.time()
+    if is_gpu:
+        device = get_gpu_device()
+        if device is not None:
+            GPUBackendManager.synchronize(device)
         torch.cuda.empty_cache()
+    elif is_xpu:
+        GPUBackendManager.synchronize()
+        GPUBackendManager.empty_cache()
+    tier2_time = time.time() - t1
+    logger.debug(f"[GPU清理] Tier 2 (中等) 完成，耗时 {tier2_time:.3f}s")
+
+    # Check again
+    if is_gpu or is_xpu:
+        try:
+            device = get_gpu_device()
+            mem_info = GPUBackendManager.get_memory_info(device)
+            free_bytes = mem_info[3]
+            if free_bytes >= 500 * 1024 * 1024:
+                logger.info(f"[GPU清理] Tier 2 释放后显存充足 (空闲 {free_bytes / 1024**2:.0f}MB)，跳过 Tier 3")
+                return
+        except Exception:
+            pass
+
+    # --- Tier 3: Heavy ---
+    t2 = time.time()
+    if is_gpu:
         clear_func = GPUBackendManager.get_cuda_clear_workspaces_func()
         if clear_func:
             try:
                 clear_func()
             except Exception:
                 pass
-        torch.cuda.ipc_collect()
+        device = get_gpu_device()
+        if device is not None:
+            GPUBackendManager.ipc_collect(device)
         torch.cuda.empty_cache()
-    elif backend == GPUBackend.XPU:
-        GPUBackendManager.synchronize()
+    elif is_xpu:
         GPUBackendManager.empty_cache()
-    elif backend == GPUBackend.MPS:
-        pass
+    tier3_time = time.time() - t2
+    logger.debug(f"[GPU清理] Tier 3 (重度) 完成，耗时 {tier3_time:.3f}s")
+
+    total_time = time.time() - t0
+    logger.info(f"[GPU清理] 分层清理完成，总耗时 {total_time:.3f}s (T1={tier1_time:.3f}s, T2={tier2_time:.3f}s, T3={tier3_time:.3f}s)")
 
 
 def get_gpu_device():

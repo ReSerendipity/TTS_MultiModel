@@ -607,5 +607,16 @@
   "max_chars_per_seg": "セグメント最大文字数",
   "retry_ratio_threshold": "リトライ比率閾値",
   "target_lufs": "目標ラウドネス (LUFS)",
-  "idle_timeout": "アイドルタイムアウト"
+  "idle_timeout": "アイドルタイムアウト",
+  "sse_time_few_seconds": "数秒で完了",
+  "sse_time_about": "約",
+  "sse_time_seconds": "秒",
+  "sse_time_minutes": "分",
+  "sse_generation_cancelled": "生成がキャンセルされました",
+  "sse_generation_complete": "生成完了",
+  "sse_status_idle": "アイドル",
+  "history_no_records": "記録なし",
+  "no_persona_please_clone": "音色がありません、先にクローンしてください",
+  "no_audio_playing": "再生中のオーディオなし",
+  "download": "ダウンロード"
 }

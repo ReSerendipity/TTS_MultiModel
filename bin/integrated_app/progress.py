@@ -297,3 +297,23 @@ class ProgressManager:
             self.reset()
         t = threading.Thread(target=_delayed_reset, daemon=True)
         t.start()
+
+    def get_status(self) -> dict:
+        """Get current progress status as a dictionary.
+
+        Provides a public interface for SSE and other consumers
+        to read progress state without accessing private attributes.
+
+        Returns:
+            Dictionary with keys: phase, current_segment, total_segments,
+            is_complete, is_cancelled, is_active.
+        """
+        with self._lock:
+            return {
+                "phase": self._phase,
+                "current_segment": self._current_segment,
+                "total_segments": self._total_segments,
+                "is_complete": self._is_complete,
+                "is_cancelled": self._is_cancelled,
+                "is_active": self._phase != "",
+            }

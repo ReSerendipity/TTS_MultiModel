@@ -364,27 +364,18 @@
 </div>
 <script>
 (function(){
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     var totalPersonaCount = {{ total_persona_count }};
     var listEl = document.getElementById('persona-list-view');
     var sk = document.getElementById('persona-skeleton');
     var emptyState = document.getElementById('persona-empty-state');
     var statCard = document.getElementById('persona-stat-card');
 
-    // Toast notification (replaces alert)
-    window.showToast = window.showToast || function(message, type, duration) {
-        var existing = document.querySelector('.persona-toast');
-        if (existing) existing.remove();
-        var toast = document.createElement('div');
-        toast.className = 'persona-toast';
-        toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;z-index:10000;max-width:360px;';
-        toast.style.background = type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#F59E0B';
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        var fadeTime = duration || 2500;
-        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, fadeTime);
-        setTimeout(function() { toast.remove(); }, fadeTime + 300);
-    };
-    
     console.log('[Persona] Initializing... total_persona_count:', totalPersonaCount);
     console.log('[Persona] listEl:', !!listEl, 'sk:', !!sk, 'emptyState:', !!emptyState);
     
@@ -510,6 +501,7 @@
     };
 
     function showDeleteModal(name) {
+        var safeName = escapeHtml(name);
         // Create custom modal
         var modal = document.createElement('div');
         modal.className = 'custom-modal';
@@ -517,7 +509,7 @@
             <div class="custom-modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;">
                 <div class="custom-modal-content" style="background:var(--bg-secondary);padding:24px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
                     <h3 style="margin:0 0 16px 0;color:var(--text-primary);">{{ "confirm_delete"|t(lang) }}</h3>
-                    <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "delete_confirm_msg"|t(lang) }} "${name}" {{ "delete_warning"|t(lang) }}</p>
+                    <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "delete_confirm_msg"|t(lang) }} "${safeName}" {{ "delete_warning"|t(lang) }}</p>
                     <div style="display:flex;gap:12px;justify-content:flex-end;">
                         <button class="secondary-btn" onclick="this.closest('.custom-modal').remove()">{{ "cancel"|t(lang) }}</button>
                         <button class="stop-btn" onclick="confirmDeletePersona('${name}')">{{ "delete"|t(lang) }}</button>
@@ -601,16 +593,17 @@
         if (records.length > 0) {
             var html = '';
             records.forEach(function(r){
-                var safeName = r[0].replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                var safeName = escapeHtml(r[0]);
+                var safeNameAttr = r[0].replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 html += '<tr class="persona-row" onclick="selectPersonaRow(this)" style="cursor:pointer;" aria-label="{{ 'voice_name'|t(lang) }} ' + safeName + '">' +
                     '<td style="padding:8px 12px;">' +
-                    '<button class="persona-play-btn" onclick="event.stopPropagation(); playPersonaAudio(\'' + safeName + '\', this)" title="{{ 'preview_voice'|t(lang) }}" aria-label="{{ 'preview_voice'|t(lang) }} ' + safeName + '">' +
+                    '<button class="persona-play-btn" onclick="event.stopPropagation(); playPersonaAudio(\'' + safeNameAttr + '\', this)" title="{{ 'preview_voice'|t(lang) }}" aria-label="{{ 'preview_voice'|t(lang) }} ' + safeName + '">' +
                     '<span class="persona-play-icon">&#9654;</span></button></td>' +
-                    '<td style="padding:8px 12px;">' + r[0] + '</td>' +
-                    '<td style="padding:8px 12px;">' + r[1] + '</td>' +
-                    '<td style="padding:8px 12px;">' + r[2] + '</td>' +
-                    '<td style="padding:8px 12px;">' + r[3] + '</td>' +
-                    '<td style="padding:8px 12px;">' + r[4] + '</td></tr>';
+                    '<td style="padding:8px 12px;">' + safeName + '</td>' +
+                    '<td style="padding:8px 12px;">' + escapeHtml(r[1]) + '</td>' +
+                    '<td style="padding:8px 12px;">' + escapeHtml(r[2]) + '</td>' +
+                    '<td style="padding:8px 12px;">' + escapeHtml(r[3]) + '</td>' +
+                    '<td style="padding:8px 12px;">' + escapeHtml(r[4]) + '</td></tr>';
             });
             tbody.innerHTML = html;
             // 有数据时隐藏空状态，显示列表
@@ -665,18 +658,19 @@
             var size = cells[3].textContent.trim();
             var created = cells[4].textContent.trim();
             var refText = cells[5].textContent.trim();
-            var safeName = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            var safeName = escapeHtml(name);
+            var safeNameAttr = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             html += '<div class="voice-card">' +
                 '<div class="voice-card-header">' +
-                '<div class="voice-card-title">' + name + '</div>' +
-                '<button class="persona-card-play-btn" onclick="playPersonaAudio(\'' + safeName + '\', this)" title="{{ 'preview'|t(lang) }}" aria-label="{{ 'preview'|t(lang) }} ' + safeName + '">' +
+                '<div class="voice-card-title">' + safeName + '</div>' +
+                '<button class="persona-card-play-btn" onclick="playPersonaAudio(\'' + safeNameAttr + '\', this)" title="{{ 'preview'|t(lang) }}" aria-label="{{ 'preview'|t(lang) }} ' + safeName + '">' +
                 '<span class="persona-play-icon">&#9654;</span></button>' +
                 '</div>' +
-                '<div class="voice-card-meta">' + status + ' · ' + size + '</div>' +
-                '<div class="voice-card-ref-text">' + (refText.length > 60 ? refText.substring(0, 60) + '...' : refText) + '</div>' +
+                '<div class="voice-card-meta">' + escapeHtml(status) + ' · ' + escapeHtml(size) + '</div>' +
+                '<div class="voice-card-ref-text">' + escapeHtml(refText.length > 60 ? refText.substring(0, 60) + '...' : refText) + '</div>' +
                 '<div class="voice-card-footer">' +
-                '<span class="voice-card-time">' + created + '</span>' +
-                '<button class="voice-card-select-btn" onclick="selectPersonaFromCard(\'' + safeName + '\')" aria-label="{{ 'select'|t(lang) }} ' + safeName + '">{{ "select"|t(lang) }}</button>' +
+                '<span class="voice-card-time">' + escapeHtml(created) + '</span>' +
+                '<button class="voice-card-select-btn" onclick="selectPersonaFromCard(\'' + safeNameAttr + '\')" aria-label="{{ 'select'|t(lang) }} ' + safeName + '">{{ "select"|t(lang) }}</button>' +
                 '</div>' +
                 '</div>';
         });
@@ -692,7 +686,7 @@
                 selectPersonaRow(row);
             }
         });
-        window.showToast('{{ "voice_selected"|t(lang) }}: ' + name, 'success', 2000);
+        Toast.show('{{ "voice_selected"|t(lang) }}: ' + name, 'success', 2000);
     };
 
 })();

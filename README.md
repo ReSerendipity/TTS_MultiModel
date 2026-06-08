@@ -10,21 +10,20 @@
 
 A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAPI-based web interface, supporting voice cloning, model training, and high-quality speech synthesis.
 
-## 📸 Screenshots
-
-> Screenshots coming soon. Contributions welcome!
-
 ## ✨ Features
 
-- 🎤 **Multiple TTS Models** - Support for VoxCPM2 and other advanced TTS models
-- 🎭 **Voice Cloning** - Create custom voice personas with minimal audio samples
-- 🏋️ **Model Training** - Fine-tune models with your own datasets via LoRA
+- 🎤 **Multiple TTS Models** - Support for VoxCPM2 and IndexTTS 2.0 dual-engine architecture
+- 🎭 **Voice Cloning** - Create custom voice personas with minimal audio samples (controllable clone + ultimate clone)
+- 🎨 **Voice Design** - Generate speech from voice description text
+- 🎬 **Script Studio** - Multi-character dialogue generation with speaker mapping
+- 📡 **Streaming Generation** - Real-time audio streaming for long text
+- 🏋️ **LoRA Fine-tuning** - Fine-tune models with your own datasets via LoRA
 - 🌐 **Web Interface** - Responsive and modern web UI built with FastAPI + HTMX + Jinja2
 - 📦 **Batch Processing** - Support for batch audio generation
-- 📜 **History Management** - Track and manage your generation history
+- 📜 **History Management** - SQLite-based history tracking with search, filter, and pagination
 - 🌍 **Multi-language** - Internationalization support (i18n) for Chinese, English, Japanese, Korean
-- ⚡ **GPU Acceleration** - Optimized for GPU-based inference and training (CUDA / ROCM / XPU)
-- 🎬 **Script Dubbing** - Multi-character script dubbing support
+- ⚡ **Multi-GPU Backend** - Support for NVIDIA CUDA, AMD ROCM, Intel XPU, Apple MPS, and CPU
+- 🔥 **GPU Acceleration** - Optimized for GPU-based inference with adaptive VRAM management
 - 🔊 **9 Official Speakers** - Pre-configured voice personas covering various voice types
 
 ## 🚀 Quick Start (Windows)
@@ -253,12 +252,39 @@ python bin/test_integration.py
 ### Code Structure
 
 - **bin/integrated_app/**: Main application
-  - `app_server.py`: Server entry point
-  - `config.py`: Path and model configuration
-  - `model_manager.py`: Model loading and management
-  - `routes/`: HTTP route handlers
-  - `engines/`: TTS model implementations
-  - `training/`: Model training functionality
+  - `app_server.py`: Server entry point with background model loading
+  - `config.py` / `config_models.py`: Pydantic-validated configuration management
+  - `model_manager.py`: Model loading, unloading, engine switching with rollback
+  - `model_registry.py`: Centralized model state management with engine protocol
+  - `engine_interface.py`: TTSEngine Protocol definition for type-safe duck typing
+  - `routes/`: HTTP route handlers (auto-discovered)
+  - `engines/`: TTS engine implementations (VoxCPM2, IndexTTS 2.0)
+  - `training/`: LoRA fine-tuning functionality
+  - `cache.py`: Adaptive LRU cache with GPU-aware capacity management
+  - `history_db.py`: SQLite-based generation history with full-text search
+  - `gpu_backend.py`: Multi-backend GPU abstraction layer
+  - `gpu_utils.py`: GPU memory management and OOM detection
+
+## Recent Optimizations (v2.0)
+
+### Architecture Improvements
+- **Generation Template Pattern**: Extracted common generation logic into `generate_with_template()` in `_base.py`, eliminating ~176 lines of duplicate code across clone/design/ultimate modules
+- **TTSEngine Protocol Enforcement**: Route layer now calls engines through `registry.get_current_engine()` protocol interface instead of direct module imports, enabling transparent engine switching
+- **Unified Model Loading**: Merged `load_voxcpm2()` and `_load_voxcpm2_engine()` into shared `_do_load_voxcpm2_internal()`, eliminating ~60 lines of duplicate loading code
+
+### Concurrency & Reliability
+- **Semaphore Race Condition Fix**: Replaced TOCTOU-vulnerable `locked()` check with `asyncio.wait_for()` + proper `finally` release, ensuring no deadlocks
+- **OOM Retry with Degraded Parameters**: OOM retries now automatically reduce inference steps and disable denoising instead of retrying with identical parameters (max 2 retries)
+- **Unified Error Handling**: All engine exceptions now convert to TTSError subclasses with Chinese user-facing messages; added specialized handling for InsufficientVRAMError and EngineSwitchError
+
+### Performance
+- **Tiered GPU Memory Cleanup**: 3-tier cleanup strategy (lightweight → medium → heavy) with timing monitoring, replacing unconditional heavy cleanup
+- **Smart Engine Switching**: Replaced `time.sleep(2)` with VRAM polling (0.5s intervals, max 5s), reducing switch latency
+- **Adaptive Cache Enhancement**: Added memory footprint estimation, eviction tracking, and memory-based capacity limits to AdaptiveLRUCache
+
+### Data & Text Processing
+- **History Database Robustness**: Added corruption detection with auto-rebuild, orphan record cleanup, integrity validation, and file-missing tracking
+- **Smart Text Splitting**: Improved `_find_best_split_point()` to avoid splitting inside quoted content, English abbreviations (Dr., U.S.A.), and decimal numbers (3.14)
 
 ## 🤝 Contributing
 

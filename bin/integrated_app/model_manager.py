@@ -8,9 +8,7 @@ Supports VoxCPM2 and IndexTTS 2.0 dual-engine architecture.
 State management:
     All core model state (voxcpm_model, voxcpm_asr, current_engine,
     current_type, current_size) is owned by the ModelRegistry singleton
-    in ``model_registry.py``.  Module-level variables of the same names
-    exist solely as backward-compatible aliases and are kept in sync by
-    ``_sync_globals()`` after every mutation.
+    in ``model_registry.py``.  Access state via ``registry.xxx``.
 
 Sub-modules:
     - cache: LRUCache, AdaptiveLRUCache
@@ -108,18 +106,6 @@ _preload_lock = threading.Lock()
 # are now in .gpu_utils and re-exported at the top of this module.
 
 
-# --- Backward-compatible global aliases ---
-# These are synced from the ModelRegistry singleton after every mutation.
-# External code that does ``from ..model_manager import voxcpm_model``
-# will get the value at import time; lazy imports inside functions will
-# always see the latest value.
-voxcpm_model = registry.voxcpm_model       # None
-voxcpm_asr = registry.voxcpm_asr           # None
-indextts2_engine = registry.indextts2_engine  # None
-current_engine = registry.current_engine    # "voxcpm2"
-current_type = registry.current_type        # "voxcpm2"
-current_size = registry.current_size        # "voxcpm2"
-
 # 音色缓存：存储 (wav_path, ref_text)，由官方 API 在每次生成时计算嵌入
 _persona_embedding_cache = AdaptiveLRUCache(default_maxsize=15)
 _gen_tracker = GenerationTracker()
@@ -127,28 +113,6 @@ _progress_mgr = ProgressManager()
 _model_lock = threading.RLock()
 _persona_warmup_done = {"done": False}
 _persona_warmup_lock = threading.Lock()
-
-
-def _sync_globals() -> None:
-    """Synchronize module-level variables from the ModelRegistry singleton.
-
-    Must be called after every mutation to registry state so that
-    external code using ``from ..model_manager import <name>`` inside
-    functions sees the latest values.
-    """
-    import warnings
-    warnings.warn(
-        "Module-level model variables are deprecated. Use registry.xxx instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    global voxcpm_model, voxcpm_asr, indextts2_engine, current_engine, current_type, current_size
-    voxcpm_model = registry.voxcpm_model
-    voxcpm_asr = registry.voxcpm_asr
-    indextts2_engine = registry.indextts2_engine
-    current_engine = registry.current_engine
-    current_type = registry.current_type
-    current_size = registry.current_size
 
 
 def get_persona_cache_stats() -> dict:
@@ -231,10 +195,12 @@ def unload_model() -> None:
     """Unload the current model (VoxCPM2 or IndexTTS2) and aggressively release VRAM.
 
     Acquires the model lock, deletes model and ASR references, clears
-    the persona embedding cache, then performs multi-step GPU memory
-    cleanup: synchronize, empty cache, clear cuBLAS workspaces,
-    IPC collect, sleep, and final empty cache.
+    the persona embedding cache, then performs tiered GPU memory
+    cleanup via free_gpu_memory(). Logs total cleanup time and warns
+    if cleanup exceeds 5 seconds.
     """
+    cleanup_start = time.time()
+
     with _model_lock:
         # Unload VoxCPM2 model
         old_model = registry.voxcpm_model
@@ -256,30 +222,124 @@ def unload_model() -> None:
                 logger.warning(f"IndexTTS2 unload failed: {e}")
 
         _persona_embedding_cache.clear()
-        gc.collect()
+
+        # Use tiered free_gpu_memory() instead of inline cleanup
+        free_gpu_memory()
+
+        # Log post-cleanup VRAM status
         from .gpu_backend import GPUBackendManager, GPUBackend
         backend = GPUBackendManager.detect_backend()
         if backend != GPUBackend.CPU:
             device = get_gpu_device()
             if device is not None:
-                GPUBackendManager.synchronize(device)
-                GPUBackendManager.empty_cache()
-            if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-                clear_func = GPUBackendManager.get_cuda_clear_workspaces_func()
-                if clear_func:
-                    try:
-                        clear_func()
-                    except AttributeError:
-                        pass
-                if device is not None:
-                    GPUBackendManager.ipc_collect(device)
-            GPUBackendManager.synchronize(device)
-            GPUBackendManager.empty_cache()
-            if device is not None:
                 allocated = GPUBackendManager.memory_allocated(device)
                 reserved = GPUBackendManager.memory_reserved(device)
                 logger.info(f"释放后显存: 已分配 {allocated / 1024**3:.2f}GB, 保留 {reserved / 1024**3:.2f}GB")
-        _sync_globals()
+
+    cleanup_elapsed = time.time() - cleanup_start
+    if cleanup_elapsed > 5:
+        logger.warning(f"[模型卸载] 清理操作耗时 {cleanup_elapsed:.1f}s，超过 5 秒阈值")
+    else:
+        logger.info(f"[模型卸载] 清理完成，耗时 {cleanup_elapsed:.2f}s")
+
+
+def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Generator:
+    """Internal generator for shared VoxCPM2 loading logic.
+
+    Used by both load_voxcpm2() and _load_voxcpm2_engine() to avoid
+    code duplication.  Performs the actual model loading, GPU movement,
+    ASR loading, registry update, and VRAM recording.
+
+    Args:
+        gpu_device: GPU device index or None for CPU.
+        backend: GPUBackend enum value.
+        include_denoiser: If True, pass zipenhancer_model_id to
+            voxcpm.VoxCPM.from_pretrained().
+
+    Yields:
+        Tuple of (status_text, None, None, None) at each loading stage.
+
+    Raises:
+        Exception: Re-raises any loading exception after cleanup.
+    """
+    import voxcpm
+    from funasr import AutoModel
+    from .gpu_backend import GPUBackendManager, GPUBackend
+
+    # Determine device string
+    if gpu_device is not None:
+        device_string = GPUBackendManager.format_device_string(gpu_device)
+    else:
+        device_string = "cpu"
+
+    # Step 1: Load VoxCPM2 model
+    status_text = "正在加载 VoxCPM2 模型..."
+    yield status_text, None, None, None
+
+    try:
+        kwargs = dict(
+            optimize=True,
+            local_files_only=True,
+        )
+        if include_denoiser:
+            kwargs["zipenhancer_model_id"] = VOXCPM2_DENOISER_PATH
+
+        new_model = voxcpm.VoxCPM.from_pretrained(VOXCPM2_MODEL_PATH, **kwargs)
+
+        # Move sub-components to GPU
+        if backend != GPUBackend.CPU and gpu_device is not None:
+            for attr in ('tts_model', 'model', 'codecs', 'vocoder'):
+                sub = getattr(new_model, attr, None)
+                if sub is not None and hasattr(sub, 'to'):
+                    sub.to(device_string)
+                    logger.info(f"  VoxCPM2.{attr} -> {device_string}")
+            # Ensure cache sync
+            GPUBackendManager.synchronize()
+            allocated_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
+            logger.info(f"  VoxCPM2 加载完成，GPU 显存已分配: {allocated_mb:.0f} MB")
+        else:
+            logger.info(f"  VoxCPM2 使用 CPU 后端运行")
+
+        # Store model in registry early so error handler can clean it up
+        registry.voxcpm_model = new_model
+
+        # Step 2: Load ASR model
+        status_text = "正在加载 ASR 模型..."
+        yield status_text, None, None, None
+
+        new_asr = AutoModel(
+            model=VOXCPM2_ASR_PATH,
+            disable_pbar=True,
+            device=device_string,
+        )
+        registry.set_voxcpm_loaded(new_model, asr=new_asr)
+
+        # Step 3: Record VRAM usage
+        try:
+            monitor = get_health_monitor()
+            if backend != GPUBackend.CPU:
+                vram_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
+                monitor.record_vram_usage(vram_mb)
+                monitor.set_model_status("ready")
+        except Exception as e:
+            logger.debug(f"VRAM recording after VoxCPM2 load failed: {e}")
+
+        status_text = "VoxCPM2 引擎就绪"
+        yield status_text, None, None, None
+
+    except Exception:
+        # Clean up partial state on failure
+        failed_model = registry.voxcpm_model
+        failed_asr = registry.voxcpm_asr
+        registry.clear_all()
+        if failed_model is not None:
+            del failed_model
+        if failed_asr is not None:
+            del failed_asr
+        gc.collect()
+        from .gpu_backend import GPUBackendManager
+        GPUBackendManager.empty_cache()
+        raise
 
 
 def load_voxcpm2() -> Generator:
@@ -297,11 +357,7 @@ def load_voxcpm2() -> Generator:
     Yields:
         Tuple of (status_text, audio, sample_rate, format) at each stage.
     """
-    import voxcpm
-    from funasr import AutoModel
-
-    _model_lock.acquire()
-    try:
+    with _model_lock:
         # Unload current engine if any
         old_model = registry.voxcpm_model
         old_asr = registry.voxcpm_asr
@@ -318,69 +374,13 @@ def load_voxcpm2() -> Generator:
             GPUBackendManager.empty_cache()
         time.sleep(1)
 
-        status_text = "正在加载 VoxCPM2 模型..."
-        yield status_text, None, None, None
+        gpu_device = get_gpu_device()
+
         try:
-            new_model = voxcpm.VoxCPM.from_pretrained(
-                VOXCPM2_MODEL_PATH,
-                optimize=True,
-                local_files_only=True,
-            )
-            # 显式将模型子组件移至 GPU
-            device = get_gpu_device()
-            if backend != GPUBackend.CPU and device is not None:
-                device_string = GPUBackendManager.format_device_string(device)
-                for attr in ('tts_model', 'model', 'codecs', 'vocoder'):
-                    sub = getattr(new_model, attr, None)
-                    if sub is not None and hasattr(sub, 'to'):
-                        sub.to(device)
-                        logger.info(f"  VoxCPM2.{attr} -> {device_string}")
-                # 确保缓存同步
-                GPUBackendManager.synchronize()
-                allocated_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
-                logger.info(f"  VoxCPM2 加载完成，GPU 显存已分配: {allocated_mb:.0f} MB")
-            else:
-                device_string = "cpu"
-                logger.info(f"  VoxCPM2 使用 CPU 后端运行")
-
-            registry.voxcpm_model = new_model
-
-            status_text = "正在加载 ASR 模型..."
-            yield status_text, None, None, None
-            new_asr = AutoModel(
-                model=VOXCPM2_ASR_PATH,
-                disable_pbar=True,
-                device=device_string,
-            )
-            registry.set_voxcpm_loaded(new_model, asr=new_asr)
-            status_text = "VoxCPM2 引擎就绪"
-
-            try:
-                monitor = get_health_monitor()
-                if backend != GPUBackend.CPU:
-                    vram_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
-                    monitor.record_vram_usage(vram_mb)
-                    monitor.set_model_status("ready")
-            except Exception as e:
-                logger.debug(f"VRAM recording after VoxCPM2 load failed: {e}")
-
-            yield status_text, None, None, None
+            yield from _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False)
         except Exception as e:
-            failed_model = registry.voxcpm_model
-            failed_asr = registry.voxcpm_asr
-            registry.clear_all()
-            if failed_model is not None:
-                del failed_model
-            if failed_asr is not None:
-                del failed_asr
-            gc.collect()
-            from .gpu_backend import GPUBackendManager
-            GPUBackendManager.empty_cache()
             status_text = f"VoxCPM2 加载失败: {e}"
             yield status_text, None, None, None
-    finally:
-        _sync_globals()
-        _model_lock.release()
 
 
 def load_indextts2() -> Generator:
@@ -389,80 +389,76 @@ def load_indextts2() -> Generator:
     Yields:
         (status_text, audio_data, sample_rate, estimate)
     """
-    _model_lock.acquire()
-    try:
-        from .engines.indextts2_engine import IndexTTS2Engine
-        from .gpu_backend import GPUBackendManager, GPUBackend
+    with _model_lock:
+        try:
+            from .engines.indextts2_engine import IndexTTS2Engine
+            from .gpu_backend import GPUBackendManager, GPUBackend
 
-        backend = GPUBackendManager.detect_backend()
+            backend = GPUBackendManager.detect_backend()
 
-        # Check if model files exist
-        if not os.path.exists(INDEXTTS2_MODEL_PATH):
-            raise FileNotFoundError(
-                f"IndexTTS 2.0 模型文件不存在: {INDEXTTS2_MODEL_PATH}\n"
-                "请运行: python scripts/download_indextts2.py 下载模型"
+            # Check if model files exist
+            if not os.path.exists(INDEXTTS2_MODEL_PATH):
+                raise FileNotFoundError(
+                    f"IndexTTS 2.0 模型文件不存在: {INDEXTTS2_MODEL_PATH}\n"
+                    "请运行: python scripts/download_indextts2.py 下载模型"
+                )
+
+            # Step 1: VRAM/RAM check
+            from .model_registry import ENGINE_VRAM_REQUIREMENTS
+            needed_vram_gb = ENGINE_VRAM_REQUIREMENTS.get("indextts2", 6.0)
+            status_text = "正在检查系统资源..."
+            yield status_text, None, None, None
+
+            if backend != GPUBackend.CPU:
+                mem_info = GPUBackendManager.get_memory_info()
+                free_gb = mem_info[3] / (1024 ** 3)
+                logger.info(f"[IndexTTS2] VRAM 检查: 需要 {needed_vram_gb}GB, 可用 {free_gb:.2f}GB")
+
+                if free_gb < needed_vram_gb:
+                    logger.warning(f"[IndexTTS2] 显存不足 ({free_gb:.2f}GB < {needed_vram_gb}GB)，将尝试使用 CPU 模式")
+
+            # Step 2: Load model
+            status_text = "正在加载 IndexTTS 2.0 引擎..."
+            yield status_text, None, None, None
+
+            logger.info(f"[IndexTTS2] 开始加载 IndexTTS 2.0 引擎...")
+            start_time = time.time()
+
+            new_engine = IndexTTS2Engine(
+                model_dir=INDEXTTS2_MODEL_PATH,
+                use_fp16=(backend != GPUBackend.CPU),
             )
 
-        # Step 1: VRAM/RAM check
-        from .model_registry import ENGINE_VRAM_REQUIREMENTS
-        needed_vram_gb = ENGINE_VRAM_REQUIREMENTS.get("indextts2", 6.0)
-        status_text = "正在检查系统资源..."
-        yield status_text, None, None, None
+            load_time = time.time() - start_time
+            logger.info(f"[IndexTTS2] IndexTTS 2.0 引擎加载完成，耗时: {load_time:.1f}秒")
 
-        if backend != GPUBackend.CPU:
-            mem_info = GPUBackendManager.get_memory_info()
-            free_gb = mem_info[3] / (1024 ** 3)
-            logger.info(f"[IndexTTS2] VRAM 检查: 需要 {needed_vram_gb}GB, 可用 {free_gb:.2f}GB")
+            # Set registry state
+            registry.set_indextts2_loaded(new_engine)
 
-            if free_gb < needed_vram_gb:
-                logger.warning(f"[IndexTTS2] 显存不足 ({free_gb:.2f}GB < {needed_vram_gb}GB)，将尝试使用 CPU 模式")
+            status_text = "IndexTTS 2.0 引擎就绪"
+            logger.info(f"[IndexTTS2] {status_text}")
+            yield status_text, None, None, None
 
-        # Step 2: Load model
-        status_text = "正在加载 IndexTTS 2.0 引擎..."
-        yield status_text, None, None, None
+            # Record VRAM usage
+            try:
+                monitor = get_health_monitor()
+                if backend != GPUBackend.CPU:
+                    vram_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
+                    monitor.record_vram_usage(vram_mb)
+                    monitor.set_model_status("ready")
+            except Exception as e:
+                logger.debug(f"[IndexTTS2] VRAM recording failed: {e}")
 
-        logger.info(f"[IndexTTS2] 开始加载 IndexTTS 2.0 引擎...")
-        start_time = time.time()
-
-        new_engine = IndexTTS2Engine(
-            model_dir=INDEXTTS2_MODEL_PATH,
-            use_fp16=(backend != GPUBackend.CPU),
-        )
-
-        load_time = time.time() - start_time
-        logger.info(f"[IndexTTS2] IndexTTS 2.0 引擎加载完成，耗时: {load_time:.1f}秒")
-
-        # Set registry state
-        registry.set_indextts2_loaded(new_engine)
-
-        status_text = "IndexTTS 2.0 引擎就绪"
-        logger.info(f"[IndexTTS2] {status_text}")
-        yield status_text, None, None, None
-
-        # Record VRAM usage
-        try:
-            monitor = get_health_monitor()
-            if backend != GPUBackend.CPU:
-                vram_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
-                monitor.record_vram_usage(vram_mb)
-                monitor.set_model_status("ready")
         except Exception as e:
-            logger.debug(f"[IndexTTS2] VRAM recording failed: {e}")
-
-    except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
-        error_msg = f"IndexTTS 2.0 加载失败: {type(e).__name__}: {e}\n\n详细错误:\n{tb}"
-        logger.error(f"[IndexTTS2] {error_msg}")
-        gc.collect()
-        from .gpu_backend import GPUBackendManager
-        GPUBackendManager.empty_cache()
-        status_text = error_msg
-        yield status_text, None, None, None
-        raise TTSError(error_msg) from e
-    finally:
-        _sync_globals()
-        _model_lock.release()
+            import traceback
+            tb = traceback.format_exc()
+            logger.error(f"[IndexTTS2] IndexTTS 2.0 加载失败: {type(e).__name__}: {e}\n详细错误:\n{tb}")
+            gc.collect()
+            from .gpu_backend import GPUBackendManager
+            GPUBackendManager.empty_cache()
+            status_text = f"IndexTTS 2.0 加载失败: {type(e).__name__}"
+            yield status_text, None, None, None
+            raise TTSError(f"IndexTTS 2.0 加载失败: {type(e).__name__}") from e
 
 
 def preload_model(engine="voxcpm2", size="voxcpm2") -> None:
@@ -668,8 +664,34 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
             GPUBackendManager.synchronize(gpu_device)
             GPUBackendManager.empty_cache()
             GPUBackendManager.ipc_collect(gpu_device)
-            time.sleep(2)
+
+            # Poll until VRAM is actually freed (replaces fixed time.sleep(2))
+            vram_freed = False
+            poll_start = time.time()
+            max_wait = 5.0
+            poll_interval = 0.5
+            while time.time() - poll_start < max_wait:
+                time.sleep(poll_interval)
+                try:
+                    props = GPUBackendManager.get_device_properties(gpu_device)
+                    total = props.get('total_memory', 0)
+                    allocated = GPUBackendManager.memory_allocated(gpu_device)
+                    free = total - allocated
+                    if free > 500 * 1024 * 1024:  # > 500 MB free
+                        vram_freed = True
+                        break
+                except Exception:
+                    break
+            else:
+                # Loop completed without break — timed out
+                pass
+
             GPUBackendManager.empty_cache()
+            wait_elapsed = time.time() - poll_start
+            if vram_freed:
+                logger.info(f"[引擎切换] VRAM 已释放，轮询等待 {wait_elapsed:.1f}s")
+            else:
+                logger.warning(f"[引擎切换] VRAM 轮询超时 ({wait_elapsed:.1f}s)，继续切换流程")
         _progress_mgr.update_phase("正在清理 VRAM...")
 
         if engine_name == "voxcpm2":
@@ -705,57 +727,12 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
 
         raise EngineSwitchError(error_msg) from e
     finally:
-        _sync_globals()
         _model_lock.release()
 
 
 def _load_voxcpm2_engine(gpu_device, backend) -> Generator:
-    """Internal helper to load VoxCPM2 engine."""
-    import voxcpm
-    from funasr import AutoModel
-
-    # Load VoxCPM2 model
-    status_text = "正在加载 VoxCPM2 模型..."
-    logger.info(f"[引擎切换] {status_text}")
+    """Internal helper to load VoxCPM2 engine during engine switching."""
     _progress_mgr.update_phase("正在加载新引擎...")
-    yield status_text, None, None, None
-
-    # Determine device string for model loading
-    if gpu_device is not None:
-        device_string = GPUBackendManager.format_device_string(gpu_device)
-    else:
-        device_string = "cpu"
-
-    new_model = voxcpm.VoxCPM.from_pretrained(
-        VOXCPM2_MODEL_PATH,
-        optimize=True,
-        local_files_only=True,
-        zipenhancer_model_id=VOXCPM2_DENOISER_PATH,
-    )
-    if backend != GPUBackend.CPU and gpu_device is not None:
-        if hasattr(new_model, 'tts_model'):
-            new_model.tts_model.to(device_string)
-        if hasattr(new_model, 'model'):
-            new_model.model.to(device_string)
-        if hasattr(new_model, 'codecs'):
-            new_model.codecs.to(device_string)
-        if hasattr(new_model, 'vocoder'):
-            new_model.vocoder.to(device_string)
-        logger.info(f"[引擎切换] VoxCPM 模型加载成功，已移动到 {device_string}")
-    else:
-        logger.info(f"[引擎切换] VoxCPM 模型加载成功，使用 CPU 运行")
-
-    # Load ASR model
-    status_text = "正在加载 ASR 模型..."
-    logger.info(f"[引擎切换] {status_text}")
-    yield status_text, None, None, None
-
-    new_asr = AutoModel(
-        model=VOXCPM2_ASR_PATH,
-        disable_pbar=True,
-        device=device_string,
-    )
-    registry.set_voxcpm_loaded(new_model, asr=new_asr)
-    status_text = "VoxCPM2 引擎就绪"
-    logger.info(f"[引擎切换] {status_text}")
-    yield status_text, None, None, None
+    for status in _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=True):
+        logger.info(f"[引擎切换] {status[0]}")
+        yield status

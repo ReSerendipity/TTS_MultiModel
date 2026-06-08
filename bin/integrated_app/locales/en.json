@@ -625,5 +625,16 @@
   "auto_save_hint": "Automatically save audio files locally after generation. No need to manually download when enabled.",
   "auto_play_hint": "Automatically play audio after generation. Audio will start playing immediately when generation is complete.",
   "notifications_hint": "Show desktop notifications for operation success or failure. Displays prompt messages in the browser when enabled.",
-  "default_output_format": "Default Output Format"
+  "default_output_format": "Default Output Format",
+  "sse_time_few_seconds": "Completing in a few seconds",
+  "sse_time_about": "About",
+  "sse_time_seconds": "seconds",
+  "sse_time_minutes": "minutes",
+  "sse_generation_cancelled": "Generation cancelled",
+  "sse_generation_complete": "Generation complete",
+  "sse_status_idle": "Idle",
+  "history_no_records": "No records",
+  "no_persona_please_clone": "No voices, please clone first",
+  "no_audio_playing": "No audio playing",
+  "download": "Download"
 }

@@ -4,7 +4,7 @@ import contextlib
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 
 class TrainingTracker:
@@ -20,7 +20,7 @@ class TrainingTracker:
         self,
         *,
         writer=None,
-        log_file: Optional[str] = None,
+        log_file: str | None = None,
         rank: int = 0,
     ):
         self.writer = writer

@@ -51,13 +51,18 @@ async def load_model_endpoint(request: Request, engine: str = Form("voxcpm2")):
         else:
             load_fn = load_voxcpm2
 
+        def _run_load():
+            """Run model loading in a thread to avoid blocking the event loop."""
+            results = []
+            gen = load_fn()
+            for status_text, _, _, _ in gen:
+                results.append(status_text)
+            return results
+
         last_error = None
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                results = []
-                gen = load_fn()
-                for status_text, _, _, _ in gen:
-                    results.append(status_text)
+                results = await loop.run_in_executor(None, _run_load)
                 if results:
                     return JSONResponse({"status": "ok", "message": results[-1], "engine": engine})
                 return JSONResponse({"status": "error", "message": "Model load returned no status"})

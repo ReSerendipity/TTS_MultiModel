@@ -1,28 +1,14 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
         <h3 class="card-header-title">{{ "tab_indextts2_duration"|t(lang) }}</h3>
     </div>
-    <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "indextts2_duration_desc"|t(lang) }}</div>
+    <div class="tts-card-desc">{{ "indextts2_duration_desc"|t(lang) }}</div>
     <style>
         .it2d-full-width { width: 100% !important; box-sizing: border-box !important; max-width: none !important; display: block !important; }
         #it2d-form { width: 100% !important; max-width: none !important; display: block !important; }
-        .it2d-auto-resize { resize: vertical; overflow-y: auto; min-height: 80px; max-height: 400px; line-height: 1.6; width: 100% !important; box-sizing: border-box !important; padding: 12px 14px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
-        .it2d-char-counter { font-size: 12px; margin-top: 6px; padding: 4px 8px; border-radius: 4px; white-space: nowrap; }
-        .it2d-char-counter .counter-main { font-weight: 600; }
-        .it2d-char-counter .counter-segments { color: var(--accent-primary); font-weight: 600; }
-        .it2d-char-counter .counter-detail { font-size: 11px; color: var(--text-muted); }
-        .it2d-char-counter.micro-counter-ok { background: rgba(16, 185, 129, 0.1); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.2); }
-        .it2d-char-counter.micro-counter-warn { background: rgba(245, 158, 11, 0.1); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.2); }
-        .it2d-char-counter.micro-counter-danger { background: rgba(239, 68, 68, 0.1); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.2); }
-        .it2d-char-counter.micro-counter-empty { background: rgba(139, 92, 246, 0.08); color: var(--text-secondary); border: 1px solid rgba(139, 92, 246, 0.15); }
-        .micro-counter-check { display: inline-flex; align-items: center; margin-left: 4px; }
-        .micro-counter-check svg { width: 14px; height: 14px; }
-        .it2d-quality-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
-        .it2d-quality-badge svg { width: 14px; height: 14px; }
-        .it2d-quality-high { background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); }
-        .it2d-quality-medium { background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3); }
-        .it2d-quality-low { background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        /* it2d-auto-resize specific overrides for tts-auto-resize */
+        .it2d-auto-resize.tts-auto-resize { min-height: 80px; padding: 12px 14px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
         .it2d-file-upload { border: 2px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-bottom: 10px; background: rgba(139,92,246,0.02); }
         .it2d-file-upload:hover { border-color: var(--primary); background: rgba(139,92,246,0.06); }
         .it2d-file-upload input[type="file"] { display: none; }
@@ -52,9 +38,9 @@
             <audio id="it2d-preview-audio" controls></audio>
         </div>
         <label for="it2d-text">{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="it2d-text" class="it2d-full-width it2d-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="updateIt2dCharCounter(this)"></textarea>
-        <div id="it2d-char-counter" class="it2d-char-counter">0/{{ engine_max_total_chars }}</div>
-        <span id="it2d-quality-badge" class="it2d-quality-badge" style="display:none;"></span>
+        <textarea name="text" id="it2d-text" class="it2d-full-width tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="CharCounter.update({textareaId:'it2d-text',counterId:'it2d-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},qualityBadgeId:'it2d-quality-badge',counterClass:'it2d-char-counter'})"></textarea>
+        <div id="it2d-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
+        <span id="it2d-quality-badge" class="tts-quality-badge" style="display:none;"></span>
         <label>{{ "duration_control_mode"|t(lang) }}</label>
         <div class="it2d-mode-options">
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;">
@@ -88,7 +74,7 @@
 </div>
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
         <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
     </div>
     <div id="it2d-result" aria-live="polite">
@@ -113,57 +99,6 @@
         } else {
             nameEl.textContent = '{{ "supported_formats"|t(lang) }}';
             previewEl.style.display = 'none';
-        }
-    };
-    window.updateIt2dCharCounter = function(textarea) {
-        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
-        var ENGINE_MAX_CHARS = {{ engine_max_total_chars }};
-        var counter = document.getElementById('it2d-char-counter');
-        var submitBtn = document.querySelector('#it2d-form button[type="submit"]');
-        var qualityBadge = document.getElementById('it2d-quality-badge');
-        if (counter) {
-            var len = textarea.value.length;
-            var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
-
-            var counterMain = '<span class="counter-main">' + len + '/' + ENGINE_MAX_CHARS + '</span>';
-            var counterDetail = '';
-            counter.classList.remove('warning', 'micro-counter-ok', 'micro-counter-warn', 'micro-counter-danger', 'micro-counter-empty');
-
-            if (len > ENGINE_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments" style="color:#ef4444;">{{ "text_too_long"|t(lang) }}</span>';
-                counter.classList.add('micro-counter-danger');
-            } else if (len > SPLIT_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
-                counter.classList.add('micro-counter-warn');
-            } else if (len > 0) {
-                counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
-                counter.classList.add('micro-counter-ok');
-                counterDetail += '<span class="micro-counter-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>';
-            } else {
-                counter.classList.add('micro-counter-empty');
-            }
-
-            counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
-            if (len >= ENGINE_MAX_CHARS) counter.classList.add('warning');
-            if (submitBtn) submitBtn.disabled = false;
-
-            if (qualityBadge) {
-                if (len === 0) {
-                    qualityBadge.style.display = 'none';
-                } else if (len <= SPLIT_MAX_CHARS) {
-                    qualityBadge.style.display = 'inline-flex';
-                    qualityBadge.className = 'it2d-quality-badge it2d-quality-high';
-                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "quality_high"|t(lang) }}';
-                } else if (len <= SPLIT_MAX_CHARS * 3) {
-                    qualityBadge.style.display = 'inline-flex';
-                    qualityBadge.className = 'it2d-quality-badge it2d-quality-medium';
-                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ' + '{{ "quality_split"|t(lang) }}';
-                } else {
-                    qualityBadge.style.display = 'inline-flex';
-                    qualityBadge.className = 'it2d-quality-badge it2d-quality-low';
-                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ' + '{{ "quality_low"|t(lang) }}';
-                }
-            }
         }
     };
     window.toggleIt2dMode = function(mode) {
@@ -211,7 +146,13 @@
             } catch(ex) {}
         }
     });
-    var textarea = document.querySelector('#it2d-form textarea[name=text]');
-    if (textarea) updateIt2dCharCounter(textarea);
+    CharCounter.init({
+        textareaId: 'it2d-text',
+        counterId: 'it2d-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        qualityBadgeId: 'it2d-quality-badge',
+        counterClass: 'it2d-char-counter'
+    });
 })();
 </script>

@@ -1,17 +1,6 @@
 # -*- coding: utf-8 -*-
-import os
-import sys
 import time
 import pytest
-
-_BIN_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin")
-if _BIN_DIR not in sys.path:
-    sys.path.insert(0, _BIN_DIR)
-
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("MODELSCOPE_OFFLINE", "1")
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
 
 class TestProgressManager:
@@ -105,11 +94,24 @@ class TestProgressManager:
         assert pm._format_duration(90) == "1分30秒"
 
     def test_schedule_reset(self):
+        """Test that schedule_reset resets state after a delay."""
         from integrated_app.progress import ProgressManager
         pm = ProgressManager()
         pm.start(total_segments=1, phase="测试")
+        pm.advance_segment(phase="完成")
         pm.complete()
-        pm.schedule_reset(delay_seconds=0.1)
-        time.sleep(0.3)
-        assert pm._phase == ""
-        assert pm._is_complete is False
+
+        # Verify complete state before reset
+        status = pm.get_status()
+        assert status["is_complete"]
+
+        # Schedule reset with very short delay
+        pm.schedule_reset(delay_seconds=0.01)
+
+        # Wait briefly for the background thread
+        time.sleep(0.05)
+
+        # Verify reset happened
+        status = pm.get_status()
+        assert not status["is_complete"]
+        assert status["phase"] == ""

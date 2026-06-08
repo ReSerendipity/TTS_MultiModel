@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse
 
 from ...audio_processing import enhance_audio
 from ...config import SAVE_DIR
-from ...exceptions import TTSError
+from ...exceptions import TTSError, InsufficientVRAMError, EngineSwitchError
 from ...gpu_utils import free_gpu_memory, is_oom_error
 from ...history_db import create_history_db
 from ...model_manager import _time_estimator
@@ -39,15 +39,14 @@ def _get_history_db():
 
 
 def _check_engine_ready(engine_name: str = None):
-    from ...model_manager import registry
+    from ...model_registry import registry
     if engine_name is None:
         engine_name = registry.current_engine
     if engine_name == "indextts2":
         if registry.indextts2_engine is None:
             return _error_html("IndexTTS 2.0 模型未加载，请先在设置中加载模型", error_type="engine_not_ready")
     else:
-        from ...model_manager import voxcpm_model
-        if voxcpm_model is None:
+        if registry.voxcpm_model is None:
             return _error_html("模型正在加载，请稍后再试...", error_type="engine_not_ready")
     return None
 
@@ -81,6 +80,10 @@ def _record_to_history_db(filepath: str, text: str, engine: str, duration: float
 
 def _safe_error_msg(exc):
     """Return user-friendly error message based on exception type."""
+    if isinstance(exc, InsufficientVRAMError):
+        return f'显存不足：{str(exc)}'
+    if isinstance(exc, EngineSwitchError):
+        return f'引擎切换失败：{str(exc)}'
     if isinstance(exc, TTSError):
         return str(exc)
     if isinstance(exc, RuntimeError):
@@ -204,9 +207,10 @@ def _success_html(filename, status_message):
     )
 
 
-def _run_with_oom_retry(run_fn, endpoint_name, degraded_fn=None):
+def _run_with_oom_retry(run_fn, endpoint_name, degraded_fn=None, max_retries=2):
     _generation_retry_counter["total"] += 1
     degraded_note = None
+    retry_count = 0
 
     try:
         result, msg = run_fn()
@@ -216,29 +220,26 @@ def _run_with_oom_retry(run_fn, endpoint_name, degraded_fn=None):
             logger.error(f"{endpoint_name} failed (non-OOM): {e}")
             raise
 
-        logger.warning(
-            f"{endpoint_name} hit OOM on first attempt: {e}. "
-            f"Retrying with degraded quality parameters..."
-        )
+        logger.warning(f"{endpoint_name} hit OOM, attempting degraded retry...")
         _generation_retry_counter["oom_retries"] += 1
         free_gpu_memory()
 
-        if degraded_fn:
+        while retry_count < max_retries:
+            retry_count += 1
             try:
-                degraded_note = "\u7531\u4e8e\u663e\u5b58\u9650\u5236\uff0c\u5df2\u81ea\u52a8\u964d\u4f4e\u751f\u6210\u8d28\u91cf\u53c2\u6570\u4ee5\u5b8c\u6210\u751f\u6210\u3002"
-                result, msg = degraded_fn()
+                degraded_note = "由于显存限制，已自动降低生成质量参数以完成生成。"
+                if degraded_fn:
+                    result, msg = degraded_fn()
+                else:
+                    result, msg = run_fn()
                 return result, msg, degraded_note
-            except Exception as e2:
-                logger.error(f"{endpoint_name} failed after OOM retry (degraded): {e2}")
-                raise RuntimeError('显存不足，请尝试缩短文本、关闭其他GPU程序，或在设置中切换到CPU模式') from e2
-        else:
-            try:
-                degraded_note = "\u7531\u4e8e\u663e\u5b58\u9650\u5236\uff0c\u5df2\u81ea\u52a8\u964d\u4f4e\u751f\u6210\u8d28\u91cf\u53c2\u6570\u4ee5\u5b8c\u6210\u751f\u6210\u3002"
-                result, msg = run_fn()
-                return result, msg, degraded_note
-            except Exception as e2:
-                logger.error(f"{endpoint_name} failed after OOM retry: {e2}")
-                raise RuntimeError('显存不足，请尝试缩短文本、关闭其他GPU程序，或在设置中切换到CPU模式') from e2
+            except Exception as retry_e:
+                if not is_oom_error(retry_e):
+                    raise
+                logger.warning(f"{endpoint_name} OOM retry {retry_count}/{max_retries} failed")
+                free_gpu_memory()
+
+        raise RuntimeError('显存不足，已尝试降级重试但仍失败。请尝试缩短文本、关闭其他GPU程序，或在设置中切换到CPU模式')
 
 
 def _parse_bool_form(value) -> bool:
@@ -263,15 +264,21 @@ async def _execute_generation(
     target_lufs: float = -16.0,
     oom_retry: bool = True,
 ):
-    if not _generation_semaphore.locked():
-        async with _generation_semaphore:
-            return await _execute_generation_impl(
-                text, run_fn, endpoint_name, voice_or_persona,
-                model_type, engine, tempo_factor, voice_enhancement,
-                target_lufs, oom_retry,
-            )
-    else:
-        return _error_html("系统正在处理其他请求，请稍后再试")
+    try:
+        await asyncio.wait_for(
+            _generation_semaphore.acquire(),
+            timeout=120.0,
+        )
+    except asyncio.TimeoutError:
+        return _error_html("系统繁忙，请稍后再试（等待超时）")
+    try:
+        return await _execute_generation_impl(
+            text, run_fn, endpoint_name, voice_or_persona,
+            model_type, engine, tempo_factor, voice_enhancement,
+            target_lufs, oom_retry,
+        )
+    finally:
+        _generation_semaphore.release()
 
 
 async def _execute_generation_impl(

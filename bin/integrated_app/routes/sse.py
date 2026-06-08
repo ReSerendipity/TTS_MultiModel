@@ -25,16 +25,22 @@ logger = logging.getLogger("tts_multimodel.sse")
 router = APIRouter(tags=["sse"])
 
 
-def _format_time_estimate(seconds: float) -> str:
+def _format_time_estimate(seconds: float, lang: str = "zh") -> str:
     """Format seconds into human-readable time estimate."""
+    from ..i18n import t
     if seconds < 10:
-        return "几秒后完成"
+        return t("sse_time_few_seconds", lang) if lang != "zh" else "几秒后完成"
     elif seconds < 60:
-        return f"约 {int(seconds)} 秒"
+        about = t("sse_time_about", lang) if lang != "zh" else "约"
+        unit_sec = t("sse_time_seconds", lang) if lang != "zh" else "秒"
+        return f"{about} {int(seconds)} {unit_sec}"
     else:
         mins = int(seconds // 60)
         secs = int(seconds % 60)
-        return f"约 {mins} 分 {secs} 秒"
+        about = t("sse_time_about", lang) if lang != "zh" else "约"
+        unit_min = t("sse_time_minutes", lang) if lang != "zh" else "分"
+        unit_sec = t("sse_time_seconds", lang) if lang != "zh" else "秒"
+        return f"{about} {mins} {unit_min} {secs} {unit_sec}"
 
 
 @router.get("/api/sse/events", summary="SSE 事件流", description="Server-Sent Events 实时事件推送端点")
@@ -49,6 +55,9 @@ async def sse_events(request: Request):
         _progress_mgr,
     )
     from ..model_registry import registry
+    from ..i18n import t as i18n_t, get_lang
+
+    lang = get_lang(request)
 
     async def event_stream():
         start_time = time.time()
@@ -63,25 +72,27 @@ async def sse_events(request: Request):
                     break
 
                 # ---- progress 事件 (原 /sse/progress, 0.5s 轮询) ----
-                if _progress_mgr and _progress_mgr._phase != "":
+                progress_status = _progress_mgr.get_status() if _progress_mgr else {}
+                if progress_status.get("is_active", False):
                     html = _progress_mgr.get_progress_html()
                     if html:
                         yield f"event: progress\ndata: {html}\n\n"
-                    if _progress_mgr._is_complete:
+                    if progress_status.get("is_complete", False):
                         yield "event: complete\ndata: done\n\n"
                         await asyncio.sleep(1)
                         _progress_mgr.reset()
 
                 # ---- cancelled 事件 (原 /sse/cancel, 0.5s 轮询) ----
-                if _progress_mgr and _progress_mgr.is_cancelled():
+                if progress_status.get("is_cancelled", False):
                     data = json.dumps({
                         "status": "cancelled",
-                        "message": "生成已取消",
+                        "message": i18n_t("sse_generation_cancelled", lang),
                     }, ensure_ascii=False)
                     yield f"event: cancelled\ndata: {data}\n\n"
 
                 # ---- status 事件 (原 /sse/status, 2s 轮询) ----
-                status_text = _gen_tracker.status_text() if _gen_tracker else "空闲"
+                tracker_info = _gen_tracker.get_info() if _gen_tracker else {}
+                status_text = tracker_info.get("status_text", i18n_t("sse_status_idle", lang))
                 eng = registry.current_engine or "none"
                 mtype = registry.current_type or "none"
                 msize = registry.current_size or "none"
@@ -127,13 +138,13 @@ async def sse_events(request: Request):
 
                 # ---- time_estimate 事件 (原 /sse/time_estimate, 1s 轮询) ----
                 if _gen_tracker:
-                    current_depth = _gen_tracker.queue_depth
+                    current_depth = tracker_info.get("queue_depth", 0)
                     if current_depth > 0:
                         if last_depth == 0:
                             gen_start_time = time.time()
                         remaining = _gen_tracker.estimate_wait()
                         elapsed = time.time() - gen_start_time if gen_start_time else 0
-                        est_text = _format_time_estimate(remaining)
+                        est_text = _format_time_estimate(remaining, lang)
                         te_data = json.dumps({
                             "status": "generating",
                             "elapsed": round(elapsed, 1),
@@ -148,14 +159,14 @@ async def sse_events(request: Request):
                             te_data = json.dumps({
                                 "status": "complete",
                                 "actual": round(actual, 1),
-                                "text": "生成完成",
+                                "text": i18n_t("sse_generation_complete", lang),
                             }, ensure_ascii=False)
                             yield f"event: time_estimate\ndata: {te_data}\n\n"
                             gen_start_time = None
                         else:
                             te_data = json.dumps({
                                 "status": "idle",
-                                "text": _gen_tracker.status_text(),
+                                "text": tracker_info.get("status_text", i18n_t("sse_status_idle", lang)),
                             }, ensure_ascii=False)
                             yield f"event: time_estimate\ndata: {te_data}\n\n"
                     last_depth = current_depth
@@ -165,9 +176,9 @@ async def sse_events(request: Request):
                     last_heartbeat = time.time()
 
                 has_active = False
-                if _progress_mgr and _progress_mgr._phase != "":
+                if progress_status.get("is_active", False):
                     has_active = True
-                if _gen_tracker and _gen_tracker.queue_depth > 0:
+                if _gen_tracker and tracker_info.get("queue_depth", 0) > 0:
                     has_active = True
                 switch_state = getattr(request.app.state, "engine_switch_state", None)
                 if switch_state is not None:
@@ -186,6 +197,14 @@ async def sse_events(request: Request):
             pass
         except Exception as e:
             logger.error(f"SSE stream error: {e}")
+            try:
+                error_data = json.dumps({
+                    "status": "error",
+                    "message": "SSE 连接异常，请刷新页面重试",
+                }, ensure_ascii=False)
+                yield f"event: error\ndata: {error_data}\n\n"
+            except Exception:
+                pass
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

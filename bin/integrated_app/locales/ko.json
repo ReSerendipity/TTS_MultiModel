@@ -607,5 +607,16 @@
   "max_chars_per_seg": "세그먼트 최대 글자 수",
   "retry_ratio_threshold": "재시도 비율 임계값",
   "target_lufs": "목표 음량 (LUFS)",
-  "idle_timeout": "유휴 시간 초과"
+  "idle_timeout": "유휴 시간 초과",
+  "sse_time_few_seconds": "몇 초 후 완료",
+  "sse_time_about": "약",
+  "sse_time_seconds": "초",
+  "sse_time_minutes": "분",
+  "sse_generation_cancelled": "생성이 취소되었습니다",
+  "sse_generation_complete": "생성 완료",
+  "sse_status_idle": "대기 중",
+  "history_no_records": "기록 없음",
+  "no_persona_please_clone": "음색이 없습니다, 먼저 클론하세요",
+  "no_audio_playing": "재생 중인 오디오 없음",
+  "download": "다운로드"
 }

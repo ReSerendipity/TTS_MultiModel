@@ -3,7 +3,7 @@ import os
 from fastapi import Form, Request
 
 from ....config import MAX_TEXT_LENGTH
-from ....engines.voxcpm2_engine import fn_voxcpm_script_studio
+from ....model_registry import registry
 from ..utils import (
     _check_engine_ready,
     _error_html,
@@ -59,9 +59,12 @@ async def generate_voxcpm_script(
                 logger.warning(f"[VoxCPM剧本工坊] 音色 '{safe_name}' 不存在")
 
     def _run():
-        return fn_voxcpm_script_studio(
-            text, cfg, advanced_norm, advanced_denoise, steps, seed, lang,
-            persona_map_with_wav=persona_map_with_wav if persona_map_with_wav else None,
+        engine = registry.get_current_engine()
+        return engine.generate_script(
+            text, persona_map=persona_map_with_wav if persona_map_with_wav else None,
+            advanced_cfg=cfg, advanced_norm=advanced_norm,
+            advanced_denoise=advanced_denoise, advanced_steps=steps,
+            advanced_seed=seed, lang=lang,
         )
 
     return await _execute_generation(

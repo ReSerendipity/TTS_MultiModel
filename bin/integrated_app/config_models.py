@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """Pydantic models for configuration validation."""
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, Dict, List
 
 
 class AdvancedParamsConfig(BaseModel):
     """高级生成参数配置（不可变，替代全局 _ADVANCED_PARAMS 字典）"""
-    max_len: int = Field(default=3000, ge=3000, le=3000, description="最大生成长度（固定3000）")
-    split_max_chars: int = Field(default=200, ge=200, le=200, description="每段最大字符数（固定200）")
+    max_len: int = Field(default=3000, description="最大生成长度（固定值）")
+    split_max_chars: int = Field(default=200, description="每段最大字符数（固定值）")
     retry_badcase: bool = Field(default=True, description="自动重试坏案例")
     retry_badcase_max_times: int = Field(default=3, ge=0, le=10, description="最大重试次数")
     retry_badcase_ratio_threshold: float = Field(default=6.0, gt=0, description="重试时长比率阈值")
@@ -62,13 +62,62 @@ class I18nConfig(BaseModel):
     supported_langs: List[str] = Field(default=["zh", "en"], description="Supported language codes")
 
 
+class SpeakerInfo(BaseModel):
+    """Individual speaker information."""
+    id: str = Field(description="Speaker unique identifier")
+    name_zh: str = Field(default="", description="Chinese display name")
+    description: str = Field(default="", description="Speaker description")
+    type: str = Field(default="", description="Voice type tag")
+    traits: str = Field(default="", description="Voice traits summary")
+
+
+class SpeakerConfig(BaseModel):
+    """Speaker configuration."""
+    official: List[SpeakerInfo] = Field(default_factory=list, description="Official speaker list")
+
+
+class ApiAuthConfig(BaseModel):
+    """API authentication configuration."""
+    enabled: bool = Field(default=False, description="Whether API auth is enabled")
+    token: str = Field(default="", description="API auth token")
+
+    @model_validator(mode="after")
+    def validate_auth_config(self):
+        if self.enabled and not self.token:
+            import warnings
+            warnings.warn(
+                "API auth is enabled but token is empty. All requests will be rejected.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return self
+
+
+class GenerationDefaultsConfig(BaseModel):
+    """VoxCPM2 generation default parameters (from config.yaml generation section)."""
+    cfg_value: float = Field(default=2.0, description="CFG value")
+    inference_timesteps: int = Field(default=10, ge=1, description="Inference timesteps")
+    normalize: bool = Field(default=True, description="Normalize audio")
+    denoise: bool = Field(default=True, description="Denoise audio")
+    retry_badcase: bool = Field(default=True, description="Auto retry bad cases")
+    retry_badcase_max_times: int = Field(default=3, ge=0, le=10, description="Max retry times")
+    retry_badcase_ratio_threshold: float = Field(default=6.0, gt=0, description="Retry ratio threshold")
+    min_len: int = Field(default=2, ge=1, description="Min generation length")
+    max_len: int = Field(default=4096, ge=1, description="Max generation length")
+    split_max_chars: int = Field(default=200, ge=50, le=500, description="Max chars per split")
+
+
 class AppConfig(BaseModel):
     """Root application configuration model."""
+    version: str = Field(default="0.0.0", description="Application version")
     server: ServerConfig = Field(default_factory=ServerConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
+    generation_defaults: GenerationDefaultsConfig = Field(default_factory=GenerationDefaultsConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     models: ModelConfig = Field(default_factory=ModelConfig)
     i18n: I18nConfig = Field(default_factory=I18nConfig)
+    speakers: SpeakerConfig = Field(default_factory=SpeakerConfig)
+    api_auth: ApiAuthConfig = Field(default_factory=ApiAuthConfig)
 
     @field_validator("server")
     @classmethod
@@ -82,15 +131,23 @@ def load_config_dict(yaml_data: dict) -> AppConfig:
     """Load and validate configuration from a YAML-parsed dictionary."""
     server_data = {}
     generation_data = {}
+    generation_defaults_data = {}
     memory_data = {}
     models_data = {}
     i18n_data = {}
+    speakers_data = {}
+    api_auth_data = {}
+    version = "0.0.0"
+
+    if yaml_data:
+        version = str(yaml_data.get("version", "0.0.0")).strip().strip('"').strip("'")
 
     if "server" in yaml_data:
         s = yaml_data["server"]
         server_data = {k: v for k, v in s.items() if k in ServerConfig.model_fields}
     if "generation" in yaml_data:
         g = yaml_data["generation"]
+        generation_defaults_data = {k: v for k, v in g.items() if k in GenerationDefaultsConfig.model_fields}
         generation_data = {k: v for k, v in g.items() if k in GenerationConfig.model_fields}
     if "memory" in yaml_data:
         m = yaml_data["memory"]
@@ -100,11 +157,35 @@ def load_config_dict(yaml_data: dict) -> AppConfig:
         models_data = {k: v for k, v in md.items() if k in ModelConfig.model_fields}
     if "i18n" in yaml_data:
         i18n_data = {k: v for k, v in yaml_data["i18n"].items() if k in I18nConfig.model_fields}
+    if "speakers" in yaml_data:
+        sp = yaml_data["speakers"]
+        if isinstance(sp, dict) and "official" in sp:
+            official_list = sp["official"]
+            if isinstance(official_list, list):
+                speakers_info = []
+                for s in official_list:
+                    if isinstance(s, dict) and s.get("id"):
+                        speakers_info.append({
+                            "id": s["id"],
+                            "name_zh": s.get("name_zh", s["id"]),
+                            "description": s.get("description", ""),
+                            "type": s.get("type", ""),
+                            "traits": s.get("traits", ""),
+                        })
+                speakers_data = {"official": speakers_info}
+    if "api_auth" in yaml_data:
+        auth = yaml_data["api_auth"]
+        if isinstance(auth, dict):
+            api_auth_data = {k: v for k, v in auth.items() if k in ApiAuthConfig.model_fields}
 
     return AppConfig(
+        version=version,
         server=ServerConfig(**server_data),
         generation=GenerationConfig(**generation_data),
+        generation_defaults=GenerationDefaultsConfig(**generation_defaults_data),
         memory=MemoryConfig(**memory_data),
         models=ModelConfig(**models_data),
         i18n=I18nConfig(**i18n_data),
+        speakers=SpeakerConfig(**speakers_data) if speakers_data else SpeakerConfig(),
+        api_auth=ApiAuthConfig(**api_auth_data) if api_auth_data else ApiAuthConfig(),
     )

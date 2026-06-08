@@ -6,16 +6,62 @@ import logging
 from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
 
-from ..config import SAVE_DIR, PERSONA_DIR, PROJECT_ROOT
-from ..utils import get_history_table_data, get_history_table_data_paginated, get_total_history_count
-from ..history_manager import get_history_manager
+from ..config import SAVE_DIR, PERSONA_DIR, PROJECT_ROOT, MAX_UPLOAD_SIZE_BYTES as MAX_UPLOAD_SIZE
+from ..history_db import get_history_db
+from .generate.utils import ALLOWED_AUDIO_EXTENSIONS
 
 router = APIRouter(prefix="/api", tags=["audio"])
 
 logger = logging.getLogger("tts_multimodel")
 
-MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
-ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".wma", ".aac"}
+_AUDIO_MAGIC_BYTES = {
+    b"RIFF": ".wav",     # WAV files start with RIFF
+    b"ID3": ".mp3",      # MP3 files with ID3 tag
+    b"\xff\xfb": ".mp3", # MP3 files without ID3 tag
+    b"\xff\xf3": ".mp3", # MP3 files (MPEG-1 Layer 3)
+    b"\xff\xf2": ".mp3", # MP3 files (MPEG-2 Layer 3)
+    b"fLaC": ".flac",    # FLAC files
+    b"OggS": ".ogg",     # OGG files
+    b"\x00\x00\x00": ".m4a",  # M4A/MP4 container (often starts with 00 00 00)
+}
+
+
+def _validate_audio_content(content: bytes, claimed_ext: str) -> bool:
+    """Validate audio file content against magic bytes signatures.
+
+    Returns True if the content is valid for the claimed extension,
+    or if the format cannot be determined (lenient fallback).
+    Returns False only if a known format is detected and it doesn't match
+    the claimed extension.
+    """
+    header = content[:16]
+    if len(header) < 4:
+        logger.warning("Audio file too short to validate magic bytes, allowing upload")
+        return True
+
+    # Special case: M4A/MP4 container — check for ftyp at bytes 4-7
+    if header[:3] == b"\x00\x00\x00" and len(header) >= 8 and header[4:8] == b"ftyp":
+        if claimed_ext not in {".m4a", ".mp4"}:
+            return False
+        return True
+
+    detected_ext = None
+    for magic, ext in _AUDIO_MAGIC_BYTES.items():
+        if magic == b"\x00\x00\x00":
+            continue  # Already handled above
+        if header[:len(magic)] == magic:
+            detected_ext = ext
+            break
+
+    if detected_ext is None:
+        # Cannot determine format from magic bytes — allow upload with warning
+        logger.warning(f"Could not determine audio format from magic bytes for claimed extension '{claimed_ext}', allowing upload")
+        return True
+
+    if detected_ext != claimed_ext:
+        return False
+
+    return True
 
 
 @router.get("/audio/{filename}", summary="获取音频", description="获取生成的音频文件")
@@ -69,6 +115,12 @@ async def upload_audio(file: UploadFile = File(...)):
                 {"status": "error", "message": f"File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB"},
                 status_code=413,
             )
+        # Validate file content matches claimed audio format
+        if not _validate_audio_content(content, ext.lower()):
+            return JSONResponse(
+                {"status": "error", "message": "File content does not match the claimed audio format. The file may be corrupted or not a valid audio file."},
+                status_code=400,
+            )
         with open(file_path, "wb") as f:
             f.write(content)
         return JSONResponse({"status": "ok", "path": file_path, "filename": filename})
@@ -108,7 +160,7 @@ async def history_table(request: Request):
         offset = 0
     
     # 使用新的历史记录管理器
-    history_manager = get_history_manager()
+    history_manager = get_history_db()
     
     # 首先尝试从文件系统同步
     try:
@@ -133,12 +185,14 @@ async def history_table(request: Request):
     # 转换为与之前兼容的格式
     records = []
     for rec in result["items"]:
-        size_mb = rec.file_size / (1024 * 1024) if rec.file_size > 0 else 0
+        file_size = rec.get("file_size_bytes", 0) or 0
+        size_mb = file_size / (1024 * 1024) if file_size > 0 else 0
         size_str = f"{size_mb:.1f} MB"
-        duration_str = f"{rec.duration_seconds:.1f}s" if rec.duration_seconds > 0 else "<1s"
+        duration = rec.get("duration_seconds", 0) or 0
+        duration_str = f"{duration:.1f}s" if duration > 0 else "<1s"
         records.append([
-            rec.filename,
-            rec.created_at,
+            rec.get("filename", ""),
+            rec.get("created_at", ""),
             duration_str,
             size_str
         ])
@@ -171,7 +225,7 @@ async def batch_delete_history(request: Request):
     if not ids:
         return JSONResponse({"status": "error", "error": "No records selected"}, status_code=400)
     
-    history_manager = get_history_manager()
+    history_manager = get_history_db()
     
     if delete_files:
         # 彻底删除文件和记录
@@ -193,7 +247,7 @@ async def hide_history_records(request: Request):
     if not ids:
         return JSONResponse({"status": "error", "error": "No records selected"}, status_code=400)
     
-    history_manager = get_history_manager()
+    history_manager = get_history_db()
     count = history_manager.hide_multiple_records(ids)
     return JSONResponse({"status": "ok", "count": count})
 
@@ -204,7 +258,7 @@ async def clear_all_history(request: Request):
     payload = await request.json()
     hide_only = payload.get("hide_only", True)
     
-    history_manager = get_history_manager()
+    history_manager = get_history_db()
     count = history_manager.clear_all_records(hide_only=hide_only)
     
     action = "hidden" if hide_only else "cleared"
@@ -219,7 +273,7 @@ async def show_history_records(request: Request):
     if not ids:
         return JSONResponse({"status": "error", "error": "未选择记录"}, status_code=400)
     
-    history_manager = get_history_manager()
+    history_manager = get_history_db()
     count = history_manager.show_multiple_records(ids)
     return JSONResponse({"status": "ok", "count": count})
 
@@ -227,7 +281,7 @@ async def show_history_records(request: Request):
 @router.post("/history/show_all", summary="显示全部", description="显示所有隐藏的记录")
 async def show_all_history(request: Request):
     """恢复显示所有被隐藏的历史记录"""
-    history_manager = get_history_manager()
+    history_manager = get_history_db()
     count = history_manager.show_all_records()
     return JSONResponse({"status": "ok", "count": count})
 
@@ -235,6 +289,6 @@ async def show_all_history(request: Request):
 @router.post("/history/sync", summary="同步记录", description="同步文件系统与数据库的历史记录")
 async def sync_history():
     """从文件系统同步历史记录"""
-    history_manager = get_history_manager()
+    history_manager = get_history_db()
     count = history_manager.sync_from_filesystem()
     return JSONResponse({"status": "ok", "added_count": count})

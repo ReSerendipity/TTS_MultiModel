@@ -31,10 +31,12 @@ Usage::
     registry.get_current_model_info()
 """
 
+from __future__ import annotations
+
 import logging
 import threading
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -72,7 +74,7 @@ class ModelRegistry:
     operation.
     """
 
-    _instance: Optional["ModelRegistry"] = None
+    _instance: "ModelRegistry" | None = None
     _init_done: bool = False
 
     # ------------------------------------------------------------------
@@ -264,6 +266,7 @@ class ModelRegistry:
             self.voxcpm_ultimate = False
             self.voxcpm_voiceclone_enabled = False
             self.voxcpm_control_enabled = False
+            self._voxcpm2_engine_instance = None
 
     def clear_indextts2(self) -> None:
         """Atomically clear all IndexTTS 2.0 engine references.
@@ -292,6 +295,7 @@ class ModelRegistry:
             self.voxcpm_ultimate = False
             self.voxcpm_voiceclone_enabled = False
             self.voxcpm_control_enabled = False
+            self._voxcpm2_engine_instance = None
 
     # ------------------------------------------------------------------
     # Query helpers
@@ -347,6 +351,22 @@ class ModelRegistry:
                     "ready": True,
                 }
             return {"ready": False}
+
+    def get_current_engine(self):
+        """Get the current engine instance implementing TTSEngine protocol.
+
+        Returns the appropriate engine instance based on ``current_engine``.
+        VoxCPM2Engine instances are created lazily and cached.
+        Returns ``None`` if no engine is loaded.
+        """
+        if self.current_engine == "voxcpm2" and self.voxcpm_model is not None:
+            if not hasattr(self, '_voxcpm2_engine_instance') or self._voxcpm2_engine_instance is None:
+                from .engines.voxcpm2.engine import VoxCPM2Engine
+                self._voxcpm2_engine_instance = VoxCPM2Engine()
+            return self._voxcpm2_engine_instance
+        elif self.current_engine == "indextts2" and self.indextts2_engine is not None:
+            return self.indextts2_engine
+        return None
 
     def switch_to(self, engine: str) -> None:
         if engine not in EngineName._value2member_map_:

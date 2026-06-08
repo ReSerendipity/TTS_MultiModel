@@ -382,20 +382,6 @@
     var isLoading = false;
     var PAGE_SIZE = 20;
 
-    // Toast notification (replaces alert)
-    function showToast(message, type) {
-        var existing = document.querySelector('.history-toast');
-        if (existing) existing.remove();
-        var toast = document.createElement('div');
-        toast.className = 'history-toast';
-        toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;z-index:10000;max-width:360px;';
-        toast.style.background = type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#F59E0B';
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 2500);
-        setTimeout(function() { toast.remove(); }, 2800);
-    }
-
     // Update info text
     function updateInfoText() {
         var infoEl = document.getElementById('hist-info');
@@ -464,20 +450,42 @@
     // Render rows helper
     function renderRows(records, append) {
         var tbody = document.getElementById('hist-table-body');
-        var html = '';
-        records.forEach(function(r){
-            html += '<tr class="history-record-row">' +
-                '<td><input type="checkbox" class="history-row-checkbox" data-history-id="' + r[0] + '"></td>' +
-                '<td>' + r[0] + '</td>' +
-                '<td>' + r[1] + '</td>' +
-                '<td><span class="history-duration">' + r[2] + '</span></td>' +
-                '<td>' + r[3] + '</td></tr>';
-        });
-        if (append) {
-            tbody.innerHTML += html;
-        } else {
-            tbody.innerHTML = html;
+        if (!append) {
+            tbody.innerHTML = '';
         }
+        records.forEach(function(r){
+            var tr = document.createElement('tr');
+            tr.className = 'history-record-row';
+
+            var tdCheck = document.createElement('td');
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'history-row-checkbox';
+            checkbox.setAttribute('data-history-id', r[0]);
+            tdCheck.appendChild(checkbox);
+
+            var tdName = document.createElement('td');
+            tdName.textContent = r[0];  // Safe: uses textContent
+
+            var tdTime = document.createElement('td');
+            tdTime.textContent = r[1];  // Safe: uses textContent
+
+            var tdDuration = document.createElement('td');
+            var durationSpan = document.createElement('span');
+            durationSpan.className = 'history-duration';
+            durationSpan.textContent = r[2];
+            tdDuration.appendChild(durationSpan);
+
+            var tdSize = document.createElement('td');
+            tdSize.textContent = r[3];  // Safe: uses textContent
+
+            tr.appendChild(tdCheck);
+            tr.appendChild(tdName);
+            tr.appendChild(tdTime);
+            tr.appendChild(tdDuration);
+            tr.appendChild(tdSize);
+            tbody.appendChild(tr);
+        });
     }
 
     function showLoading() {
@@ -652,7 +660,13 @@
         }
     }, 500);
 
-    document.getElementById('hist-search').addEventListener('input', function() { refreshHistory(); });
+    (function() {
+        var _searchDebounceTimer = null;
+        document.getElementById('hist-search').addEventListener('input', function() {
+            clearTimeout(_searchDebounceTimer);
+            _searchDebounceTimer = setTimeout(function() { refreshHistory(); }, 300);
+        });
+    })();
     window.filterHistoryTime = function(filter) {
         document.querySelectorAll('.time-filter-chip').forEach(function(c){ c.classList.remove('active'); });
         document.querySelector('.time-filter-chip[data-time="' + filter + '"]').classList.add('active');
@@ -818,7 +832,7 @@
     window.batchShowHistory = function() {
         var selected = document.querySelectorAll('.history-row-checkbox:checked');
         if (selected.length === 0) {
-            showToast('{{ "select_rows_alert"|t(lang, default="请先选择要恢复显示的记录") }}', 'error');
+            Toast.show('{{ "select_rows_alert"|t(lang, default="请先选择要恢复显示的记录") }}', 'error');
             return;
         }
 
@@ -835,7 +849,7 @@
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (data.status === 'ok') {
-                showToast(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
+                Toast.show(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
                 // Uncheck all checkboxes
                 document.querySelectorAll('.history-row-checkbox').forEach(function(cb) {
                     cb.checked = false;
@@ -850,11 +864,11 @@
                     refreshHistory();
                 }
             } else {
-                showToast(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
+                Toast.show(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
             }
         })
         .catch(function(){
-            showToast('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
+            Toast.show('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
         });
     };
 
@@ -870,7 +884,7 @@
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (data.status === 'ok') {
-                showToast(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
+                Toast.show(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
                 // Refresh current view
                 if (includeHidden) {
                     refreshHistoryWithHidden(true);
@@ -878,11 +892,11 @@
                     refreshHistory();
                 }
             } else {
-                showToast(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
+                Toast.show(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
             }
         })
         .catch(function(){
-            showToast('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
+            Toast.show('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
         });
     };
 })();

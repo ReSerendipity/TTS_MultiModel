@@ -1,50 +1,13 @@
 <div class="card">
     <style>
-        .sc-auto-resize {
-            resize: vertical;
-            overflow-y: auto;
-            min-height: 60px;
-            max-height: 400px;
-            line-height: 1.6;
-            width: 100% !important;
-            box-sizing: border-box !important;
-            max-width: none !important;
-            display: block !important;
-        }
-        .sc-char-counter {
-        font-size: 12px;
-        color: var(--text-secondary);
-        margin-top: 6px;
-        margin-bottom: 2px;
-        padding: 4px 8px;
-        background: rgba(139, 92, 246, 0.05);
-        border-radius: 4px;
-        white-space: nowrap;
-    }
-    .sc-char-counter.warning { color: #f59e0b; font-weight: 600; }
-    .sc-char-counter .counter-main {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .sc-char-counter .counter-segments {
-        color: var(--accent-primary);
-        font-weight: 600;
-    }
-    .sc-char-counter .counter-detail {
-        font-size: 11px;
-        color: var(--text-muted);
-    }
-    @media (max-width: 640px) {
-        .pp-grid { grid-template-columns: 1fr !important; }
-    }
+        /* sc-auto-resize replaced by shared tts-auto-resize in tabs.css */
     </style>
     <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
+        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
         <h3 class="card-header-title">{{ "script_workshop"|t(lang) }}</h3>
         <span class="card-header-badge">{{ "multi_dialogue"|t(lang) }}</span>
     </div>
-    <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "script_desc"|t(lang) }}</div>
+    <div class="tts-card-desc">{{ "script_desc"|t(lang) }}</div>
     <form id="script-form" hx-post="/api/generate/voxcpm_script" hx-target="#script-result" hx-swap="innerHTML" hx-indicator="#script-spinner">
         <label>{{ "script_content"|t(lang) }}</label>
         <div class="tts-textarea-wrapper" style="margin:12px 0;">
@@ -53,8 +16,8 @@
                 <code style="color:var(--accent-secondary);">[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}</code><br>
                 <code style="color:var(--accent-secondary);">[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}</code>
             </div>
-            <textarea name="text" class="tts-input-textarea sc-auto-resize" rows="8" placeholder="[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}&#10;[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}&#10;[{{ 'narrator'|t(lang) }}]{{ 'example_line3'|t(lang) }}" style="font-family:monospace;font-size:14px;min-height:200px;" oninput="updateScCharCounter(this); autoResizeTextarea(this)"></textarea>
-            <div id="sc-char-counter" class="sc-char-counter">0/{{ engine_max_total_chars }}</div>
+            <textarea name="text" id="script-text" class="tts-input-textarea tts-auto-resize" rows="8" placeholder="[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}&#10;[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}&#10;[{{ 'narrator'|t(lang) }}]{{ 'example_line3'|t(lang) }}" style="font-family:monospace;font-size:14px;min-height:200px;" oninput="CharCounter.update({textareaId:'script-text',counterId:'sc-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},counterClass:'sc-char-counter'}); AutoResize.resize(this)"></textarea>
+            <div id="sc-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
         </div>
 
         <div style="margin:16px 0;">
@@ -114,7 +77,7 @@
 </div>
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
         <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
     </div>
     <div id="script-result" aria-live="polite">
@@ -149,50 +112,15 @@
 </div>
 <script>
 (function(){
-    window.autoResizeTextarea = window.autoResizeTextarea || function(textarea) {
-        var start = textarea.selectionStart;
-        var end = textarea.selectionEnd;
-        textarea.style.height = 'auto';
-        var newHeight = Math.min(textarea.scrollHeight, 400);
-        textarea.style.height = newHeight + 'px';
-        requestAnimationFrame(function() {
-            textarea.selectionStart = start;
-            textarea.selectionEnd = end;
-        });
-    };
-
-    window.updateScCharCounter = function(textarea) {
-        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
-        var ENGINE_MAX_CHARS = {{ engine_max_total_chars }};
-        var counter = document.getElementById('sc-char-counter');
-        var submitBtn = document.querySelector('#script-form button[type="submit"]');
-        if (counter) {
-            var len = textarea.value.length;
-            var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
-            
-            var counterMain = '<span class="counter-main">' + len + '/' + ENGINE_MAX_CHARS + '</span>';
-            var counterDetail = '';
-            if (len > ENGINE_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments" style="color:#ef4444;">{{ "text_too_long"|t(lang) }}</span>';
-            } else if (len > SPLIT_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
-            } else if (len > 0) {
-                counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
-            }
-            
-            counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
-            counter.classList.remove('warning');
-            if (len >= ENGINE_MAX_CHARS) counter.classList.add('warning');
-            if (submitBtn) submitBtn.disabled = false;
-        }
-    };
-
     // Initialize character counter and textarea height on page load
-    var scTextarea = document.querySelector('#script-form textarea[name=text]');
-    if (scTextarea) {
-        updateScCharCounter(scTextarea);
-        autoResizeTextarea(scTextarea);
-    }
+    CharCounter.init({
+        textareaId: 'script-text',
+        counterId: 'sc-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'sc-char-counter'
+    });
+    AutoResize.init('script-text');
 
     // Frontend validation: prevent empty text submission
     document.getElementById('script-form').addEventListener('submit', function(e) {
@@ -248,22 +176,8 @@
         });
     }
 
-    // Custom confirm dialog to replace native confirm()
-    window.showConfirmDialog = function(message, onConfirm) {
-        var overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-        var dialog = document.createElement('div');
-        dialog.style.cssText = 'background:var(--bg-primary,#1a1a2e);border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center;';
-        dialog.innerHTML = '<p style="color:var(--text-primary);margin-bottom:20px;font-size:14px;">' + message + '</p><div style="display:flex;gap:12px;justify-content:center;"><button id="confirm-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;">' + (window.I18N && window.I18N['cancel'] || '取消') + '</button><button id="confirm-ok" style="padding:8px 20px;border-radius:8px;border:none;background:#10B981;color:#fff;cursor:pointer;">' + (window.I18N && window.I18N['confirm'] || '确认') + '</button></div>';
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-        document.getElementById('confirm-cancel').onclick = function() { overlay.remove(); };
-        document.getElementById('confirm-ok').onclick = function() { overlay.remove(); onConfirm(); };
-        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
-    };
-
     // Post-processing re-process
-    window.scriptReprocess = async function() {
+    window.scriptReprocess = function() {
         var resultEl = document.getElementById('script-result');
         if (!resultEl) return;
         var wrapper = resultEl.querySelector('[data-audio-filename]');
@@ -271,28 +185,13 @@
         var audioPath = wrapper.getAttribute('data-audio-filename');
         var tempo = document.getElementById('script-pp-tempo').value;
         var enhance = document.getElementById('script-pp-enhance').checked ? 'true' : 'false';
-        var statusEl = document.getElementById('script-status');
-        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">' + ((window.I18N && window.I18N['processing']) || 'Processing...') + '</div>';
-        try {
-            var resp = await fetch('/api/generate/post-process', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'audio_path=' + encodeURIComponent(audioPath) + '&tempo_factor=' + tempo + '&voice_enhancement=' + enhance + '&target_lufs=-16.0'
-            });
-            var html = await resp.text();
-            resultEl.innerHTML = html;
-            var audioSrc = resultEl.querySelector('audio');
-            var audioEl = document.getElementById('script-audio');
-            if (audioSrc && audioEl) {
-                if (window.globalAudioPlayer) {
-                    var filename2 = audioSrc.src.split('/').pop().split('?')[0];
-                    window.globalAudioPlayer.play(audioSrc.src, filename2);
-                }
-                audioEl.style.display = '';
-            }
-        } catch(err) {
-            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';
-        }
+        Reprocess.execute({
+            resultId: 'script-result',
+            statusId: 'script-status',
+            audioElementId: 'script-audio',
+            audioPath: audioPath,
+            params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
+        });
     };
 })();
 </script>

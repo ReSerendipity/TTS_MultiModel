@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
 
 RUN git lfs install
 
+RUN groupadd -r ttsuser && useradd -r -g ttsuser -d /app -s /sbin/nologin ttsuser
+
 WORKDIR /app
 
 COPY pyproject.toml .
@@ -25,5 +27,11 @@ EXPOSE 7869
 
 ENV TTS_AUTO_LOAD_MODEL=1
 ENV TTS_AUTO_LOAD_ENGINE=voxcpm2
+
+RUN chown -R ttsuser:ttsuser /app
+USER ttsuser
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:7869/api/system/health')" || exit 1
 
 CMD ["python3", "-m", "integrated_app.cli", "--host", "0.0.0.0", "--port", "7869"]

@@ -423,7 +423,10 @@ class IndexTTS2Engine:
         instruction: str = "",
         normalize: bool = True,
     ):
-        raise NotImplementedError
+        raise NotImplementedError(
+            "Voice design is not supported by IndexTTS2 engine. "
+            "Please switch to VoxCPM2 engine for voice design features."
+        )
 
     def generate_voice_clone(
         self,
@@ -433,7 +436,10 @@ class IndexTTS2Engine:
         normalize: bool = True,
         **kwargs,
     ):
-        raise NotImplementedError
+        raise NotImplementedError(
+            "Voice clone is not supported by IndexTTS2 engine. "
+            "Please switch to VoxCPM2 engine for voice clone features."
+        )
 
     def generate_script(
         self,
@@ -442,7 +448,10 @@ class IndexTTS2Engine:
         persona_map: dict = None,
         **kwargs,
     ):
-        raise NotImplementedError
+        raise NotImplementedError(
+            "Script generation is not supported by IndexTTS2 engine. "
+            "Please switch to VoxCPM2 engine for script generation features."
+        )
 
     def generate_streaming(
         self,
@@ -450,4 +459,7 @@ class IndexTTS2Engine:
         reference_audio_path: Optional[str] = None,
         **kwargs,
     ):
-        raise NotImplementedError
+        raise NotImplementedError(
+            "Streaming generation is not supported by IndexTTS2 engine. "
+            "Please switch to VoxCPM2 engine for streaming features."
+        )

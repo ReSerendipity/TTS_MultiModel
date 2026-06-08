@@ -30,12 +30,350 @@ class GPUBackend(Enum):
     CPU = "cpu"        # CPU fallback
 
 
+# ---------------------------------------------------------------------------
+# Strategy classes – one per backend family, used by GPUBackendManager
+# ---------------------------------------------------------------------------
+
+class _CUDAStrategy:
+    """Strategy for CUDA/ROCM backends (ROCM uses hipified CUDA API)."""
+
+    @staticmethod
+    def get_device(index=0):
+        return torch.device(f"cuda:{index}")
+
+    @staticmethod
+    def get_device_count():
+        return torch.cuda.device_count()
+
+    @staticmethod
+    def get_device_name(index=0):
+        if torch.cuda.is_available() and index < torch.cuda.device_count():
+            return torch.cuda.get_device_name(index)
+        return "CPU"
+
+    @staticmethod
+    def get_device_properties(index=0):
+        if torch.cuda.is_available() and index < torch.cuda.device_count():
+            props = torch.cuda.get_device_properties(index)
+            return {
+                'name': props.name,
+                'total_memory': props.total_memory,
+                'major': props.major,
+                'minor': props.minor,
+            }
+        return {'name': 'CPU', 'total_memory': 0}
+
+    @staticmethod
+    def memory_allocated(device=None):
+        return torch.cuda.memory_allocated(device)
+
+    @staticmethod
+    def memory_reserved(device=None):
+        return torch.cuda.memory_reserved(device)
+
+    @staticmethod
+    def empty_cache():
+        torch.cuda.empty_cache()
+
+    @staticmethod
+    def synchronize(device=None):
+        if device is None:
+            torch.cuda.synchronize()
+        else:
+            torch.cuda.synchronize(device)
+
+    @staticmethod
+    def get_memory_info(index=0):
+        if not torch.cuda.is_available():
+            return (0, 0, 0, 0)
+        props = torch.cuda.get_device_properties(index)
+        total = props.total_memory
+        allocated = torch.cuda.memory_allocated(index)
+        reserved = torch.cuda.memory_reserved(index)
+        return (total, allocated, reserved, total - allocated)
+
+    @staticmethod
+    def get_cuda_clear_workspaces_func():
+        try:
+            return torch._C._cuda_clearCublasWorkspaces
+        except AttributeError:
+            return None
+
+    @staticmethod
+    def ipc_collect(device=None):
+        try:
+            if device is None:
+                torch.cuda.ipc_collect()
+            else:
+                torch.cuda.ipc_collect(device)
+        except Exception as e:
+            logger.debug(f"IPC collect failed: {e}")
+
+    @staticmethod
+    def get_grad_scaler(enabled=True):
+        if enabled:
+            return torch.amp.GradScaler("cuda")
+        return None
+
+    @staticmethod
+    def get_autocast_device_type():
+        return "cuda"
+
+    @staticmethod
+    def get_process_group_backend():
+        return "nccl"
+
+    @staticmethod
+    def format_device_string(index=0):
+        return f"cuda:{index}"
+
+
+class _XPUStrategy:
+    """Strategy for Intel XPU backend."""
+
+    @staticmethod
+    def _get_ipex():
+        import intel_extension_for_pytorch as ipex
+        return ipex
+
+    @staticmethod
+    def get_device(index=0):
+        return torch.device(f"xpu:{index}")
+
+    @staticmethod
+    def get_device_count():
+        ipex = _XPUStrategy._get_ipex()
+        return ipex.xpu.device_count()
+
+    @staticmethod
+    def get_device_name(index=0):
+        try:
+            ipex = _XPUStrategy._get_ipex()
+            if ipex.xpu.is_available() and index < ipex.xpu.device_count():
+                props = ipex.xpu.get_device_properties(index)
+                return props.get('name', f'Intel XPU {index}')
+        except Exception as e:
+            logger.debug(f"Failed to get Intel XPU device name: {e}")
+        return "CPU"
+
+    @staticmethod
+    def get_device_properties(index=0):
+        try:
+            ipex = _XPUStrategy._get_ipex()
+            if ipex.xpu.is_available() and index < ipex.xpu.device_count():
+                props = ipex.xpu.get_device_properties(index)
+                return {
+                    'name': props.get('name', f'Intel XPU {index}'),
+                    'total_memory': props.get('total_memory', 0),
+                }
+        except Exception as e:
+            logger.debug(f"Failed to get Intel XPU properties: {e}")
+        return {'name': 'CPU', 'total_memory': 0}
+
+    @staticmethod
+    def memory_allocated(device=None):
+        ipex = _XPUStrategy._get_ipex()
+        return ipex.xpu.memory_allocated(device)
+
+    @staticmethod
+    def memory_reserved(device=None):
+        ipex = _XPUStrategy._get_ipex()
+        return ipex.xpu.memory_reserved(device)
+
+    @staticmethod
+    def empty_cache():
+        ipex = _XPUStrategy._get_ipex()
+        ipex.xpu.empty_cache()
+
+    @staticmethod
+    def synchronize(device=None):
+        ipex = _XPUStrategy._get_ipex()
+        if device is None:
+            ipex.xpu.synchronize()
+        else:
+            ipex.xpu.synchronize(device)
+
+    @staticmethod
+    def get_memory_info(index=0):
+        try:
+            ipex = _XPUStrategy._get_ipex()
+            if not ipex.xpu.is_available():
+                return (0, 0, 0, 0)
+            props = ipex.xpu.get_device_properties(index)
+            total = props.get('total_memory', 0)
+            allocated = ipex.xpu.memory_allocated(index)
+            reserved = ipex.xpu.memory_reserved(index)
+            return (total, allocated, reserved, total - allocated)
+        except Exception as e:
+            logger.error(f"Failed to get XPU memory info: {e}")
+            return (0, 0, 0, 0)
+
+    @staticmethod
+    def get_cuda_clear_workspaces_func():
+        return None
+
+    @staticmethod
+    def ipc_collect(device=None):
+        pass
+
+    @staticmethod
+    def get_grad_scaler(enabled=True):
+        return None
+
+    @staticmethod
+    def get_autocast_device_type():
+        return "xpu"
+
+    @staticmethod
+    def get_process_group_backend():
+        return "ccl"
+
+    @staticmethod
+    def format_device_string(index=0):
+        return f"xpu:{index}"
+
+
+class _MPSStrategy:
+    """Strategy for Apple MPS backend."""
+
+    @staticmethod
+    def get_device(index=0):
+        return torch.device("mps")
+
+    @staticmethod
+    def get_device_count():
+        return 1
+
+    @staticmethod
+    def get_device_name(index=0):
+        return "Apple MPS"
+
+    @staticmethod
+    def get_device_properties(index=0):
+        return {'name': 'Apple MPS', 'total_memory': 0}
+
+    @staticmethod
+    def memory_allocated(device=None):
+        return 0
+
+    @staticmethod
+    def memory_reserved(device=None):
+        return 0
+
+    @staticmethod
+    def empty_cache():
+        pass
+
+    @staticmethod
+    def synchronize(device=None):
+        pass
+
+    @staticmethod
+    def get_memory_info(index=0):
+        return (0, 0, 0, 0)
+
+    @staticmethod
+    def get_cuda_clear_workspaces_func():
+        return None
+
+    @staticmethod
+    def ipc_collect(device=None):
+        pass
+
+    @staticmethod
+    def get_grad_scaler(enabled=True):
+        return None
+
+    @staticmethod
+    def get_autocast_device_type():
+        return "cpu"
+
+    @staticmethod
+    def get_process_group_backend():
+        return "gloo"
+
+    @staticmethod
+    def format_device_string(index=0):
+        return "mps"
+
+
+class _CPUStrategy:
+    """Strategy for CPU fallback."""
+
+    @staticmethod
+    def get_device(index=0):
+        return torch.device("cpu")
+
+    @staticmethod
+    def get_device_count():
+        return 0
+
+    @staticmethod
+    def get_device_name(index=0):
+        return "CPU"
+
+    @staticmethod
+    def get_device_properties(index=0):
+        return {'name': 'CPU', 'total_memory': 0}
+
+    @staticmethod
+    def memory_allocated(device=None):
+        return 0
+
+    @staticmethod
+    def memory_reserved(device=None):
+        return 0
+
+    @staticmethod
+    def empty_cache():
+        pass
+
+    @staticmethod
+    def synchronize(device=None):
+        pass
+
+    @staticmethod
+    def get_memory_info(index=0):
+        return (0, 0, 0, 0)
+
+    @staticmethod
+    def get_cuda_clear_workspaces_func():
+        return None
+
+    @staticmethod
+    def ipc_collect(device=None):
+        pass
+
+    @staticmethod
+    def get_grad_scaler(enabled=True):
+        return None
+
+    @staticmethod
+    def get_autocast_device_type():
+        return "cpu"
+
+    @staticmethod
+    def get_process_group_backend():
+        return "gloo"
+
+    @staticmethod
+    def format_device_string(index=0):
+        return "cpu"
+
+
+# ---------------------------------------------------------------------------
+# GPUBackendManager – unified GPU backend manager
+# ---------------------------------------------------------------------------
+
 class GPUBackendManager:
     """Unified GPU backend manager for multi-vendor GPU support.
 
     Automatically detects available GPU backends and provides a consistent
     API for device management, memory queries, and operations across
     different hardware vendors.
+
+    Uses the Strategy pattern to dispatch backend-specific operations,
+    avoiding repeated if/else chains across methods.
 
     Usage:
         backend = GPUBackendManager.detect_backend()
@@ -44,6 +382,33 @@ class GPUBackendManager:
     """
 
     _cached_backend: Optional[GPUBackend] = None
+    _STRATEGY_MAP = None  # Lazy-initialized
+
+    @classmethod
+    def _get_strategy(cls, backend=None):
+        """Get the strategy class for the given backend.
+
+        Args:
+            backend: GPU backend enum. If None, uses the detected backend.
+
+        Returns:
+            Strategy class with static methods for the backend.
+        """
+        if cls._STRATEGY_MAP is None:
+            cls._STRATEGY_MAP = {
+                GPUBackend.CUDA: _CUDAStrategy,
+                GPUBackend.ROCM: _CUDAStrategy,  # ROCM uses CUDA API
+                GPUBackend.XPU: _XPUStrategy,
+                GPUBackend.MPS: _MPSStrategy,
+                GPUBackend.CPU: _CPUStrategy,
+            }
+        if backend is None:
+            backend = cls.detect_backend()
+        return cls._STRATEGY_MAP.get(backend, _CPUStrategy)
+
+    # ------------------------------------------------------------------
+    # Detection methods (no if/else pattern – kept as-is)
+    # ------------------------------------------------------------------
 
     @classmethod
     def _is_amd_rocm(cls) -> bool:
@@ -162,6 +527,10 @@ class GPUBackendManager:
         backend = cls.detect_backend()
         return backend != GPUBackend.CPU
 
+    # ------------------------------------------------------------------
+    # Strategy-dispatched methods
+    # ------------------------------------------------------------------
+
     @classmethod
     def get_device(cls, index: int = 0) -> torch.device:
         """Get the primary compute device.
@@ -172,17 +541,7 @@ class GPUBackendManager:
         Returns:
             torch.device object for the primary compute device.
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            return torch.device(f"cuda:{index}")
-        elif backend == GPUBackend.XPU:
-            import intel_extension_for_pytorch as ipex
-            return torch.device(f"xpu:{index}")
-        elif backend == GPUBackend.MPS:
-            return torch.device("mps")
-        else:
-            return torch.device("cpu")
+        return cls._get_strategy().get_device(index)
 
     @classmethod
     def get_device_count(cls) -> int:
@@ -191,17 +550,7 @@ class GPUBackendManager:
         Returns:
             Number of devices for the current backend.
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            return torch.cuda.device_count()
-        elif backend == GPUBackend.XPU:
-            import intel_extension_for_pytorch as ipex
-            return ipex.xpu.device_count()
-        elif backend == GPUBackend.MPS:
-            return 1  # MPS only supports one device
-        else:
-            return 0
+        return cls._get_strategy().get_device_count()
 
     @classmethod
     def get_device_name(cls, index: int = 0) -> str:
@@ -213,23 +562,7 @@ class GPUBackendManager:
         Returns:
             Device name string, or "CPU" if no GPU available.
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            if torch.cuda.is_available() and index < torch.cuda.device_count():
-                return torch.cuda.get_device_name(index)
-        elif backend == GPUBackend.XPU:
-            try:
-                import intel_extension_for_pytorch as ipex
-                if ipex.xpu.is_available() and index < ipex.xpu.device_count():
-                    props = ipex.xpu.get_device_properties(index)
-                    return props.get('name', f'Intel XPU {index}')
-            except Exception as e:
-                logger.debug(f"Failed to get Intel XPU device name: {e}")
-        elif backend == GPUBackend.MPS:
-            return "Apple MPS"
-
-        return "CPU"
+        return cls._get_strategy().get_device_name(index)
 
     @classmethod
     def get_device_properties(cls, index: int = 0) -> Dict[str, Any]:
@@ -241,33 +574,7 @@ class GPUBackendManager:
         Returns:
             Dictionary with device properties (name, total_memory, etc.).
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            if torch.cuda.is_available() and index < torch.cuda.device_count():
-                props = torch.cuda.get_device_properties(index)
-                return {
-                    'name': props.name,
-                    'total_memory': props.total_memory,
-                    'major': props.major,
-                    'minor': props.minor,
-                }
-        elif backend == GPUBackend.XPU:
-            try:
-                import intel_extension_for_pytorch as ipex
-                if ipex.xpu.is_available() and index < ipex.xpu.device_count():
-                    props = ipex.xpu.get_device_properties(index)
-                    return {
-                        'name': props.get('name', f'Intel XPU {index}'),
-                        'total_memory': props.get('total_memory', 0),
-                    }
-            except Exception as e:
-                logger.debug(f"Failed to get Intel XPU properties: {e}")
-
-        return {
-            'name': 'CPU',
-            'total_memory': 0,
-        }
+        return cls._get_strategy().get_device_properties(index)
 
     @classmethod
     def memory_allocated(cls, device=None) -> int:
@@ -279,25 +586,9 @@ class GPUBackendManager:
         Returns:
             Allocated memory in bytes.
         """
-        backend = cls.detect_backend()
-
         if device is None:
             device = cls.get_device()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            if isinstance(device, int):
-                return torch.cuda.memory_allocated(device)
-            return torch.cuda.memory_allocated(device)
-        elif backend == GPUBackend.XPU:
-            import intel_extension_for_pytorch as ipex
-            if isinstance(device, int):
-                return ipex.xpu.memory_allocated(device)
-            return ipex.xpu.memory_allocated(device)
-        elif backend == GPUBackend.MPS:
-            # MPS doesn't provide memory allocation APIs
-            return 0
-
-        return 0
+        return cls._get_strategy().memory_allocated(device)
 
     @classmethod
     def memory_reserved(cls, device=None) -> int:
@@ -309,37 +600,14 @@ class GPUBackendManager:
         Returns:
             Reserved memory in bytes.
         """
-        backend = cls.detect_backend()
-
         if device is None:
             device = cls.get_device()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            if isinstance(device, int):
-                return torch.cuda.memory_reserved(device)
-            return torch.cuda.memory_reserved(device)
-        elif backend == GPUBackend.XPU:
-            import intel_extension_for_pytorch as ipex
-            if isinstance(device, int):
-                return ipex.xpu.memory_reserved(device)
-            return ipex.xpu.memory_reserved(device)
-        elif backend == GPUBackend.MPS:
-            return 0
-
-        return 0
+        return cls._get_strategy().memory_reserved(device)
 
     @classmethod
     def empty_cache(cls):
         """Empty the memory cache for the current backend."""
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            torch.cuda.empty_cache()
-        elif backend == GPUBackend.XPU:
-            import intel_extension_for_pytorch as ipex
-            ipex.xpu.empty_cache()
-        elif backend == GPUBackend.MPS:
-            pass  # MPS doesn't have cache empty API
+        cls._get_strategy().empty_cache()
 
     @classmethod
     def synchronize(cls, device=None):
@@ -348,25 +616,7 @@ class GPUBackendManager:
         Args:
             device: Device index or torch.device (default: primary device).
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            if device is None:
-                torch.cuda.synchronize()
-            elif isinstance(device, int):
-                torch.cuda.synchronize(device)
-            else:
-                torch.cuda.synchronize(device)
-        elif backend == GPUBackend.XPU:
-            import intel_extension_for_pytorch as ipex
-            if device is None:
-                ipex.xpu.synchronize()
-            elif isinstance(device, int):
-                ipex.xpu.synchronize(device)
-            else:
-                ipex.xpu.synchronize(device)
-        elif backend == GPUBackend.MPS:
-            pass  # MPS doesn't have explicit synchronize API
+        cls._get_strategy().synchronize(device)
 
     @classmethod
     def get_memory_info(cls, index: int = 0) -> Tuple[int, int, int, int]:
@@ -378,39 +628,11 @@ class GPUBackendManager:
         Returns:
             Tuple of (total_bytes, allocated_bytes, reserved_bytes, free_bytes)
         """
-        backend = cls.detect_backend()
-
         try:
-            if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-                if not torch.cuda.is_available():
-                    return (0, 0, 0, 0)
-                props = torch.cuda.get_device_properties(index)
-                total = props.total_memory
-                allocated = torch.cuda.memory_allocated(index)
-                reserved = torch.cuda.memory_reserved(index)
-                free = total - allocated
-                return (total, allocated, reserved, free)
-
-            elif backend == GPUBackend.XPU:
-                import intel_extension_for_pytorch as ipex
-                if not ipex.xpu.is_available():
-                    return (0, 0, 0, 0)
-                props = ipex.xpu.get_device_properties(index)
-                total = props.get('total_memory', 0)
-                allocated = ipex.xpu.memory_allocated(index)
-                reserved = ipex.xpu.memory_reserved(index)
-                free = total - allocated
-                return (total, allocated, reserved, free)
-
-            elif backend == GPUBackend.MPS:
-                # MPS doesn't provide memory info
-                return (0, 0, 0, 0)
-
+            return cls._get_strategy().get_memory_info(index)
         except Exception as e:
             logger.error(f"Failed to get GPU memory info: {e}")
             return (0, 0, 0, 0)
-
-        return (0, 0, 0, 0)
 
     @classmethod
     def get_cuda_clear_workspaces_func(cls):
@@ -419,15 +641,7 @@ class GPUBackendManager:
         Returns:
             Callable to clear cuBLAS workspaces, or None if not available.
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            try:
-                return torch._C._cuda_clearCublasWorkspaces
-            except AttributeError:
-                pass
-
-        return None
+        return cls._get_strategy().get_cuda_clear_workspaces_func()
 
     @classmethod
     def ipc_collect(cls, device=None):
@@ -436,16 +650,7 @@ class GPUBackendManager:
         Args:
             device: Device index (default: None).
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            try:
-                if device is None:
-                    torch.cuda.ipc_collect()
-                else:
-                    torch.cuda.ipc_collect(device)
-            except Exception as e:
-                logger.debug(f"IPC collect failed: {e}")
+        cls._get_strategy().ipc_collect(device)
 
     @classmethod
     def get_grad_scaler(cls, enabled: bool = True):
@@ -457,15 +662,7 @@ class GPUBackendManager:
         Returns:
             GradScaler instance or None if not applicable.
         """
-        backend = cls.detect_backend()
-
-        if enabled and (backend == GPUBackend.CUDA or backend == GPUBackend.ROCM):
-            return torch.amp.GradScaler("cuda")
-        elif enabled and backend == GPUBackend.XPU:
-            # XPU may use different scaling strategy
-            return None
-        else:
-            return None
+        return cls._get_strategy().get_grad_scaler(enabled)
 
     @classmethod
     def get_autocast_device_type(cls) -> str:
@@ -474,14 +671,7 @@ class GPUBackendManager:
         Returns:
             Device type string for torch.amp.autocast.
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            return "cuda"
-        elif backend == GPUBackend.XPU:
-            return "xpu"
-        else:
-            return "cpu"
+        return cls._get_strategy().get_autocast_device_type()
 
     @classmethod
     def get_process_group_backend(cls) -> str:
@@ -490,16 +680,7 @@ class GPUBackendManager:
         Returns:
             Process group backend string ("nccl", "gloo", etc.).
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA:
-            return "nccl"
-        elif backend == GPUBackend.ROCM:
-            return "nccl"  # ROCM also uses NCCL (hipified)
-        elif backend == GPUBackend.XPU:
-            return "ccl"  # Intel uses CCL
-        else:
-            return "gloo"  # CPU fallback
+        return cls._get_strategy().get_process_group_backend()
 
     @classmethod
     def format_device_string(cls, index: int = 0) -> str:
@@ -511,13 +692,4 @@ class GPUBackendManager:
         Returns:
             Device string suitable for tensor.to(device_string).
         """
-        backend = cls.detect_backend()
-
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-            return f"cuda:{index}"
-        elif backend == GPUBackend.XPU:
-            return f"xpu:{index}"
-        elif backend == GPUBackend.MPS:
-            return "mps"
-        else:
-            return "cpu"
+        return cls._get_strategy().format_device_string(index)

@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .auth import APIAuthMiddleware
+from .middleware.csrf import CSRFMiddleware
 from .middleware.request_id import RequestIDMiddleware, RequestIDLogFilter
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -116,8 +117,12 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=["http://127.0.0.1", "http://localhost", "http://127.0.0.1:7869", "http://localhost:7869"],
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "X-CSRF-Token", "HX-Request", "HX-Target", "HX-Trigger"],
+    )
+
+    app.add_middleware(
+        CSRFMiddleware,
     )
 
     from .config import API_AUTH

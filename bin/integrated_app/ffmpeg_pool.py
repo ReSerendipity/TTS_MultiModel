@@ -189,6 +189,7 @@ def convert_sync(
     """Synchronous wrapper for FFmpeg conversion.
 
     Tries the async pool first, falls back to subprocess.run if unavailable.
+    Reuses the global event loop when possible to avoid creation overhead.
 
     Args:
         input_path: Path to input audio file
@@ -202,19 +203,25 @@ def convert_sync(
     try:
         pool = get_ffmpeg_pool()
         if _ffmpeg_available():
-            loop = asyncio.new_event_loop()
+            # Try to reuse an existing event loop
             try:
-                result = loop.run_until_complete(
-                    pool.convert(
-                        input_path=input_path,
-                        output_path=output_path,
-                        output_format=output_format,
-                        bitrate=bitrate,
-                    )
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    raise RuntimeError("Event loop is closed")
+            except RuntimeError:
+                # No running loop, create and cache one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(
+                pool.convert(
+                    input_path=input_path,
+                    output_path=output_path,
+                    output_format=output_format,
+                    bitrate=bitrate,
                 )
-                return result
-            finally:
-                loop.close()
+            )
+            return result
     except Exception as e:
         logger.warning(f"FFmpeg pool conversion failed, falling back to subprocess: {e}")
 

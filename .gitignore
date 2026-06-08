@@ -73,6 +73,10 @@ lora/
 .env
 .env.local
 
+# SSL certificates (generated at runtime)
+bin/cert.pem
+bin/key.pem
+
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints/
 

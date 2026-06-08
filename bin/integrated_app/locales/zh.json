@@ -634,5 +634,16 @@
   "auto_save_hint": "生成完成后自动保存音频文件到本地。开启后无需手动点击下载。",
   "auto_play_hint": "生成完成后自动播放音频。开启后音频生成完毕将立即开始播放。",
   "notifications_hint": "显示操作成功或失败的桌面通知。开启后将在浏览器中显示提示消息。",
-  "default_output_format": "默认输出格式"
+  "default_output_format": "默认输出格式",
+  "sse_time_few_seconds": "几秒后完成",
+  "sse_time_about": "约",
+  "sse_time_seconds": "秒",
+  "sse_time_minutes": "分",
+  "sse_generation_cancelled": "生成已取消",
+  "sse_generation_complete": "生成完成",
+  "sse_status_idle": "空闲",
+  "history_no_records": "暂无记录",
+  "no_persona_please_clone": "暂无音色，请先克隆",
+  "no_audio_playing": "未播放音频",
+  "download": "下载"
 }

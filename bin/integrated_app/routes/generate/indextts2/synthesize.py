@@ -49,9 +49,9 @@ async def generate_indextts2(
     if len(text) > MAX_TEXT_LENGTH:
         return _error_html(f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
 
-    from ....model_manager import registry
+    from ....model_registry import registry
     from ....generation import split_text_for_tts
-    engine = registry.indextts2_engine
+    engine = registry.get_current_engine()
 
     ref_audio_path = None
     emo_audio_path = None

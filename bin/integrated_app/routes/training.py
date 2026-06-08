@@ -12,12 +12,13 @@ try:
 except ImportError:
     yaml = None
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("tts_multimodel.training")
 router = APIRouter(prefix="/api/training", tags=["training"])
 
 _training_process = None
 _training_log = ""
 _training_log_lock = threading.Lock()
+_MAX_LOG_LENGTH = 1_000_000
 
 
 def _validate_path(base_dir: str, user_path: str) -> str:
@@ -58,6 +59,47 @@ def _detect_out_sample_rate(pretrained_path: str) -> int:
         return 0
 
 
+def _validate_training_params(body: dict) -> list[str]:
+    """Validate numeric parameter ranges for the training endpoint."""
+    errors: list[str] = []
+
+    _RANGE_CHECKS = {
+        "learning_rate":   (float, True,  0,     True,  1.0,   "> 0 and <= 1.0"),
+        "num_iters":       (int,   True,  1,     True,  100000, ">= 1 and <= 100000"),
+        "batch_size":      (int,   True,  1,     True,  32,     ">= 1 and <= 32"),
+        "grad_accum_steps": (int,  True,  1,     True,  64,     ">= 1 and <= 64"),
+        "save_interval":   (int,   True,  100,   True,  50000,  ">= 100 and <= 50000"),
+        "log_interval":    (int,   True,  1,     True,  1000,   ">= 1 and <= 1000"),
+        "weight_decay":    (float, True,  0,     True,  1.0,    ">= 0 and <= 1.0"),
+        "warmup_steps":    (int,   True,  0,     True,  10000,  ">= 0 and <= 10000"),
+        "max_grad_norm":   (float, True,  0,     True,  100.0,  "> 0 and <= 100.0"),
+        "num_workers":     (int,   True,  0,     True,  16,     ">= 0 and <= 16"),
+        "valid_interval":  (int,   True,  100,   True,  50000,  ">= 100 and <= 50000"),
+    }
+
+    for param, (typ, lo_strict, lo, hi_strict, hi, desc) in _RANGE_CHECKS.items():
+        if param in body:
+            try:
+                val = typ(body[param])
+            except (ValueError, TypeError):
+                errors.append(f"{param} must be {typ.__name__}, got {body[param]!r}")
+                continue
+            lo_ok = val > lo if lo_strict else val >= lo
+            hi_ok = val <= hi if hi_strict else val < hi
+            if not (lo_ok and hi_ok):
+                errors.append(f"{param} must be {desc}, got {val}")
+
+    if "max_steps" in body:
+        try:
+            val = int(body["max_steps"])
+            if not (0 <= val <= 100000):
+                errors.append(f"max_steps must be >= 0 and <= 100000, got {val}")
+        except (ValueError, TypeError):
+            errors.append(f"max_steps must be int, got {body['max_steps']!r}")
+
+    return errors
+
+
 @router.post("/start", summary="开始训练", description="启动 LoRA 微调训练")
 async def start_training(request: Request):
     global _training_process, _training_log
@@ -69,6 +111,13 @@ async def start_training(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"status": "error", "message": "Invalid JSON"})
+
+    validation_errors = _validate_training_params(body)
+    if validation_errors:
+        return JSONResponse(
+            {"status": "error", "message": "Parameter validation failed", "errors": validation_errors},
+            status_code=422,
+        )
 
     pretrained_path = body.get("pretrained_path", "pretrained_models/VoxCPM2")
     train_manifest = body.get("train_manifest", "")
@@ -189,6 +238,8 @@ async def start_training(request: Request):
                     decoded = line.decode("utf-8", errors="replace")
                     with _training_log_lock:
                         _training_log += decoded
+                        if len(_training_log) > _MAX_LOG_LENGTH:
+                            _training_log = _training_log[-_MAX_LOG_LENGTH:]
             except Exception as e:
                 with _training_log_lock:
                     _training_log += f"\nLog read error: {e}\n"
@@ -198,7 +249,8 @@ async def start_training(request: Request):
 
         return JSONResponse({"status": "ok", "process_id": _training_process.pid})
     except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)})
+        logger.error(f"Training start failed: {e}")
+        return JSONResponse({"status": "error", "message": "训练启动失败，请检查配置和日志"})
 
 
 @router.post("/stop", summary="停止训练", description="停止正在进行的训练")

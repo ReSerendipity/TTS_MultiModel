@@ -10,21 +10,7 @@ router = APIRouter()
 @router.get("/")
 async def index(request: Request):
     templates = request.app.state.templates
-    # URL parameter takes priority over cookie
-    lang = request.query_params.get("lang")
-    if not lang:
-        cookie_lang = request.cookies.get("lang")
-        if cookie_lang:
-            lang = cookie_lang
-    if not lang:
-        lang = "zh-CN"
-    # Map short codes to full codes
-    lang_map = {"zh": "zh-CN", "ja": "ja", "jp": "ja", "ko": "ko", "kr": "ko", "en": "en"}
-    if lang in lang_map:
-        lang = lang_map[lang]
-    # Supported languages
-    if lang not in ("en", "zh-CN", "zh-Hans", "ja", "ko"):
-        lang = "zh-CN"
+    lang = get_lang(request)
     return templates.TemplateResponse(
         "base.html",
         {

@@ -5,66 +5,34 @@ import time
 import numpy as np
 
 from ._base import (
-    EngineSwitchError,
     GenerationError,
     SAVE_DIR,
     _advanced_kwargs,
-    _gen_tracker,
     _progress_mgr,
     _save_wav_compatible,
     cleanup_temp_files,
     get_persona_map,
     logger,
-    split_text_for_tts,
-    tts_error_handler,
 )
+from .decorators import with_generation_context
 
 
+@with_generation_context(phase_name="VoxCPM剧本工坊", cleanup_fn=cleanup_temp_files)
 def fn_voxcpm_script_studio(
     script_text: str, advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
     advanced_steps: int, advanced_seed: int, lang: str = "中文",
     persona_map_with_wav: dict | None = None,
 ) -> tuple[tuple | None, str]:
-    from ...model_manager import _check_voxcpm2_lock
-    from ...model_manager import voxcpm_model as _voxcpm_model
-    if _voxcpm_model is None:
-        raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
+    from ...model_registry import registry
 
-    @tts_error_handler
-    def _wrapped(script_text, advanced_cfg, advanced_norm, advanced_denoise, advanced_steps, advanced_seed, lang, persona_map_with_wav):
-        if not _check_voxcpm2_lock():
-            raise GenerationError("模型正在加载或切换中，请稍后再试")
-        _gen_tracker.start_generation()
-        start_time = time.time()
-        valid_lines = [line for line in script_text.strip().split("\n") if "]" in line]
-        _progress_mgr.start(total_segments=len(valid_lines), phase="剧本合成中...")
-        try:
-            return _fn_voxcpm_script_studio_impl(
-                script_text, advanced_cfg, advanced_norm, advanced_denoise,
-                advanced_steps, advanced_seed, lang, start_time,
-                persona_map_with_wav=persona_map_with_wav,
-            )
-        finally:
-            elapsed = time.time() - start_time
-            _gen_tracker.end_generation(elapsed)
-            _progress_mgr.schedule_reset(delay_seconds=120)
-            cleanup_temp_files()
-            logger.info(f"[VoxCPM剧本工坊] 合成耗时 {elapsed:.1f} 秒")
-
-    return _wrapped(script_text, advanced_cfg, advanced_norm, advanced_denoise, advanced_steps, advanced_seed, lang, persona_map_with_wav)
-
-
-def _fn_voxcpm_script_studio_impl(
-    script_text: str, advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
-    advanced_steps: int, advanced_seed: int, lang: str, start_time: float,
-    persona_map_with_wav: dict | None = None,
-) -> tuple[tuple | None, str]:
-    from ...model_manager import voxcpm_model as _voxcpm_model
-
+    start_time = time.time()
     persona_map = get_persona_map()
     lines = script_text.strip().split("\n")
     valid_lines = [line for line in lines if "]" in line]
     total_roles = len(valid_lines)
+
+    _progress_mgr.start(total_segments=total_roles, phase="剧本合成中...")
+
     combined_wav = []
     sr_final = 48000
     role_idx = 0
@@ -103,7 +71,7 @@ def _fn_voxcpm_script_studio_impl(
             continue
 
         ref_wav = persona_map[persona_key]["wav"]
-        wav = _voxcpm_model.generate(
+        wav = registry.voxcpm_model.generate(
             text=content,
             reference_wav_path=ref_wav,
             normalize=bool(advanced_norm),

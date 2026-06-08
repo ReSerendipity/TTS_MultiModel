@@ -1,3 +1,5 @@
+# DEPRECATED: This module is superseded by history_db.py.
+# Do not use for new code. Will be removed in a future version.
 # -*- coding: utf-8 -*-
 """
 历史记录管理模块

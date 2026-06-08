@@ -32,7 +32,7 @@ class APIAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization", "")
-        if auth_header == f"Bearer {self.token}" and self.token:
+        if self.token and auth_header == f"Bearer {self.token}":
             return await call_next(request)
 
         raise HTTPException(status_code=401, detail="未授权访问：缺少或无效的 Bearer Token")

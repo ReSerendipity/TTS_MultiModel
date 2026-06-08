@@ -10,7 +10,7 @@ from fastapi import Form, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from ....config import MAX_TEXT_LENGTH, SAVE_DIR
-from ....engines.voxcpm2_engine import fn_voxcpm_streaming
+from ....model_registry import registry
 from ....monitor import get_health_monitor
 from ..utils import (
     _check_engine_ready,
@@ -38,7 +38,6 @@ async def streaming_sse_generation(
     denoise: str = Form("true"),
 ):
     from ....generation import split_text_for_tts
-    from ....model_registry import registry
     from ....persona_manager import load_persona_embedding
 
     model_not_ready = _check_engine_ready("voxcpm2")
@@ -204,9 +203,10 @@ async def streaming_generation(
     loop = asyncio.get_running_loop()
 
     def _run():
-        return fn_voxcpm_streaming(text, actual_ref_path,
-                                   cfg_value=cfg_value, inference_timesteps=inference_timesteps,
-                                   denoise=stream_denoise, seed=seed)
+        engine = registry.get_current_engine()
+        return engine.generate_streaming(text, actual_ref_path,
+                                         cfg_value=cfg_value, inference_timesteps=inference_timesteps,
+                                         denoise=stream_denoise, seed=seed)
 
     start_time = time.monotonic()
     try:
@@ -270,7 +270,6 @@ async def streaming_audio_generation(
     try:
         loop = asyncio.get_running_loop()
         from ....generation import split_text_for_tts
-        from ....model_registry import registry
         segments = split_text_for_tts(text)
 
         all_audio_data = []
