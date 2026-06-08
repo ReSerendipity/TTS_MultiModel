@@ -51,6 +51,7 @@ def generate_with_template(
     prompt_cache=None,
     start_time: float | None = None,
     message_builder=None,
+    skip_progress_start: bool = False,
 ) -> tuple[tuple | None, str]:
     """VoxCPM2 公共生成模板函数。
 
@@ -82,7 +83,10 @@ def generate_with_template(
     segments = split_text_for_tts(text)
     total = len(segments)
 
-    _progress_mgr.start(total_segments=total, phase="VoxCPM2 推理中...")
+    if skip_progress_start:
+        _progress_mgr.update_phase("VoxCPM2 推理中...")
+    else:
+        _progress_mgr.start(total_segments=total, phase="VoxCPM2 推理中...")
 
     def _build_text(seg_text):
         if instruction and instruction.strip():

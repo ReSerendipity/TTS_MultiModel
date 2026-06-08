@@ -208,39 +208,41 @@ async def streaming_generation(
                                          cfg_value=cfg_value, inference_timesteps=inference_timesteps,
                                          denoise=stream_denoise, seed=seed)
 
-    def _degraded_run():
-        engine = registry.get_current_engine()
-        degraded_steps = max(inference_timesteps // 2, 4)
-        return engine.generate_streaming(text, actual_ref_path,
-                                         cfg_value=cfg_value, inference_timesteps=degraded_steps,
-                                         denoise=False, seed=seed)
-
     start_time = time.monotonic()
     try:
-        from ..utils import _run_with_oom_retry
-        result, msg, degraded_note = await loop.run_in_executor(
-            None, lambda: _run_with_oom_retry(_run, "Streaming", degraded_fn=_degraded_run)
-        )
+        result = await loop.run_in_executor(None, _run)
         duration = time.monotonic() - start_time
+        # result is either a numpy array or list of chunks from fn_voxcpm_streaming
         if result is None:
-            _log_generation("Streaming", text, "voxcpm2", "streaming", False, duration, error_msg=msg)
-            return _error_html(msg or "生成失败")
-        is_degraded = degraded_note is not None
-        _log_generation("Streaming", text, "voxcpm2", "streaming", True, duration, is_degraded=is_degraded)
+            _log_generation("Streaming", text, "voxcpm2", "streaming", False, duration, error_msg="生成失败")
+            return _error_html("生成失败")
+
+        # Convert to standard format: merge chunks and save
+        from ....generation import _save_wav_compatible
+
+        if isinstance(result, list):
+            merged = np.concatenate(result) if result else np.array([], dtype=np.float32)
+        else:
+            merged = result
+
+        sample_rate = 48000
+        duration_sec = len(merged) / sample_rate if len(merged) > 0 else 0
+        timestamp = int(time.time())
+        filename = f"streaming_{timestamp}.wav"
+        out_path = os.path.join(SAVE_DIR, filename)
+        _save_wav_compatible(merged, out_path, sample_rate)
+
+        _log_generation("Streaming", text, "voxcpm2", "streaming", True, duration)
         _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
-        from ....config import SAVE_DIR
-        if isinstance(result, tuple) and len(result) >= 3:
-            audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
-            _record_to_history_db(
-                filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
-                model_type="流式生成", output_format="wav", is_success=True,
-            )
+        audio_path = out_path
+        _record_to_history_db(
+            filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
+            model_type="流式生成", output_format="wav",
+            is_success=True,
+        )
         monitor = get_health_monitor()
         monitor.record_generation(success=True)
-        if degraded_note:
-            from ..utils import _partial_success_html
-            return _partial_success_html(result[2], f"流式生成完成！耗时 {duration:.1f}秒", degraded_note)
-        return _success_html(result[2], f"流式生成完成！耗时 {duration:.1f}秒")
+        return _success_html(filename, f"流式生成完成！耗时 {duration:.1f}秒")
     except Exception as e:
         duration = time.monotonic() - start_time
         logger.error(f"Streaming generation failed: {e}")

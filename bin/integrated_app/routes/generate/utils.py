@@ -316,7 +316,7 @@ async def _execute_generation_impl(
             audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
             _record_to_history_db(
                 filepath=audio_path, text=text, engine=engine, duration=duration,
-                model_type=model_type, output_format=result[1] if len(result) > 1 else "wav",
+                model_type=model_type, output_format="wav",
                 is_success=True,
             )
         monitor = get_health_monitor()

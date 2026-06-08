@@ -26,7 +26,11 @@ def fn_voxcpm_script_studio(
     from ...model_registry import registry
 
     start_time = time.time()
-    persona_map = get_persona_map()
+    if persona_map_with_wav:
+        # Route provides {name: wav_path}, convert to {name: {"wav": path, "text": ""}}
+        persona_map = {k: {"wav": v, "text": ""} for k, v in persona_map_with_wav.items()}
+    else:
+        persona_map = get_persona_map()
     lines = script_text.strip().split("\n")
     valid_lines = [line for line in lines if "]" in line]
     total_roles = len(valid_lines)

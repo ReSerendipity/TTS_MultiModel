@@ -26,7 +26,6 @@ def fn_voxcpm_design(text: str, instruction: str,
         if not _check_voxcpm2_lock():
             raise GenerationError("模型正在加载或切换中，请稍后再试")
         _gen_tracker.start_generation()
-        _progress_mgr.start(total_segments=1, phase="准备中...")
         start_time = time.time()
         try:
             def gen_kwargs_builder(seg_text, ref_path, prompt_cache):

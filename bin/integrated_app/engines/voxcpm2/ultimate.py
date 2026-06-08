@@ -113,4 +113,5 @@ def _fn_voxcpm_ultimate_clone_impl(
         ref_audio_path=ref_audio_path,
         start_time=start_time,
         message_builder=message_builder,
+        skip_progress_start=True,
     )
