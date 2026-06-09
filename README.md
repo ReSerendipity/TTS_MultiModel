@@ -1,4 +1,4 @@
-# 🎙️ TTS MultiModel
+# TTS MultiModel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
@@ -6,38 +6,38 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078D6.svg?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 
-基于 VoxCPM2 的多模型语音合成平台。支持声音设计、声音克隆、LoRA 微调训练与多角色剧本配音。内置 9 种预置音色，支持中英日韩多语言界面。
+基于 VoxCPM2 和 IndexTTS 2.0 的多模型语音合成平台。支持声音设计、声音克隆、LoRA 微调训练与多角色剧本配音。内置 9 种预置音色，支持中英日韩多语言界面。
 
 A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAPI-based web interface, supporting voice cloning, model training, and high-quality speech synthesis.
 
-## ✨ Features
+## Features
 
-- 🎤 **Multiple TTS Models** - Support for VoxCPM2 and IndexTTS 2.0 dual-engine architecture
-- 🎭 **Voice Cloning** - Create custom voice personas with minimal audio samples (controllable clone + ultimate clone)
-- 🎨 **Voice Design** - Generate speech from voice description text
-- 🎬 **Script Studio** - Multi-character dialogue generation with speaker mapping
-- 📡 **Streaming Generation** - Real-time audio streaming for long text
-- 🏋️ **LoRA Fine-tuning** - Fine-tune models with your own datasets via LoRA
-- 🌐 **Web Interface** - Responsive and modern web UI built with FastAPI + HTMX + Jinja2
-- 📦 **Batch Processing** - Support for batch audio generation
-- 📜 **History Management** - SQLite-based history tracking with search, filter, and pagination
-- 🌍 **Multi-language** - Internationalization support (i18n) for Chinese, English, Japanese, Korean
-- ⚡ **Multi-GPU Backend** - Support for NVIDIA CUDA, AMD ROCM, Intel XPU, Apple MPS, and CPU
-- 🔥 **GPU Acceleration** - Optimized for GPU-based inference with adaptive VRAM management
-- 🔊 **9 Official Speakers** - Pre-configured voice personas covering various voice types
+- **Multiple TTS Models** - Support for VoxCPM2 and IndexTTS 2.0 dual-engine architecture
+- **Voice Cloning** - Create custom voice personas with minimal audio samples (controllable clone + ultimate clone)
+- **Voice Design** - Generate speech from voice description text
+- **Script Studio** - Multi-character dialogue generation with speaker mapping
+- **Streaming Generation** - Real-time audio streaming for long text
+- **LoRA Fine-tuning** - Fine-tune models with your own datasets via LoRA
+- **Web Interface** - Responsive and modern web UI built with FastAPI + HTMX + Jinja2
+- **Batch Processing** - Support for batch audio generation
+- **History Management** - SQLite-based history tracking with search, filter, and pagination
+- **Multi-language** - Internationalization support (i18n) for Chinese, English, Japanese, Korean
+- **Multi-GPU Backend** - Support for NVIDIA CUDA, AMD ROCM, Intel XPU, Apple MPS, and CPU
+- **GPU Acceleration** - Optimized for GPU-based inference with adaptive VRAM management
+- **9 Official Speakers** - Pre-configured voice personas covering various voice types
 
-## 🚀 Quick Start (Windows)
+## Quick Start
 
 ### Prerequisites
 
-- **Operating System**: Windows 10/11 (64-bit)
-- **Python**: 3.12+ (bundled WinPython included, or install your own)
+- **Operating System**: Windows 10/11 (64-bit) or Linux
+- **Python**: 3.12+ (bundled WinPython included for Windows, or install your own)
 - **GPU**: NVIDIA GPU (CUDA) / AMD GPU (ROCM) / Intel GPU (XPU) (recommended for optimal performance)
   - Both integrated and discrete GPUs are supported
   - Minimum 6.5GB VRAM required for VoxCPM2 model
-- **VC Redistributable**: Visual C++ Redistributable (included in `VC运行库/` folder)
+- **VC Redistributable** (Windows only): Visual C++ Redistributable (included in `VC运行库/` folder)
 
-### Installation Steps
+### Windows
 
 #### Method 1: Use Bundled WinPython (Recommended)
 
@@ -73,18 +73,57 @@ A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAP
    pip install -r requirements.txt
    ```
 
-3. **Download required models**
+3. **Download required models** (see [Model Download](#model-download) section)
 
 4. **Start the application**:
    ```bash
    python bin\clean_launch.py
    ```
 
-## 🤖 Model Download
+### Linux
+
+1. **Install Python 3.12+** and dependencies:
+   ```bash
+   git clone https://github.com/ReSerendipity/TTS_MultiModel.git
+   cd TTS_MultiModel
+   chmod +x install.sh
+   ./install.sh
+   ```
+
+2. **Download required models** (see [Model Download](#model-download) section)
+
+3. **Start the application**:
+   ```bash
+   chmod +x start.sh
+   ./start.sh
+   ```
+
+### Docker
+
+1. **Build and run with Docker Compose**:
+   ```bash
+   docker compose up -d
+   ```
+
+2. **Or build manually**:
+   ```bash
+   docker build -t tts-multimodel .
+   docker run -d --gpus all -p 7869:7869 \
+     -v ./pretrained_models:/app/pretrained_models \
+     -v ./outputs:/app/outputs \
+     -v ./personas:/app/personas \
+     tts-multimodel
+   ```
+
+3. Access the application at `http://localhost:7869`
+
+> **Note**: Docker deployment requires NVIDIA GPU with nvidia-docker runtime installed. See [Dockerfile](Dockerfile) and [docker-compose.yml](docker-compose.yml) for details.
+
+## Model Download
 
 The following models need to be downloaded separately and placed in the `pretrained_models/` directory:
 
-### Required Models
+### Required Models (VoxCPM2 Engine)
 
 | Model | Description | Directory |
 |-------|-------------|-----------|
@@ -92,45 +131,64 @@ The following models need to be downloaded separately and placed in the `pretrai
 | SenseVoiceSmall | ASR (Automatic Speech Recognition) model | `pretrained_models/SenseVoiceSmall/` |
 | speech_zipenhancer | Audio denoiser model | `pretrained_models/speech_zipenhancer/` |
 
+### Required Models (IndexTTS 2.0 Engine)
+
+| Model | Description | Directory |
+|-------|-------------|-----------|
+| IndexTTS2 | IndexTTS 2.0 TTS model | `pretrained_models/IndexTTS2/` |
+
 Download from [HuggingFace](https://huggingface.co/) or [ModelScope](https://modelscope.cn/).
 
 ### Model Download Script (Optional)
 
-If a `download_models.py` script is included, you can use it to automate the download:
+Use the provided script to download IndexTTS 2.0 model:
 ```bash
-python download_models.py
+python scripts/download_indextts2.py
 ```
 
-## 📁 Project Structure
+For detailed download instructions, see [Model Download Guide](docs/MODEL_DOWNLOAD_GUIDE.md).
+
+## Project Structure
 
 ```
 TTS_MultiModel/
 ├── bin/                          # Application binaries and scripts
 │   ├── integrated_app/          # Main application code
 │   │   ├── routes/             # API route handlers
+│   │   │   ├── generate/       # TTS generation routes (VoxCPM2, IndexTTS2)
+│   │   │   └── system/         # System routes (health, GPU, settings)
 │   │   ├── engines/            # TTS model engines
+│   │   │   ├── voxcpm2/       # VoxCPM2 engine implementation
+│   │   │   └── indextts2_engine.py  # IndexTTS 2.0 engine
 │   │   ├── training/           # Model training modules
-│   │   ├── ui/                 # UI components
-│   │   └── ...
+│   │   ├── middleware/         # HTTP middleware (CSRF, request ID)
+│   │   ├── templates/          # Jinja2 HTML templates
+│   │   ├── locales/            # i18n translation files (zh, en, ja, ko)
+│   │   └── ui/                 # UI components
 │   ├── clean_launch.py         # Clean startup script
-│   └── test_integration.py     # Integration tests
-├── pretrained_models/           # Pre-trained model files (download separately)
+│   ├── start_app.bat           # Windows startup batch file
+│   └── ffmpeg.exe / ffplay.exe / ffprobe.exe  # Audio tools
+├── data/                        # Runtime data files
+├── docs/                        # Project documentation
+│   ├── screenshots/            # Application screenshots
+│   └── research/               # Research and analysis reports
+├── examples/                    # Example data for training
 ├── personas/                    # Custom voice persona files
-├── outputs/                     # Generated audio outputs
-├── lora/                        # LoRA fine-tuned models
-├── cache/                       # Cache directory
+├── scripts/                     # Utility and debug scripts
+├── tests/                       # Test suite
+│   └── benchmarks/             # Performance benchmark tests
+├── VC运行库/                    # Windows VC++ Redistributable installers
 ├── config.yaml                  # Application configuration
+├── pyproject.toml               # Python project metadata
 ├── requirements.txt             # Python dependencies
-├── docs/                        # Documentation
-│   ├── MODEL_DOWNLOAD_GUIDE.md      # Model download and configuration guide
-│   ├── MODEL_EXTENSION_GUIDE.md     # How to add new TTS engines
-│   └── UI开发指南_README.md         # UI development guide
-├── install.bat                  # Windows installation script
-├── start.bat                    # Windows startup script
+├── Dockerfile                   # Docker build configuration
+├── docker-compose.yml           # Docker Compose configuration
+├── install.bat / install.sh     # Installation scripts
+├── start.bat / start.sh         # Startup scripts
 └── LICENSE                      # MIT License
 ```
 
-## 🎯 Usage
+## Usage
 
 ### Starting the Application
 
@@ -139,9 +197,19 @@ TTS_MultiModel/
    start.bat
    ```
 
-2. **Clean Launch** (clears cache):
+2. **Quick Start** (Linux):
+   ```bash
+   ./start.sh
+   ```
+
+3. **Clean Launch** (clears cache):
    ```bash
    python bin/clean_launch.py
+   ```
+
+4. **Docker**:
+   ```bash
+   docker compose up -d
    ```
 
 ### Web Interface
@@ -166,13 +234,22 @@ The application will auto-open your browser when ready.
 - Provide persona name and description
 - Generate custom voice persona
 
+#### Voice Design
+- Describe the desired voice characteristics in text
+- Generate speech matching the description
+
+#### Script Studio
+- Write multi-character dialogue scripts
+- Assign speakers to dialogue lines
+- Generate audio for the entire script
+
 #### Model Training
 - Prepare training dataset (audio + text pairs)
 - Configure training parameters
 - Start fine-tuning process
 - Monitor training progress in real-time
 
-## ⚙️ Configuration
+## Configuration
 
 Edit `config.yaml` to customize:
 
@@ -188,7 +265,9 @@ Edit `config.yaml` to customize:
   - Host address
   - GPU settings
 
-## 🎙️ Official Speakers
+For detailed parameter descriptions, see [Adjustable Parameters Guide](docs/ADJUSTABLE_PARAMETERS.md).
+
+## Official Speakers
 
 The application comes with 9 pre-configured official speakers:
 
@@ -204,49 +283,62 @@ The application comes with 9 pre-configured official speakers:
 | 老伯 | Experienced and deep elderly voice | 老年男音 |
 | 少女 | Sweet and lovely young girl voice | 少女音 |
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| Web Framework | FastAPI |
-| Frontend | HTMX + Jinja2 |
-| TTS Engine | VoxCPM2 |
+| Web Framework | FastAPI + Uvicorn |
+| Frontend | HTMX + Jinja2 + Bootstrap |
+| TTS Engine | VoxCPM2 + IndexTTS 2.0 |
 | ASR Engine | SenseVoiceSmall |
-| Audio Processing | speech_zipenhancer |
+| Audio Processing | speech_zipenhancer + FFmpeg + SoX |
 | Deep Learning | PyTorch + Transformers + FunASR |
+| Database | SQLite (history) |
 | Language | Python 3.12+ |
+| Containerization | Docker + Docker Compose |
 
-## 🔧 Troubleshooting
+## API Endpoints
 
-### Common Issues
+The application provides REST API endpoints for programmatic access:
 
-1. **VC Redistributable Error**:
-   - Install `VC运行库\VC_redist.x64.exe`
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/system/health` | GET | Health check |
+| `/api/system/gpu` | GET | GPU utilization info |
+| `/api/generate/voxcpm2/clone` | POST | Voice cloning (VoxCPM2) |
+| `/api/generate/voxcpm2/design` | POST | Voice design (VoxCPM2) |
+| `/api/generate/voxcpm2/script` | POST | Script generation (VoxCPM2) |
+| `/api/generate/voxcpm2/streaming_sse` | POST | Streaming generation (SSE) |
+| `/api/generate/indextts2/synthesize` | POST | TTS synthesis (IndexTTS 2.0) |
+| `/api/model/load` | POST | Load TTS model |
+| `/api/model/unload` | POST | Unload TTS model |
+| `/api/history` | GET | Generation history |
 
-2. **Model Not Found**:
-   - Ensure models are downloaded and placed in `pretrained_models/`
-   - Check directory structure matches expected layout
+> **Note**: Enable API authentication in `config.yaml` under `api_auth` section for production use.
 
-3. **GPU Not Detected**:
-   - Install GPU-compatible PyTorch version (CUDA for NVIDIA, ROCM for AMD, XPU for Intel)
-   - Verify GPU drivers are up to date
-   - For integrated GPUs (iGPU), ensure system memory is sufficient (VoxCPM2 requires ~6.5GB VRAM)
-   - Check `python -c "import torch; print(torch.cuda.is_available())"` or equivalent for your backend
-
-4. **Port Already in Use**:
-   - The app will auto-select an available port
-   - Check console output for the actual URL
-
-### Logs
-
-Check `logs/app.log` for detailed error messages.
-
-## 🧪 Development
+## Development
 
 ### Running Tests
 
 ```bash
-python bin/test_integration.py
+# Run all tests
+pytest tests/ -v
+
+# Run unit tests only (skip GPU/integration tests)
+pytest tests/ -v -k "not gpu and not cuda and not vram" -m "not integration"
+
+# Run with coverage
+pytest tests/ -v --cov=bin/integrated_app --cov-report=term-missing
+```
+
+### Code Quality
+
+```bash
+# Lint
+ruff check bin/integrated_app/ scripts/
+
+# Format
+ruff format bin/integrated_app/ scripts/
 ```
 
 ### Code Structure
@@ -265,28 +357,38 @@ python bin/test_integration.py
   - `gpu_backend.py`: Multi-backend GPU abstraction layer
   - `gpu_utils.py`: GPU memory management and OOM detection
 
-## Recent Optimizations (v2.0)
+For architecture details, see [Project Architecture](docs/PROJECT_ARCHITECTURE.md).
 
-### Architecture Improvements
-- **Generation Template Pattern**: Extracted common generation logic into `generate_with_template()` in `_base.py`, eliminating ~176 lines of duplicate code across clone/design/ultimate modules
-- **TTSEngine Protocol Enforcement**: Route layer now calls engines through `registry.get_current_engine()` protocol interface instead of direct module imports, enabling transparent engine switching
-- **Unified Model Loading**: Merged `load_voxcpm2()` and `_load_voxcpm2_engine()` into shared `_do_load_voxcpm2_internal()`, eliminating ~60 lines of duplicate loading code
+## Troubleshooting
 
-### Concurrency & Reliability
-- **Semaphore Race Condition Fix**: Replaced TOCTOU-vulnerable `locked()` check with `asyncio.wait_for()` + proper `finally` release, ensuring no deadlocks
-- **OOM Retry with Degraded Parameters**: OOM retries now automatically reduce inference steps and disable denoising instead of retrying with identical parameters (max 2 retries)
-- **Unified Error Handling**: All engine exceptions now convert to TTSError subclasses with Chinese user-facing messages; added specialized handling for InsufficientVRAMError and EngineSwitchError
+### Common Issues
 
-### Performance
-- **Tiered GPU Memory Cleanup**: 3-tier cleanup strategy (lightweight → medium → heavy) with timing monitoring, replacing unconditional heavy cleanup
-- **Smart Engine Switching**: Replaced `time.sleep(2)` with VRAM polling (0.5s intervals, max 5s), reducing switch latency
-- **Adaptive Cache Enhancement**: Added memory footprint estimation, eviction tracking, and memory-based capacity limits to AdaptiveLRUCache
+1. **VC Redistributable Error** (Windows):
+   - Install `VC运行库\VC_redist.x64.exe`
 
-### Data & Text Processing
-- **History Database Robustness**: Added corruption detection with auto-rebuild, orphan record cleanup, integrity validation, and file-missing tracking
-- **Smart Text Splitting**: Improved `_find_best_split_point()` to avoid splitting inside quoted content, English abbreviations (Dr., U.S.A.), and decimal numbers (3.14)
+2. **Model Not Found**:
+   - Ensure models are downloaded and placed in `pretrained_models/`
+   - Check directory structure matches expected layout
 
-## 🤝 Contributing
+3. **GPU Not Detected**:
+   - Install GPU-compatible PyTorch version (CUDA for NVIDIA, ROCM for AMD, XPU for Intel)
+   - Verify GPU drivers are up to date
+   - For integrated GPUs (iGPU), ensure system memory is sufficient (VoxCPM2 requires ~6.5GB VRAM)
+   - Check `python -c "import torch; print(torch.cuda.is_available())"` or equivalent for your backend
+
+4. **Port Already in Use**:
+   - The app will auto-select an available port
+   - Check console output for the actual URL
+
+5. **Docker GPU Access**:
+   - Ensure nvidia-docker runtime is installed
+   - Verify with `docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi`
+
+### Logs
+
+Check `logs/app.log` for detailed error messages.
+
+## Contributing
 
 Contributions are welcome! Here's how you can help:
 
@@ -295,22 +397,27 @@ Contributions are welcome! Here's how you can help:
 3. **Submit Code** - Fork → Branch → Commit → Push → Pull Request
 4. **Improve Documentation** - Fix typos, add examples, translate content
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
 
-Copyright (c) 2025 Doro
+Copyright (c) 2026 Doro2047
 
-## 📚 Documentation
+## Documentation
 
 - [Model Download Guide](docs/MODEL_DOWNLOAD_GUIDE.md) - How to download and configure models
 - [Model Extension Guide](docs/MODEL_EXTENSION_GUIDE.md) - How to add new TTS engines
+- [IndexTTS2 Integration Guide](docs/INDEXTTS2_INTEGRATION_GUIDE.md) - IndexTTS 2.0 integration details
+- [Project Architecture](docs/PROJECT_ARCHITECTURE.md) - System architecture overview
+- [Adjustable Parameters](docs/ADJUSTABLE_PARAMETERS.md) - Configuration parameter reference
 - [UI Development Guide](docs/UI开发指南_README.md) - Web UI development guide
+- [Improvement Guidebook](docs/IMPROVEMENT_GUIDEBOOK.md) - Optimization and improvement suggestions
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- VoxCPM2 model and related technologies
-- FastAPI and HTMX for the web interface framework
+- [VoxCPM2](https://github.com/OpenBMB/VoxCPM2) model by OpenBMB
+- [IndexTTS2](https://github.com/IndexTeam/IndexTTS2) model by IndexTeam
+- [FastAPI](https://fastapi.tiangolo.com/) and [HTMX](https://htmx.org/) for the web interface framework
 - All open-source contributors
 
 ---

@@ -9,6 +9,7 @@ outputs/
 temp_indextts/
 *.tmp
 *.log
+log.txt
 error.txt
 get-pip.py
 
@@ -86,3 +87,6 @@ bin/key.pem
 # Coverage
 htmlcov/
 .coverage
+
+# Runtime data (generated at runtime)
+data/generation_times.json
