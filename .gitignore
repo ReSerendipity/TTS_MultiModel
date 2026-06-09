@@ -7,6 +7,7 @@ outputs/
 # Temp files
 ._____temp/
 temp_indextts/
+torch_compile_cache/
 *.tmp
 *.log
 log.txt
