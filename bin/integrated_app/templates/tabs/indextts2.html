@@ -1,21 +1,12 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
         <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
     </div>
-    <div style="padding:0 16px 12px;font-size:13px;color:var(--text-muted);">{{ "indextts2_desc"|t(lang) }}</div>
+    <div class="tts-card-desc">{{ "indextts2_desc"|t(lang) }}</div>
     <style>
         /* ===== IndexTTS2 Tab Styles ===== */
 
-        /* Full-width form inputs */
-        .it2-full-width {
-            width: 100% !important;
-            box-sizing: border-box !important;
-            max-width: none !important;
-            display: block !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-        }
         /* Override any width constraints on the form */
         #it2-form {
             width: 100% !important;
@@ -169,85 +160,13 @@
             font-weight: 600;
             color: var(--accent-primary);
         }
-        .it2-emotion-slider {
-            width: 100%;
-            height: 6px;
-            -webkit-appearance: none;
-            appearance: none;
-            background: var(--bg-tertiary);
-            border-radius: 3px;
-            outline: none;
-        }
-        .it2-emotion-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
-        }
-        .it2-emotion-slider::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
-        }
 
-        /* Emotion preset tags - pill-shaped chips */
+        /* Emotion preset tags container */
         .it2-emotion-presets {
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 10px;
-        }
-        .it2-emotion-preset {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 999px;
-            font-size: 12px;
-            cursor: pointer;
-            border: 1.5px solid transparent;
-            background-clip: padding-box;
-            position: relative;
-            color: var(--text-secondary);
-            background-color: var(--bg-secondary, #f3f4f6);
-            transition: all 0.2s ease;
-            user-select: none;
-            font-family: inherit;
-            line-height: inherit;
-        }
-        .it2-emotion-preset::before {
-            content: '';
-            position: absolute;
-            inset: -1.5px;
-            border-radius: 999px;
-            background: linear-gradient(135deg, #c084fc, #818cf8, #38bdf8);
-            z-index: -1;
-            opacity: 0.5;
-            transition: opacity 0.2s ease;
-        }
-        .it2-emotion-preset:hover {
-            color: var(--text-primary);
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
-        }
-        .it2-emotion-preset:hover::before {
-            opacity: 1;
-        }
-        .it2-emotion-preset.it2-preset-active {
-            color: #fff;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            border-color: transparent;
-            box-shadow: 0 2px 12px rgba(139, 92, 246, 0.35);
-        }
-        .it2-emotion-preset.it2-preset-active::before {
-            opacity: 1;
-            background: linear-gradient(135deg, #a78bfa, #818cf8, #6366f1);
         }
 
         /* Emotion text input */
@@ -255,11 +174,6 @@
             width: 100%;
             margin-top: 10px;
             box-sizing: border-box;
-        }
-
-        /* Full-width button */
-        .it2-full-width-btn {
-            width: 100%;
         }
 
         /* Emotion alpha slider */
@@ -326,23 +240,6 @@
             border-bottom: 2px solid var(--accent-primary);
         }
 
-        /* File upload area */
-        .it2-file-upload {
-            border: 2px dashed var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-bottom: 10px;
-        }
-        .it2-file-upload:hover {
-            border-color: var(--accent-primary);
-            background: rgba(139, 92, 246, 0.05);
-        }
-        .it2-file-upload input[type="file"] {
-            display: none;
-        }
         .it2-file-name {
             font-size: 12px;
             color: var(--text-muted);
@@ -401,21 +298,11 @@
     <form id="it2-form" hx-post="/api/generate/indextts2" hx-target="#it2-result" hx-swap="innerHTML" hx-indicator="#it2-spinner">
         <input type="hidden" name="mode" value="indextts2">
         <label for="it2-text">{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="it2-text" class="tts-input-textbox it2-full-width it2-auto-resize" rows="3" placeholder="{{ 'indextts2_default_text'|t(lang) }}" required oninput="updateIt2CharCounter(this); autoResizeTextarea(this)"></textarea>
+        <textarea name="text" id="it2-text" class="tts-input-textbox tts-full-width it2-auto-resize" rows="3" placeholder="{{ 'indextts2_default_text'|t(lang) }}" required oninput="updateIt2CharCounter(this); autoResizeTextarea(this)"></textarea>
         <div id="it2-char-counter" class="it2-char-counter">0/{{ engine_max_total_chars }}</div>
         <span id="it2-quality-badge" class="micro-quality-badge" style="display:none;"></span>
 
-        <label for="it2-lang">{{ "language"|t(lang) }}</label>
-        <select name="lang" id="it2-lang" class="tts-input-dropdown it2-full-width">
-            {% for l in langs %}
-            <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
-            {% endfor %}
-            <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
-                {% for dialect in dialects %}
-                <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
-                {% endfor %}
-            </optgroup>
-        </select>
+        {% include 'partials/language_selector.html' %}
 
         <div class="inner-tabs">
             <div class="sub-tab-nav">
@@ -424,7 +311,7 @@
             </div>
             <div id="it2-tab-clone" class="inner-tab-panel">
                 <label for="it2-ref-audio">{{ "ref_audio"|t(lang) }}</label>
-                <div class="it2-file-upload" onclick="document.getElementById('it2-ref-audio-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
+                <div class="tts-file-upload" onclick="document.getElementById('it2-ref-audio-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
                     <input type="file" id="it2-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-name')" aria-label="{{ "ref_audio"|t(lang) }}">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 8px; display: block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <div style="font-size: 13px; color: var(--text-secondary);">{{ "upload_ref"|t(lang) }}</div>
@@ -432,7 +319,7 @@
                 </div>
 
                 <label for="it2-ref-text">{{ "ref_text"|t(lang) }} <span style="color: var(--text-muted);">{{ "optional"|t(lang) }}</span></label>
-                <input type="text" name="ref_text" id="it2-ref-text" placeholder="{{ 'ref_text_placeholder'|t(lang) }}" class="tts-input-textbox it2-full-width" style="margin-bottom: 12px;">
+                <input type="text" name="ref_text" id="it2-ref-text" placeholder="{{ 'ref_text_placeholder'|t(lang) }}" class="tts-input-textbox tts-full-width" style="margin-bottom: 12px;">
 
                 <div style="margin-bottom: 12px;">
                     <label for="it2-seed">{{ "random_seed"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
@@ -444,11 +331,11 @@
                     </div>
                 </div>
 
-                <button type="submit" class="primary-btn generate-btn it2-full-width-btn" aria-label="{{ "indextts2_generate"|t(lang) }}">{{ "indextts2_generate"|t(lang) }}</button>
+                <button type="submit" class="primary-btn generate-btn tts-full-width-btn" aria-label="{{ "indextts2_generate"|t(lang) }}">{{ "indextts2_generate"|t(lang) }}</button>
             </div>
             <div id="it2-tab-emotion" class="inner-tab-panel" style="display:none;">
                 <label for="it2-ref-audio-emo">{{ "ref_audio"|t(lang) }}</label>
-                <div class="it2-file-upload" onclick="document.getElementById('it2-ref-audio-emo-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
+                <div class="tts-file-upload" onclick="document.getElementById('it2-ref-audio-emo-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
                     <input type="file" id="it2-ref-audio-emo-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-emo-name')" aria-label="{{ "ref_audio"|t(lang) }}" disabled>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 8px; display: block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <div style="font-size: 13px; color: var(--text-secondary);">{{ "upload_ref"|t(lang) }}</div>
@@ -457,7 +344,7 @@
 
                 <div class="it2-emotion-panel">
                     <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">{{ "emotion_control"|t(lang) }}</div>
-                    
+
                     <!-- Emotion mode tabs -->
                     <div class="it2-emo-mode-tabs">
                         <div class="it2-emo-mode-tab it2-emo-mode-active" onclick="switchIt2EmotionMode('vector', this)">{{ "emotion_vector"|t(lang) }}</div>
@@ -470,50 +357,50 @@
                         <div class="it2-emotion-grid">
                             <div class="it2-emotion-item">
                                 <div class="it2-emotion-label"><span>{{ "emotion_happy"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-happy-val">0.0</span></div>
-                                <input type="range" class="it2-emotion-slider" id="it2-emo-happy" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('happy', this.value)">
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-happy" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('happy', this.value)">
                             </div>
                             <div class="it2-emotion-item">
                                 <div class="it2-emotion-label"><span>{{ "emotion_angry"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-angry-val">0.0</span></div>
-                                <input type="range" class="it2-emotion-slider" id="it2-emo-angry" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('angry', this.value)">
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-angry" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('angry', this.value)">
                             </div>
                             <div class="it2-emotion-item">
                                 <div class="it2-emotion-label"><span>{{ "emotion_sad"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-sad-val">0.0</span></div>
-                                <input type="range" class="it2-emotion-slider" id="it2-emo-sad" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('sad', this.value)">
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-sad" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('sad', this.value)">
                             </div>
                             <div class="it2-emotion-item">
                                 <div class="it2-emotion-label"><span>{{ "emotion_afraid"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-afraid-val">0.0</span></div>
-                                <input type="range" class="it2-emotion-slider" id="it2-emo-afraid" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('afraid', this.value)">
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-afraid" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('afraid', this.value)">
                             </div>
                             <div class="it2-emotion-item">
                                 <div class="it2-emotion-label"><span>{{ "emotion_disgusted"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-disgusted-val">0.0</span></div>
-                                <input type="range" class="it2-emotion-slider" id="it2-emo-disgusted" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('disgusted', this.value)">
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-disgusted" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('disgusted', this.value)">
                             </div>
                             <div class="it2-emotion-item">
                                 <div class="it2-emotion-label"><span>{{ "emotion_melancholic"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-melancholic-val">0.0</span></div>
-                                <input type="range" class="it2-emotion-slider" id="it2-emo-melancholic" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('melancholic', this.value)">
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-melancholic" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('melancholic', this.value)">
                             </div>
                             <div class="it2-emotion-item">
                                 <div class="it2-emotion-label"><span>{{ "emotion_surprised"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-surprised-val">0.0</span></div>
-                                <input type="range" class="it2-emotion-slider" id="it2-emo-surprised" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('surprised', this.value)">
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-surprised" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('surprised', this.value)">
                             </div>
                             <div class="it2-emotion-item">
                                 <div class="it2-emotion-label"><span>{{ "emotion_calm"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-calm-val">0.0</span></div>
-                                <input type="range" class="it2-emotion-slider" id="it2-emo-calm" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('calm', this.value)">
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-calm" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('calm', this.value)">
                             </div>
                         </div>
 
                         <!-- Preset emotions -->
                         <div class="it2-emotion-presets">
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('neutral', this)" aria-label="{{ "emotion_neutral"|t(lang) }}">{{ "emotion_neutral"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('happy', this)" aria-label="{{ "emotion_happy"|t(lang) }}">{{ "emotion_happy"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('angry', this)" aria-label="{{ "emotion_angry"|t(lang) }}">{{ "emotion_angry"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('sad', this)" aria-label="{{ "emotion_sad"|t(lang) }}">{{ "emotion_sad"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('surprised', this)" aria-label="{{ "emotion_surprised"|t(lang) }}">{{ "emotion_surprised"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('calm', this)" aria-label="{{ "emotion_calm"|t(lang) }}">{{ "emotion_calm"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('melancholic', this)" aria-label="{{ "emotion_melancholic"|t(lang) }}">{{ "emotion_melancholic"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('excited', this)" aria-label="{{ "emotion_excited"|t(lang) }}">{{ "emotion_excited"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('gentle', this)" aria-label="{{ "emotion_gentle"|t(lang) }}">{{ "emotion_gentle"|t(lang) }}</button>
-                            <button type="button" class="it2-emotion-preset" onclick="applyIt2PresetEmotion('whisper', this)" aria-label="{{ "emotion_whisper"|t(lang) }}">{{ "emotion_whisper"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('neutral', this)" aria-label="{{ "emotion_neutral"|t(lang) }}">{{ "emotion_neutral"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('happy', this)" aria-label="{{ "emotion_happy"|t(lang) }}">{{ "emotion_happy"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('angry', this)" aria-label="{{ "emotion_angry"|t(lang) }}">{{ "emotion_angry"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('sad', this)" aria-label="{{ "emotion_sad"|t(lang) }}">{{ "emotion_sad"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('surprised', this)" aria-label="{{ "emotion_surprised"|t(lang) }}">{{ "emotion_surprised"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('calm', this)" aria-label="{{ "emotion_calm"|t(lang) }}">{{ "emotion_calm"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('melancholic', this)" aria-label="{{ "emotion_melancholic"|t(lang) }}">{{ "emotion_melancholic"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('excited', this)" aria-label="{{ "emotion_excited"|t(lang) }}">{{ "emotion_excited"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('gentle', this)" aria-label="{{ "emotion_gentle"|t(lang) }}">{{ "emotion_gentle"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('whisper', this)" aria-label="{{ "emotion_whisper"|t(lang) }}">{{ "emotion_whisper"|t(lang) }}</button>
                         </div>
 
                         <!-- Emotion alpha -->
@@ -542,7 +429,7 @@
                     <!-- Audio mode -->
                     <div id="it2-emo-audio-mode" style="display: none;">
                         <label for="it2-emo-audio-input">{{ "emotion_audio_prompt"|t(lang) }}</label>
-                        <div class="it2-file-upload" onclick="document.getElementById('it2-emo-audio-input').click()">
+                        <div class="tts-file-upload" onclick="document.getElementById('it2-emo-audio-input').click()">
                             <input type="file" id="it2-emo-audio-input" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-emo-audio-name')">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 8px; display: block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                             <div style="font-size: 13px; color: var(--text-secondary);">{{ "upload_emotion_audio"|t(lang) }}</div>
@@ -567,25 +454,12 @@
                     </div>
                 </div>
 
-                <button type="submit" class="primary-btn generate-btn it2-full-width-btn" style="margin-top: 16px;" aria-label="{{ "indextts2_generate"|t(lang) }}">{{ "indextts2_generate"|t(lang) }}</button>
+                <button type="submit" class="primary-btn generate-btn tts-full-width-btn" style="margin-top: 16px;" aria-label="{{ "indextts2_generate"|t(lang) }}">{{ "indextts2_generate"|t(lang) }}</button>
             </div>
         </div>
     </form>
 </div>
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
-        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
-    </div>
-    <div id="it2-result" aria-live="polite">
-        <div id="it2-spinner" class="htmx-indicator" style="display:none;text-align:center;padding:24px;" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="生成进度">
-            <div class="tts-loading-spinner it2-spinner-centered"></div>
-            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
-        </div>
-        <div class="status-message" id="it2-status"></div>
-    </div>
-    <audio class="tts-audio-player it2-audio-hidden" id="it2-audio" controls></audio>
-</div>
+{% include 'partials/result_card.html' %}
 <script>
 (function(){
     // Switch inner tabs
@@ -620,8 +494,8 @@
 
     // Apply preset emotion
     window.applyIt2PresetEmotion = function(preset, btn) {
-        document.querySelectorAll('.it2-emotion-preset').forEach(function(p){ p.classList.remove('it2-preset-active'); });
-        btn.classList.add('it2-preset-active');
+        document.querySelectorAll('#it2-form .tts-preset-tag').forEach(function(p){ p.classList.remove('active'); });
+        btn.classList.add('active');
 
         var presets = {
             neutral:   { calm: 0.5 },

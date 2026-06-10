@@ -3,13 +3,11 @@ import time
 
 from fastapi import File, Form, Request, UploadFile
 
-from ....config import MAX_TEXT_LENGTH, MAX_UPLOAD_SIZE_BYTES, SAVE_DIR
+from ....config import MAX_TEXT_LENGTH, SAVE_DIR
 from ....model_registry import registry
 from ....monitor import get_health_monitor
 from ..utils import (
-    ALLOWED_AUDIO_EXTENSIONS,
     _apply_post_processing_to_file,
-    _check_engine_ready,
     _error_html,
     _execute_generation,
     _log_generation,
@@ -22,7 +20,10 @@ from ..utils import (
     _success_html,
     _time_estimator,
     logger,
+    pre_validate,
+    resolve_persona_ref,
     router,
+    save_uploaded_audio,
 )
 
 
@@ -43,46 +44,27 @@ async def generate_voxcpm_clone(
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
 ):
-    model_not_ready = _check_engine_ready("voxcpm2")
-    if model_not_ready:
-        return model_not_ready
-    if not text.strip():
-        return _error_html("文本不能为空")
-    if len(text) > MAX_TEXT_LENGTH:
-        return _error_html(f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
+    err = pre_validate("voxcpm2", text, MAX_TEXT_LENGTH)
+    if err:
+        return err
 
     instruction = _merge_dialect(instruction, lang)
 
     actual_ref_path = ref_audio_path if ref_audio_path else None
 
-    if ref_audio_upload and ref_audio_upload.filename:
-        upload_dir = os.path.join(SAVE_DIR, "uploads")
-        os.makedirs(upload_dir, exist_ok=True)
-        safe_name = os.path.basename(ref_audio_upload.filename)
-        _, ext = os.path.splitext(safe_name)
-        if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
-            return _error_html(f"不支持的音频格式: {ext}")
-        upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
-        content = await ref_audio_upload.read()
-        if len(content) > MAX_UPLOAD_SIZE_BYTES:
-            return _error_html(f"上传文件大小超过 {MAX_UPLOAD_SIZE_BYTES // (1024*1024)}MB 限制")
-        with open(upload_path, "wb") as f:
-            f.write(content)
+    upload_path, err = await save_uploaded_audio(ref_audio_upload)
+    if err:
+        return err
+    if upload_path:
         actual_ref_path = upload_path
 
     if not actual_ref_path and persona_name:
-        from ....persona_manager import load_persona_embedding
-        safe_name = os.path.basename(persona_name)
-        persona_data = load_persona_embedding(safe_name)
-        if persona_data is not None:
-            wav_path, ref_text = persona_data
-            if wav_path and os.path.isfile(wav_path):
-                actual_ref_path = wav_path
-                logger.info(f"[VoxCPM克隆] 已加载音色 '{safe_name}' 的参考音频")
-            else:
-                return _error_html(f"音色文件不存在: {safe_name}")
-        else:
-            return _error_html(f"音色不存在: {safe_name}")
+        ref_path, err = resolve_persona_ref(persona_name)
+        if err:
+            return err
+        if ref_path:
+            actual_ref_path = ref_path
+            logger.info(f"[VoxCPM克隆] 已加载音色 '{os.path.basename(persona_name)}' 的参考音频")
 
     clone_norm = _parse_bool_form(norm)
     clone_denoise = _parse_bool_form(denoise)
@@ -131,31 +113,21 @@ async def generate_voxcpm_ultimate(
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
 ):
-    model_not_ready = _check_engine_ready("voxcpm2")
-    if model_not_ready:
-        return model_not_ready
-    if not text.strip():
-        return _error_html("文本不能为空")
-    if len(text) > MAX_TEXT_LENGTH:
-        return _error_html(f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
+    err = pre_validate("voxcpm2", text, MAX_TEXT_LENGTH)
+    if err:
+        return err
 
     instruction = _merge_dialect(instruction, lang)
 
     actual_ref_path = ref_audio_path if ref_audio_path else None
 
     if not actual_ref_path and persona_name:
-        from ....persona_manager import load_persona_embedding
-        safe_name = os.path.basename(persona_name)
-        persona_data = load_persona_embedding(safe_name)
-        if persona_data is not None:
-            wav_path, ref_text = persona_data
-            if wav_path and os.path.isfile(wav_path):
-                actual_ref_path = wav_path
-                logger.info(f"[VoxCPM极致克隆] 已加载音色 '{safe_name}' 的参考音频")
-            else:
-                return _error_html(f"音色文件不存在: {safe_name}")
-        else:
-            return _error_html(f"音色不存在: {safe_name}")
+        ref_path, err = resolve_persona_ref(persona_name)
+        if err:
+            return err
+        if ref_path:
+            actual_ref_path = ref_path
+            logger.info(f"[VoxCPM极致克隆] 已加载音色 '{os.path.basename(persona_name)}' 的参考音频")
 
     advanced_norm = _parse_bool_form(norm)
     advanced_denoise = 1.0 if _parse_bool_form(denoise) else 0.0
@@ -206,32 +178,15 @@ async def generate_voxcpm_prompt_continue(
     voice_enhancement: bool = Form(False),
     target_lufs: float | None = Form(None),
 ):
-    model_not_ready = _check_engine_ready("voxcpm2")
-    if model_not_ready:
-        return model_not_ready
-    if not text.strip():
-        return _error_html("文本不能为空")
-    if len(text) > MAX_TEXT_LENGTH:
-        return _error_html(f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
+    err = pre_validate("voxcpm2", text, MAX_TEXT_LENGTH)
+    if err:
+        return err
     if not prompt_text.strip():
         return _error_html("引导文本不能为空")
 
-    prompt_wav_path = None
-    if prompt_wav and prompt_wav.filename:
-        from ....config import SAVE_DIR
-        upload_dir = os.path.join(SAVE_DIR, "uploads")
-        os.makedirs(upload_dir, exist_ok=True)
-        safe_name = os.path.basename(prompt_wav.filename)
-        _, ext = os.path.splitext(safe_name)
-        if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
-            return _error_html(f"不支持的音频格式: {ext}")
-        upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
-        content = await prompt_wav.read()
-        if len(content) > MAX_UPLOAD_SIZE_BYTES:
-            return _error_html(f"上传文件大小超过 {MAX_UPLOAD_SIZE_BYTES // (1024*1024)}MB 限制")
-        with open(upload_path, "wb") as f:
-            f.write(content)
-        prompt_wav_path = upload_path
+    prompt_wav_path, err = await save_uploaded_audio(prompt_wav)
+    if err:
+        return err
 
     if not prompt_wav_path:
         return _error_html("请上传引导音频文件")

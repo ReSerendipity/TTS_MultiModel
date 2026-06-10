@@ -1,17 +1,13 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
         <h3 class="card-header-title">{{ "tab_indextts2_duration"|t(lang) }}</h3>
     </div>
     <div class="tts-card-desc">{{ "indextts2_duration_desc"|t(lang) }}</div>
     <style>
-        .it2d-full-width { width: 100% !important; box-sizing: border-box !important; max-width: none !important; display: block !important; }
         #it2d-form { width: 100% !important; max-width: none !important; display: block !important; }
         /* it2d-auto-resize specific overrides for tts-auto-resize */
         .it2d-auto-resize.tts-auto-resize { min-height: 80px; padding: 12px 14px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
-        .it2d-file-upload { border: 2px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-bottom: 10px; background: rgba(139,92,246,0.02); }
-        .it2d-file-upload:hover { border-color: var(--primary); background: rgba(139,92,246,0.06); }
-        .it2d-file-upload input[type="file"] { display: none; }
         .it2d-file-name { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
         .it2d-audio-preview { margin-top: 10px; display: none; }
         .it2d-audio-preview audio { width: 100%; }
@@ -23,12 +19,11 @@
         .it2d-custom-input { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
         .it2d-custom-input input { width: 80px; padding: 6px 10px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 13px; text-align: center; }
         .it2d-custom-input span { font-size: 13px; color: var(--text-secondary); }
-        .it2d-full-width-btn { width: 100%; margin-top: 16px; }
     </style>
     <form id="it2d-form" hx-post="/api/generate/indextts2/duration" hx-target="#it2d-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
         <input type="hidden" name="mode" value="duration">
         <label>{{ "ref_audio"|t(lang) }}</label>
-        <div class="it2d-file-upload" onclick="document.getElementById('it2d-ref-audio-input').click()">
+        <div class="tts-file-upload" onclick="document.getElementById('it2d-ref-audio-input').click()">
             <input type="file" id="it2d-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2dFileName(this)">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <div style="font-size:13px;color:var(--text-secondary);">{{ "upload_duration_ref"|t(lang) }}</div>
@@ -38,9 +33,10 @@
             <audio id="it2d-preview-audio" controls></audio>
         </div>
         <label for="it2d-text">{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="it2d-text" class="it2d-full-width tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="CharCounter.update({textareaId:'it2d-text',counterId:'it2d-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},qualityBadgeId:'it2d-quality-badge',counterClass:'it2d-char-counter'})"></textarea>
+        <textarea name="text" id="it2d-text" class="tts-full-width tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="CharCounter.update({textareaId:'it2d-text',counterId:'it2d-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},qualityBadgeId:'it2d-quality-badge',counterClass:'it2d-char-counter'})"></textarea>
         <div id="it2d-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
         <span id="it2d-quality-badge" class="tts-quality-badge" style="display:none;"></span>
+        {% include 'partials/language_selector.html' %}
         <label>{{ "duration_control_mode"|t(lang) }}</label>
         <div class="it2d-mode-options">
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;">
@@ -69,22 +65,10 @@
                 <input type="hidden" name="duration_scale" id="it2d-duration-scale" value="1.0">
             </div>
         </div>
-        <button type="submit" class="primary-btn generate-btn it2d-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
+        <button type="submit" class="primary-btn generate-btn tts-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
     </form>
 </div>
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
-        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
-    </div>
-    <div id="it2d-result" aria-live="polite">
-        <div id="it2d-spinner" class="htmx-indicator" style="display:none;text-align:center;padding:24px;">
-            <div class="tts-loading-spinner" style="margin:0 auto 8px;"></div>
-            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
-        </div>
-        <div class="status-message" id="it2d-status"></div>
-    </div>
-</div>
+{% include 'partials/result_card.html' %}
 <script>
 (function(){
     window.updateIt2dFileName = function(input) {

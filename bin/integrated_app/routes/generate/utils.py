@@ -11,7 +11,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
 from ...audio_processing import enhance_audio
-from ...config import SAVE_DIR
+from ...config import SAVE_DIR, MAX_UPLOAD_SIZE_BYTES
 from ...exceptions import TTSError, InsufficientVRAMError, EngineSwitchError
 from ...gpu_utils import free_gpu_memory, is_oom_error
 from ...history_db import create_history_db
@@ -195,6 +195,62 @@ def _error_html(error_message, error_type="general"):
         f'<div class="error-message">{html.escape(error_message)}</div>'
         f'</div>'
     )
+
+
+async def save_uploaded_audio(upload_file, upload_dir=None, max_size_mb=25):
+    """Save an uploaded audio file and return the path, or an error HTML response."""
+    if not upload_file or not upload_file.filename:
+        return None, None
+
+    if upload_dir is None:
+        upload_dir = os.path.join(SAVE_DIR, "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    safe_name = os.path.basename(upload_file.filename)
+    _, ext = os.path.splitext(safe_name)
+    if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
+        return None, _error_html(f"不支持的音频格式: {ext}")
+
+    upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
+    content = await upload_file.read()
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        return None, _error_html(f"上传文件大小超过 {MAX_UPLOAD_SIZE_BYTES // (1024*1024)}MB 限制")
+
+    with open(upload_path, "wb") as f:
+        f.write(content)
+
+    return upload_path, None
+
+
+def resolve_persona_ref(persona_name):
+    """Resolve a persona name to its reference audio path. Returns (path, error_html)."""
+    if not persona_name:
+        return None, None
+
+    from ....persona_manager import load_persona_embedding
+
+    safe_name = os.path.basename(persona_name)
+    persona_data = load_persona_embedding(safe_name)
+    if persona_data is not None:
+        wav_path, ref_text = persona_data
+        if wav_path and os.path.isfile(wav_path):
+            return wav_path, None
+        else:
+            return None, _error_html(f"音色文件不存在: {safe_name}")
+    else:
+        return None, _error_html(f"音色不存在: {safe_name}")
+
+
+def pre_validate(engine_name, text, max_length=None):
+    """Pre-validate engine readiness and text. Returns error HTML or None if valid."""
+    model_not_ready = _check_engine_ready(engine_name)
+    if model_not_ready:
+        return model_not_ready
+    if not text or not text.strip():
+        return _error_html("文本不能为空")
+    if max_length and len(text) > max_length:
+        return _error_html(f"文本长度超过限制（最大 {max_length} 字符）")
+    return None
 
 
 def _success_html(filename, status_message):

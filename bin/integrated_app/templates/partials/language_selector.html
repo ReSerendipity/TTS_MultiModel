@@ -1,0 +1,17 @@
+<!-- Language Selector - Shared partial for TTS tabs -->
+<!-- Usage: {% include 'partials/language_selector.html' %} with prefix, lang, langs, dialects variables -->
+<div style="margin-bottom:8px;">
+    <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">{{ "language"|t(lang) }}</label>
+    <select name="lang" class="tts-input-dropdown" id="{{ prefix }}-lang-select" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:13px;">
+        {% for l in langs %}
+        <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+        {% if dialects %}
+        <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
+            {% for dialect in dialects %}
+            <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
+            {% endfor %}
+        </optgroup>
+        {% endif %}
+    </select>
+</div>

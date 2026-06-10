@@ -1,6 +1,7 @@
+{% from 'partials/advanced_params.html' import advanced_params %}
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></span>
         <h3 class="card-header-title">{{ "tab_ultimate_clone"|t(lang) }}</h3>
         <span class="card-header-badge">{{ "advanced_params"|t(lang) }}</span>
     </div>
@@ -9,17 +10,9 @@
         <label>{{ "synthesis_text"|t(lang) }}</label>
         <textarea name="text" id="uc-text" class="tts-input-textarea tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" oninput="CharCounter.update({textareaId:'uc-text',counterId:'uc-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},counterClass:'uc-char-counter'}); AutoResize.resize(this)"></textarea>
         <div id="uc-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
-        <label style="margin-top:8px;">{{ "language"|t(lang) }}</label>
-        <select name="lang" class="tts-input-dropdown" style="width:100%;">
-            {% for l in langs %}
-            <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
-            {% endfor %}
-            <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
-                {% for dialect in dialects %}
-                <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
-                {% endfor %}
-            </optgroup>
-        </select>
+        {% with prefix='uc' %}
+        {% include 'partials/language_selector.html' %}
+        {% endwith %}
 
         <div style="margin:16px 0;">
             <label>{{ "ref_audio"|t(lang) }}</label>
@@ -47,52 +40,7 @@
             </div>
         </div>
 
-        <details class="advanced-params" style="margin:16px 0;">
-            <summary style="cursor:pointer;color:var(--text-secondary);font-size:14px;padding:8px 0;border-bottom:1px solid rgba(139,92,246,0.2);">
-                <span data-icon="settings" style="width:16px;height:16px;margin-right:8px;vertical-align:middle;"></span>
-                {{ "advanced_params"|t(lang) }}
-            </summary>
-            <div style="padding:16px 0;">
-                <div class="grid-2col" style="gap:16px;">
-                    <div>
-                        <label title="{{ 'tooltip_cfg'|t(lang) }}">{{ "cfg_value"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                        <div class="param-slider">
-                            <input type="range" name="cfg" min="0.1" max="10" step="0.1" value="2.0" oninput="this.nextElementSibling.textContent=this.value">
-                            <span class="param-value">2.0</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label title="{{ 'tooltip_steps'|t(lang) }}">{{ "inference_steps"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                        <div class="param-slider">
-                            <input type="range" name="steps" min="1" max="30" step="1" value="10" oninput="this.nextElementSibling.textContent=this.value">
-                            <span class="param-value">10</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label title="{{ 'tooltip_denoise'|t(lang) }}">{{ "denoise"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                        <select name="denoise" class="tts-input-dropdown">
-                            <option value="true" selected>{{ "denoise_on"|t(lang) }}</option>
-                            <option value="false">{{ "denoise_off"|t(lang) }}</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label title="{{ 'tooltip_normalize'|t(lang) }}">{{ "text_normalize"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                        <select name="norm" class="tts-input-dropdown">
-                            <option value="true" selected>{{ "normalize_on"|t(lang) }}</option>
-                            <option value="false">{{ "normalize_off"|t(lang) }}</option>
-                        </select>
-                    </div>
-                    <div style="grid-column: span 2;">
-                        <label title="{{ 'tooltip_seed'|t(lang) }}">{{ "random_seed"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <input type="checkbox" name="use_random_seed" id="uc-random-seed" checked style="margin:0;">
-                            <label for="uc-random-seed" style="margin:0;cursor:pointer;">{{ "use_random_seed"|t(lang) }}</label>
-                        </div>
-                        <input type="number" name="seed" id="uc-seed-input" class="tts-input-text" style="margin-top:8px;display:none;" placeholder="{{ 'seed_placeholder'|t(lang) }}" min="0" max="2147483647">
-                    </div>
-                </div>
-            </div>
-        </details>
+        {{ advanced_params(prefix='uc', lang=lang) }}
 
         <div style="margin-top:12px;">
             <label>{{ "control_instruction"|t(lang) }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">({{ 'optional'|t(lang) }})</span></label>
@@ -110,43 +58,33 @@
         .pp-grid { grid-template-columns: 1fr !important; }
     }
 </style>
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
-        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
-    </div>
-    <div id="uc-result" aria-live="polite">
-        <div id="uc-spinner" class="htmx-indicator" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="{{ "generating"|t(lang) }}" style="display:none;text-align:center;padding:24px;">
-            <div class="tts-loading-spinner" style="margin:0 auto 8px;"></div>
-            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
-        </div>
-        <div class="status-message" id="uc-status"></div>
-    </div>
-    <audio class="tts-audio-player" id="uc-audio" controls style="width:100%;display:none;"></audio>
-    <details class="pp-section" id="uc-pp-section" style="display:none;margin-top:8px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;">
-        <summary style="cursor:pointer;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text-secondary);background:var(--bg-tertiary);">{{ "post_processing"|t(lang) }}</summary>
-        <div class="pp-grid" style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">
-            <div>
-                <label style="font-size:12px;">{{ "speed_factor"|t(lang) }}</label>
-                <div style="display:flex;align-items:center;gap:6px;">
-                    <input type="range" id="uc-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;" oninput="document.getElementById('uc-pp-tempo-val').textContent=this.value">
-                    <span id="uc-pp-tempo-val" style="font-size:12px;min-width:28px;text-align:right;">1.0</span>
-                </div>
-            </div>
-            <div>
-                <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
-                    <input type="checkbox" id="uc-pp-enhance">
-                    {{ "voice_enhancement"|t(lang) }}
-                </label>
-            </div>
-        </div>
-        <div style="padding:0 12px 10px;text-align:right;">
-            <button type="button" class="secondary-btn" style="font-size:12px;padding:4px 14px;" onclick="ucReprocess()">{{ "reprocess"|t(lang) }}</button>
-        </div>
-    </details>
-</div>
+{% with prefix='uc', title_key='result_audio' %}
+{% include 'partials/result_card.html' %}
+{% endwith %}
+{% with prefix='uc' %}
+{% include 'partials/post_processing.html' %}
+{% endwith %}
 <script>
 (function(){
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'uc-form',
+        statusId: 'uc-status',
+        resultId: 'uc-result',
+        textareaId: 'uc-text',
+        counterId: 'uc-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'uc-char-counter'
+    });
+
+    // Initialize inner tab switching for reference audio tabs
+    TTSTabSwitcher.init({
+        formId: 'uc-form',
+        prefix: 'uc'
+    });
+
+    // Ultimate Clone specific: segment info helper
     window.getUcSegmentInfo = function() {
         var form = document.getElementById('uc-form');
         if (!form) return null;
@@ -157,7 +95,7 @@
         return { textLength: len, segmentCount: Math.ceil(len / SPLIT_MAX_CHARS), maxLen: SPLIT_MAX_CHARS };
     };
 
-    // Frontend validation: prevent empty text submission
+    // Ultimate Clone specific: segment confirmation on submit
     var ucSubmitConfirmed = false;
     document.getElementById('uc-form').addEventListener('submit', function(e) {
         var textarea = this.querySelector('textarea[name="text"]');
@@ -199,6 +137,7 @@
             submitBtn.innerHTML = '<span class="tts-loading-spinner" style="display:inline-block;width:16px;height:16px;border-width:2px;vertical-align:middle;margin-right:6px;"></span>{{ "generating"|t(lang) }}';
         }
     });
+
     document.getElementById('uc-form').addEventListener('htmx:afterSettle', function(e){
         // Restore submit button state
         var submitBtn = document.getElementById('uc-submit-btn');
@@ -207,15 +146,6 @@
             submitBtn.innerHTML = submitBtn.dataset.originalText || '{{ "generate_ultimate"|t(lang) }}';
         }
         if (e.detail.successful) {
-            var audioEl = document.getElementById('uc-audio');
-            var audioSrc = document.querySelector('#uc-result audio');
-            if (audioSrc) {
-                if (window.globalAudioPlayer) {
-                    var filename = audioSrc.src.split('/').pop().split('?')[0];
-                    window.globalAudioPlayer.play(audioSrc.src, filename);
-                }
-                audioEl.style.display = '';
-            }
             // Show post-processing section when audio is available
             var wrapper = document.querySelector('#uc-result [data-audio-filename]');
             var ppSection = document.getElementById('uc-pp-section');
@@ -225,6 +155,7 @@
         }
     });
 
+    // Random seed toggle
     var randomSeedCheckbox = document.getElementById('uc-random-seed');
     var seedInput = document.getElementById('uc-seed-input');
     if (randomSeedCheckbox && seedInput) {
@@ -233,15 +164,7 @@
         });
     }
 
-    // Switch reference audio tabs
-    window.switchUcRefTab = function(tab, btn) {
-        document.querySelectorAll('#uc-form .inner-tab-panel').forEach(function(p){ p.style.display = 'none'; });
-        document.querySelectorAll('#uc-form .sub-tab-btn').forEach(function(b){ b.classList.remove('active'); });
-        document.getElementById('uc-tab-' + tab).style.display = '';
-        btn.classList.add('active');
-    };
-
-    // Post-processing re-process
+    // Post-processing reprocess using Reprocess factory
     window.ucReprocess = function() {
         var resultEl = document.getElementById('uc-result');
         if (!resultEl) return;
@@ -258,15 +181,5 @@
             params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
         });
     };
-
-    // Initialize character counter and textarea height on page load
-    CharCounter.init({
-        textareaId: 'uc-text',
-        counterId: 'uc-char-counter',
-        maxChars: {{ engine_max_total_chars }},
-        segmentMaxChars: {{ gen_split_max_chars }},
-        counterClass: 'uc-char-counter'
-    });
-    AutoResize.init('uc-text');
 })();
 </script>

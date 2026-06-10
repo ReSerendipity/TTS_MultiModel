@@ -4,14 +4,14 @@ import time
 import numpy as np
 from fastapi import File, Form, Request, UploadFile
 
-from ....config import MAX_TEXT_LENGTH, MAX_UPLOAD_SIZE_BYTES, SAVE_DIR
+from ....config import MAX_TEXT_LENGTH, SAVE_DIR
 from ..utils import (
-    ALLOWED_AUDIO_EXTENSIONS,
-    _check_engine_ready,
     _error_html,
     _execute_generation,
     logger,
+    pre_validate,
     router,
+    save_uploaded_audio,
 )
 
 
@@ -41,13 +41,9 @@ async def generate_indextts2(
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
 ):
-    model_not_ready = _check_engine_ready("indextts2")
-    if model_not_ready:
-        return model_not_ready
-    if not text.strip():
-        return _error_html("文本不能为空")
-    if len(text) > MAX_TEXT_LENGTH:
-        return _error_html(f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
+    err = pre_validate("indextts2", text, MAX_TEXT_LENGTH)
+    if err:
+        return err
 
     from ....model_registry import registry
     from ....generation import split_text_for_tts
@@ -56,35 +52,13 @@ async def generate_indextts2(
     ref_audio_path = None
     emo_audio_path = None
 
-    if ref_audio and ref_audio.filename:
-        upload_dir = os.path.join(SAVE_DIR, "uploads")
-        os.makedirs(upload_dir, exist_ok=True)
-        safe_name = os.path.basename(ref_audio.filename)
-        _, ext = os.path.splitext(safe_name)
-        if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
-            return _error_html(f"不支持的音频格式: {ext}")
-        upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
-        content = await ref_audio.read()
-        if len(content) > MAX_UPLOAD_SIZE_BYTES:
-            return _error_html(f"上传文件大小超过 {MAX_UPLOAD_SIZE_BYTES // (1024*1024)}MB 限制")
-        with open(upload_path, "wb") as f:
-            f.write(content)
-        ref_audio_path = upload_path
+    ref_audio_path, err = await save_uploaded_audio(ref_audio)
+    if err:
+        return err
 
-    if emo_audio and emo_audio.filename:
-        upload_dir = os.path.join(SAVE_DIR, "uploads")
-        os.makedirs(upload_dir, exist_ok=True)
-        safe_name = os.path.basename(emo_audio.filename)
-        _, ext = os.path.splitext(safe_name)
-        if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
-            return _error_html(f"不支持的音频格式: {ext}")
-        upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
-        content = await emo_audio.read()
-        if len(content) > MAX_UPLOAD_SIZE_BYTES:
-            return _error_html(f"上传文件大小超过 {MAX_UPLOAD_SIZE_BYTES // (1024*1024)}MB 限制")
-        with open(upload_path, "wb") as f:
-            f.write(content)
-        emo_audio_path = upload_path
+    emo_audio_path, err = await save_uploaded_audio(emo_audio)
+    if err:
+        return err
 
     if emo_text and emo_text.strip():
         emotion_mode = "text"

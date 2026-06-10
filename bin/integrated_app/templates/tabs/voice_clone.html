@@ -1,3 +1,4 @@
+{% from 'partials/advanced_params.html' import advanced_params %}
 <style>
     /* Voice Clone Tab Styles */
     .vc-persona-desc {
@@ -7,7 +8,6 @@
     }
     .vc-spacer-top-sm { margin-top: 8px; }
     .vc-spacer-top-md { margin-top: 12px; }
-    .vc-full-width { width: 100%; }
     .vc-hidden { display: none; }
 
     .vc-file-input {
@@ -17,43 +17,6 @@
 
     .vc-submit-btn {
         width: 100%;
-    }
-
-    /* Advanced Params */
-    .advanced-params {
-        margin-top: 12px;
-        border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-md);
-        overflow: hidden;
-    }
-    .advanced-params summary {
-        padding: 10px 14px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--text-secondary);
-        background: var(--bg-tertiary);
-    }
-    .advanced-params-body {
-        padding: 12px 14px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-    }
-    .vc-param-range {
-        width: 100%;
-    }
-    .vc-param-value {
-        color: var(--primary-light);
-        font-weight: 700;
-        font-size: 13px;
-    }
-    .vc-checkbox-label {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
-        margin-top: 0;
     }
 
     /* Save Row */
@@ -69,8 +32,6 @@
         flex: 1;
     }
 
-    /* Textarea auto-resize - using shared tts-auto-resize from tabs.css */
-
     /* Mobile responsive */
     @media (max-width: 640px) {
         .advanced-params-body {
@@ -81,7 +42,7 @@
 
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
         <h3 class="card-header-title">{{ "tab_voice_clone"|t(lang) }}</h3>
     </div>
     <div class="tts-card-desc">{{ "voice_clone_desc"|t(lang) }}</div>
@@ -91,17 +52,9 @@
         <textarea name="text" id="vc-text" class="tts-input-textarea tts-auto-resize" rows="3" placeholder="{{ 'default_clone_text'|t(lang) }}" oninput="CharCounter.update({textareaId:'vc-text',counterId:'vc-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},qualityBadgeId:'vc-quality-badge',counterClass:'vc-char-counter'}); AutoResize.resize(this)"></textarea>
         <div id="vc-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
         <span id="vc-quality-badge" class="tts-quality-badge" style="display:none;"></span>
-        <label>{{ "language"|t(lang) }}</label>
-        <select name="lang" class="tts-input-dropdown">
-            {% for l in langs %}
-            <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
-            {% endfor %}
-            <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
-                {% for dialect in dialects %}
-                <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
-                {% endfor %}
-            </optgroup>
-        </select>
+        {% with prefix='vc' %}
+        {% include 'partials/language_selector.html' %}
+        {% endwith %}
         <div class="inner-tabs">
             <div class="sub-tab-nav">
                 <button type="button" class="sub-tab-btn active" onclick="switchVcInnerTab('saved', this)">{{ "saved_voices"|t(lang) }}</button>
@@ -136,86 +89,41 @@
             </div>
         </div>
         <button type="submit" class="primary-btn generate-btn vc-submit-btn">{{ "clone_btn"|t(lang) }}</button>
-        <details class="advanced-params">
-            <summary>{{ "advanced_params"|t(lang) }}</summary>
-            <div class="advanced-params-body">
-                <div>
-                    <label title="{{ 'tooltip_cfg'|t(lang) }}">{{ "cfg_value"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                    <input type="range" name="cfg_value" min="0.1" max="10" step="0.1" value="2.0" class="vc-param-range" oninput="document.getElementById('vc-cfg-val').textContent=this.value">
-                    <span id="vc-cfg-val" class="vc-param-value">2.0</span>
-                </div>
-                <div>
-                    <label title="{{ 'tooltip_steps'|t(lang) }}">{{ "inference_steps"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                    <input type="range" name="inference_timesteps" min="1" max="30" step="1" value="10" class="vc-param-range" oninput="document.getElementById('vc-step-val').textContent=this.value">
-                    <span id="vc-step-val" class="vc-param-value">10</span>
-                </div>
-                <div>
-                    <label class="vc-checkbox-label">
-                        <input type="checkbox" name="normalize" checked>
-                        <span title="{{ 'tooltip_normalize'|t(lang) }}">{{ "text_normalize"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></span>
-                    </label>
-                </div>
-                <div>
-                    <label class="vc-checkbox-label">
-                        <input type="checkbox" name="denoise" checked>
-                        <span title="{{ 'tooltip_denoise'|t(lang) }}">{{ "denoise"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></span>
-                    </label>
-                </div>
-            </div>
-        </details>
+        {{ advanced_params(prefix='vc', lang=lang, show_seed=false) }}
         <div class="vc-save-row">
             <input type="text" name="save_name" placeholder="{{ 'save_voice_name'|t(lang) }}" class="vc-save-input">
             <button type="button" class="secondary-btn icon-btn vc-save-btn" hx-post="/api/persona/save" hx-target="#vc-status" hx-swap="innerHTML">{{ "save_persona"|t(lang) }}</button>
         </div>
     </form>
 </div>
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
-        <h3 class="card-header-title">{{ "clone_result"|t(lang) }}</h3>
-    </div>
-    <div id="vc-result" aria-live="polite">
-        <div id="vc-spinner" class="htmx-indicator vc-spinner-center" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="{{ 'generating'|t(lang) }}">
-            <div class="tts-loading-spinner vc-spinner-icon"></div>
-            <div class="tts-loading-text">{{ "cloning"|t(lang) }}</div>
-        </div>
-        <div class="status-message" id="vc-status"></div>
-    </div>
-    <audio class="tts-audio-player vc-full-width" id="vc-audio" controls style="display:none;"></audio>
-    <details class="pp-section" id="vc-pp-section" style="display:none;margin-top:8px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;">
-        <summary style="cursor:pointer;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text-secondary);background:var(--bg-tertiary);">{{ "post_processing"|t(lang) }}</summary>
-        <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">
-            <div>
-                <label style="font-size:12px;">{{ "speed_factor"|t(lang) }}</label>
-                <div style="display:flex;align-items:center;gap:6px;">
-                    <input type="range" id="vc-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;" oninput="document.getElementById('vc-pp-tempo-val').textContent=this.value">
-                    <span id="vc-pp-tempo-val" style="font-size:12px;min-width:28px;text-align:right;">1.0</span>
-                </div>
-            </div>
-            <div>
-                <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
-                    <input type="checkbox" id="vc-pp-enhance">
-                    {{ "voice_enhancement"|t(lang) }}
-                </label>
-            </div>
-        </div>
-        <div style="padding:0 12px 10px;text-align:right;">
-            <button type="button" class="secondary-btn" style="font-size:12px;padding:4px 14px;" onclick="vcReprocess()">{{ "reprocess"|t(lang) }}</button>
-        </div>
-    </details>
-</div>
+{% with prefix='vc', title_key='clone_result' %}
+{% include 'partials/result_card.html' %}
+{% endwith %}
+{% with prefix='vc' %}
+{% include 'partials/post_processing.html' %}
+{% endwith %}
 <script>
 (function(){
-    var vcForm = document.getElementById('vc-form');
-    var submitBtn = vcForm ? vcForm.querySelector('button[type="submit"]') : null;
-    var originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'vc-form',
+        statusId: 'vc-status',
+        resultId: 'vc-result',
+        textareaId: 'vc-text',
+        counterId: 'vc-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        qualityBadgeId: 'vc-quality-badge',
+        counterClass: 'vc-char-counter'
+    });
 
-    window.switchVcInnerTab = function(tab, btn) {
-        document.querySelectorAll('#vc-form .inner-tab-panel').forEach(function(p){ p.style.display = 'none'; });
-        document.querySelectorAll('#vc-form .sub-tab-btn').forEach(function(b){ b.classList.remove('active'); });
-        document.getElementById('vc-tab-' + tab).style.display = '';
-        btn.classList.add('active');
-    };
+    // Initialize inner tab switching
+    TTSTabSwitcher.init({
+        formId: 'vc-form',
+        prefix: 'vc'
+    });
+
+    // Voice Clone specific: segment info helper
     window.getVcSegmentInfo = function() {
         var form = document.getElementById('vc-form');
         if (!form) return null;
@@ -227,30 +135,18 @@
         return { textLength: len, segmentCount: segments, maxLen: SPLIT_MAX_CHARS };
     };
 
-    // Frontend validation: prevent empty text, reference audio check, segment confirmation, and anti-duplicate-submit
+    // Voice Clone specific: reference audio validation and segment confirmation
     document.getElementById('vc-form').addEventListener('submit', function(e) {
-        var textarea = this.querySelector('textarea[name="text"]');
-        if (textarea && !textarea.value.trim()) {
-            e.preventDefault();
-            var statusEl = document.getElementById('vc-status');
-            if (statusEl) {
-                statusEl.className = 'status-message error';
-                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
-            }
-            return false;
-        }
-
-        // #4 Reference audio validation: check if upload tab is active and no file selected
+        // Reference audio validation: check if upload tab is active and no file selected
         var uploadTab = document.getElementById('vc-tab-upload');
-        var savedTab = document.getElementById('vc-tab-saved');
         if (uploadTab && uploadTab.style.display !== 'none') {
             var fileInput = this.querySelector('input[type="file"][name="ref_audio_path"]');
             if (fileInput && (!fileInput.files || fileInput.files.length === 0)) {
                 e.preventDefault();
-                var statusEl2 = document.getElementById('vc-status');
-                if (statusEl2) {
-                    statusEl2.className = 'status-message error';
-                    statusEl2.textContent = '{{ "select_ref_audio"|t(lang) }}';
+                var statusEl = document.getElementById('vc-status');
+                if (statusEl) {
+                    statusEl.className = 'status-message error';
+                    statusEl.textContent = '{{ "select_ref_audio"|t(lang) }}';
                 }
                 return false;
             }
@@ -264,45 +160,15 @@
                 '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}<br><br>' +
                 '{{ "confirm_continue"|t(lang) }}';
             ConfirmDialog.show(msg, function() {
-                // Re-submit after confirmation
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle;"></span>{{ "generating"|t(lang) }}';
-                }
                 document.getElementById('vc-form').submit();
             });
             return false;
         }
-
-        // #1 & #12 Anti-duplicate-submit: disable button and show spinner
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle;"></span>{{ "generating"|t(lang) }}';
-        }
     });
 
-    // #1 Reset button state when HTMX request completes
-    document.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.target && evt.detail.target.id === 'vc-result') {
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-            }
-        }
-    });
-
+    // Show post-processing section when audio is available
     document.getElementById('vc-form').addEventListener('htmx:afterSettle', function(e) {
         if (e.detail.successful) {
-            var audioEl = document.getElementById('vc-audio');
-            var audioSrc = document.querySelector('#vc-result audio');
-            if (audioSrc) {
-                if (window.globalAudioPlayer) {
-                    var filename = audioSrc.src.split('/').pop().split('?')[0];
-                    window.globalAudioPlayer.play(audioSrc.src, filename);
-                }
-                audioEl.style.display = '';
-            }
-            // Show post-processing section when audio is available
             var wrapper = document.querySelector('#vc-result [data-audio-filename]');
             var ppSection = document.getElementById('vc-pp-section');
             if (wrapper && ppSection) {
@@ -311,7 +177,7 @@
         }
     });
 
-    // Post-processing re-process
+    // Post-processing reprocess using Reprocess factory
     window.vcReprocess = function() {
         var resultEl = document.getElementById('vc-result');
         if (!resultEl) return;
@@ -353,16 +219,5 @@
             }
         });
     }
-
-    // Initialize character counter and textarea height on page load
-    CharCounter.init({
-        textareaId: 'vc-text',
-        counterId: 'vc-char-counter',
-        maxChars: {{ engine_max_total_chars }},
-        segmentMaxChars: {{ gen_split_max_chars }},
-        qualityBadgeId: 'vc-quality-badge',
-        counterClass: 'vc-char-counter'
-    });
-    AutoResize.init('vc-text');
 })();
 </script>
