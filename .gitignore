@@ -70,6 +70,8 @@ lora/
 # Database files
 *.db
 *.sqlite
+*.db-shm
+*.db-wal
 
 # Environment variables
 .env
@@ -91,3 +93,13 @@ htmlcov/
 
 # Runtime data (generated at runtime)
 data/generation_times.json
+
+# Server runtime
+.server_port
+
+# Test artifacts
+full_page.png
+indextts2_page.png
+test_screenshot.png
+test_player.html
+test_*.py
