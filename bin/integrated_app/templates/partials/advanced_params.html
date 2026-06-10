@@ -1,6 +1,6 @@
-<!-- Advanced Parameters Panel - Shared macro for VoxCPM2 and IndexTTS2 tabs -->
-<!-- Usage: {% from 'partials/advanced_params.html' import advanced_params %} -->
-<!-- Then: {{ advanced_params(prefix='vc', lang=lang, show_cfg=true, show_steps=true, show_denoise=true, show_text_norm=true, show_seed=true) }} -->
+{# Advanced Parameters Panel - Shared macro for VoxCPM2 and IndexTTS2 tabs #}
+{# Usage: from 'partials/advanced_params.html' import advanced_params #}
+{# Then: advanced_params(prefix='vc', lang=lang, show_cfg=true, ...) #}
 
 {% macro advanced_params(prefix, lang, show_cfg=true, show_steps=true, show_denoise=true, show_text_norm=true, show_seed=true, cfg_default=2.0, steps_default=10) %}
 <details class="advanced-params" id="{{ prefix }}-advanced-params" style="margin-top:8px;border:1px solid var(--border-subtle,rgba(139,92,246,0.2));border-radius:10px;background:var(--bg-secondary,#16213e);">
