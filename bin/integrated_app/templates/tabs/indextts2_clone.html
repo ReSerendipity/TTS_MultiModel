@@ -31,7 +31,9 @@
         <label for="it2c-text">{{ "synthesis_text"|t(lang) }}</label>
         <textarea name="text" id="it2c-text" class="tts-full-width tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="CharCounter.update({textareaId:'it2c-text',counterId:'it2c-char-counter',maxChars:{{engine_max_total_chars}},counterClass:'it2c-char-counter'})"></textarea>
         <div id="it2c-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
+        {% with prefix='it2c' %}
         {% include 'partials/language_selector.html' %}
+        {% endwith %}
         <label>{{ "duration_mode"|t(lang) }}</label>
         <div style="margin-bottom:10px;">
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
@@ -54,7 +56,9 @@
         <button type="submit" class="primary-btn generate-btn tts-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
     </form>
 </div>
+{% with prefix='it2c', title_key='result_audio' %}
 {% include 'partials/result_card.html' %}
+{% endwith %}
 <script>
 (function(){
     window.updateIt2cFileName = function(input) {

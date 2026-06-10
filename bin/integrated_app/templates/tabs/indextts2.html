@@ -302,7 +302,9 @@
         <div id="it2-char-counter" class="it2-char-counter">0/{{ engine_max_total_chars }}</div>
         <span id="it2-quality-badge" class="micro-quality-badge" style="display:none;"></span>
 
+        {% with prefix='it2' %}
         {% include 'partials/language_selector.html' %}
+        {% endwith %}
 
         <div class="inner-tabs">
             <div class="sub-tab-nav">
@@ -459,7 +461,9 @@
         </div>
     </form>
 </div>
+{% with prefix='it2', title_key='result_audio' %}
 {% include 'partials/result_card.html' %}
+{% endwith %}
 <script>
 (function(){
     // Switch inner tabs

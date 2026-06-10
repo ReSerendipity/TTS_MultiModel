@@ -36,7 +36,9 @@
         <textarea name="text" id="it2d-text" class="tts-full-width tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="CharCounter.update({textareaId:'it2d-text',counterId:'it2d-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},qualityBadgeId:'it2d-quality-badge',counterClass:'it2d-char-counter'})"></textarea>
         <div id="it2d-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
         <span id="it2d-quality-badge" class="tts-quality-badge" style="display:none;"></span>
+        {% with prefix='it2d' %}
         {% include 'partials/language_selector.html' %}
+        {% endwith %}
         <label>{{ "duration_control_mode"|t(lang) }}</label>
         <div class="it2d-mode-options">
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;">
@@ -68,7 +70,9 @@
         <button type="submit" class="primary-btn generate-btn tts-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
     </form>
 </div>
+{% with prefix='it2d', title_key='result_audio' %}
 {% include 'partials/result_card.html' %}
+{% endwith %}
 <script>
 (function(){
     window.updateIt2dFileName = function(input) {

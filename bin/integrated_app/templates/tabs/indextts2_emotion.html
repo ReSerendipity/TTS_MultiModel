@@ -113,7 +113,9 @@
         <button type="submit" class="primary-btn generate-btn tts-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
     </form>
 </div>
+{% with prefix='it2e', title_key='result_audio' %}
 {% include 'partials/result_card.html' %}
+{% endwith %}
 <script>
 (function(){
     window.switchIt2eMode = function(mode, btn) {
