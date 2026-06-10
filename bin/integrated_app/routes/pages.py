@@ -12,9 +12,9 @@ async def index(request: Request):
     templates = request.app.state.templates
     lang = get_lang(request)
     return templates.TemplateResponse(
-        "base.html",
-        {
-            "request": request,
+        request=request,
+        name="base.html",
+        context={
             "version": getattr(request.app.state, "version", "0.0.0"),
             "lang": lang,
             "i18n_json": get_i18n_json(lang),

@@ -36,10 +36,10 @@ _TAB_TEMPLATES = {
 }
 
 
-# VoxCPM2相关的标签页（这些页面使用VoxCPM2模型，字符上限8192）
+# VoxCPM2相关的标签页（这些页面使用VoxCPM2模型，字符上限192）
 _VOXCPM2_TABS = {"voice_design", "voice_clone", "ultimate_clone", "prompt_continue", "voxcpm2"}
 
-# IndexTTS2相关的标签页（这些页面使用IndexTTS2模型，字符上限3072）
+# IndexTTS2相关的标签页（这些页面使用IndexTTS2模型，字符上限072）
 _INDEXTTS2_TABS = {"indextts2", "indextts2_clone", "indextts2_emotion", "indextts2_duration"}
 
 
@@ -129,7 +129,7 @@ async def get_tab(request: Request, tab_name: str):
                 duration_str,
                 size_str,
             ])
-        no_records_text = t("history_no_records", lang)
+        no_records_text = t("history_no_records", ctx["lang"])
         ctx["history_records"] = items if items else [[no_records_text, "-", "-", "-"]]
         ctx["history_count"] = paginated["total"]
         ctx["history_loaded"] = paginated["loaded"]
@@ -141,4 +141,4 @@ async def get_tab(request: Request, tab_name: str):
         ctx["total_persona_count"] = ctx["persona_count"]
         ctx["persona_table_data"] = get_persona_detail_table()
 
-    return templates.TemplateResponse(template_name, ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    return templates.TemplateResponse(request=request, name=template_name, context=ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})

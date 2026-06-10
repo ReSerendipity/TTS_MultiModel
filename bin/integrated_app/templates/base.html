@@ -2,12 +2,12 @@
 <html lang="zh-CN">
 <head>
     <!-- Immediate theme initialization - runs before render to prevent flash -->
-    <script src="/static/js/main.js"></script>
+    <script src="/static/js/main.js?v=5"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ "app_title"|t(lang) }}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.ico">
-    <link rel="stylesheet" href="/static/css/styles.css?v=10">
+    <link rel="stylesheet" href="/static/css/styles.css?v=12">
     <link rel="stylesheet" href="/static/css/beautify.css?v=5">
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/htmx.ext.sse.js"></script>
@@ -19,7 +19,7 @@
     <script src="/static/js/auto_resize.js"></script>
     <script src="/static/js/reprocess.js"></script>
     <script src="/static/js/tts_form.js"></script>
-    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/main.css?v=13">
 </head>
 <body class="dark">
     <a href="#main-content" class="skip-link">跳到主内容</a>
@@ -465,50 +465,55 @@
 
     <!-- Global Persistent Audio Player -->
     <div class="global-audio-player" id="global-audio-player" role="region" aria-label="音频播放器">
-        <!-- Row 1: Controls -->
+        <!-- Row 1: Main controls -->
         <div class="gap-row-controls">
-            <button class="gap-icon" id="gap-play-btn" title="播放/暂停">&#9654;</button>
-            <div class="gap-info">
-                <div class="gap-title" id="gap-title">{{ "no_audio_playing"|t(lang) }}</div>
-            </div>
-            <div class="gap-volume">
-                <span class="gap-volume-icon" id="gap-volume-icon" title="静音">&#128266;</span>
-                <input type="range" class="gap-volume-slider" id="gap-volume-slider" min="0" max="1" step="0.05" value="1">
-            </div>
-            <div class="gap-speed">
-                <button class="gap-speed-current" id="gap-speed-current" title="倍速">1x</button>
-                <div class="gap-speed-dropdown" id="gap-speed-dropdown">
-                    <button class="gap-speed-option" data-speed="0.25">0.25x</button>
-                    <button class="gap-speed-option" data-speed="0.5">0.5x</button>
-                    <button class="gap-speed-option" data-speed="0.75">0.75x</button>
-                    <button class="gap-speed-option active" data-speed="1">1x</button>
-                    <button class="gap-speed-option" data-speed="1.25">1.25x</button>
-                    <button class="gap-speed-option" data-speed="1.5">1.5x</button>
-                    <button class="gap-speed-option" data-speed="1.75">1.75x</button>
-                    <button class="gap-speed-option" data-speed="2">2x</button>
-                    <button class="gap-speed-option" data-speed="2.5">2.5x</button>
-                    <button class="gap-speed-option" data-speed="3">3x</button>
+            <div class="gap-left">
+                <button class="gap-icon" id="gap-play-btn" title="播放/暂停">&#9654;</button>
+                <div class="gap-info">
+                    <div class="gap-title" id="gap-title">{{ "no_audio_playing"|t(lang) }}</div>
                 </div>
             </div>
-            <button class="gap-clip-btn" id="gap-clip-btn" title="{{ 'clip_fragment'|t(lang) }}">&#9986;</button>
-            <button class="gap-control-btn" id="gap-download-btn" title="{{ 'download'|t(lang) }}">&#11015;</button>
-            <button class="gap-close" id="gap-close-btn" title="{{ 'close'|t(lang) }}">&#10005;</button>
+            <div class="gap-right">
+                <div class="gap-volume-inline">
+                    <span class="gap-volume-icon" id="gap-volume-icon" title="静音">&#128266;</span>
+                    <input type="range" class="gap-volume-slider" id="gap-volume-slider" min="0" max="1" step="0.05" value="1">
+                </div>
+                <div class="gap-speed">
+                    <button class="gap-speed-current" id="gap-speed-current" title="倍速">1x</button>
+                    <div class="gap-speed-dropdown" id="gap-speed-dropdown">
+                        <button class="gap-speed-option" data-speed="0.25">0.25x</button>
+                        <button class="gap-speed-option" data-speed="0.5">0.5x</button>
+                        <button class="gap-speed-option" data-speed="0.75">0.75x</button>
+                        <button class="gap-speed-option active" data-speed="1">1x</button>
+                        <button class="gap-speed-option" data-speed="1.25">1.25x</button>
+                        <button class="gap-speed-option" data-speed="1.5">1.5x</button>
+                        <button class="gap-speed-option" data-speed="1.75">1.75x</button>
+                        <button class="gap-speed-option" data-speed="2">2x</button>
+                        <button class="gap-speed-option" data-speed="2.5">2.5x</button>
+                        <button class="gap-speed-option" data-speed="3">3x</button>
+                    </div>
+                </div>
+                <button class="gap-clip-btn" id="gap-clip-btn" title="{{ 'clip_fragment'|t(lang) }}">&#9986;</button>
+                <button class="gap-control-btn" id="gap-download-btn" title="{{ 'download'|t(lang) }}">&#11015;</button>
+                <button class="gap-close" id="gap-close-btn" title="{{ 'close'|t(lang) }}">&#10005;</button>
+            </div>
         </div>
-        <!-- Row 2: Progress bar -->
+        <!-- Row 2: Progress bar + waveform overlay -->
         <div class="gap-row-progress">
             <span class="gap-time-label" id="gap-time-current">00:00</span>
             <div class="gap-progress-bar" id="gap-progress-bar">
+                <!-- Waveform overlay -->
+                <div class="gap-wave-container" id="gap-wave-container">
+                    <canvas id="gap-waveform" width="600" height="40"></canvas>
+                </div>
+                <!-- Progress fill on top of waveform -->
                 <div class="gap-progress-fill" id="gap-progress-fill">
                     <div class="gap-progress-thumb" id="gap-progress-thumb"></div>
                 </div>
             </div>
             <span class="gap-time-label" id="gap-time-duration">00:00</span>
         </div>
-        <!-- Waveform (hidden by default) -->
-        <div class="gap-wave-container" id="gap-wave-container" style="display:none;">
-            <canvas id="gap-waveform" width="600" height="40"></canvas>
-            <div class="gap-wave-tooltip" id="gap-wave-tooltip" style="display:none;"></div>
-        </div>
+        <div class="gap-wave-tooltip" id="gap-wave-tooltip" style="display:none;"></div>
         <audio id="global-audio-element" preload="auto"></audio>
         <span id="gap-i18n-clip-title" style="display:none">{{ 'clip_fragment'|t(lang) }}</span>
         <span id="gap-i18n-export" style="display:none">{{ 'export'|t(lang) }}</span>

@@ -17,15 +17,19 @@ function Request-ExitConfirmation {
     return $false
 }
 
-[Console]::TreatControlCAsInput = $false
-[Console]::CancelKeyPress.Add_Invoked({
-    param($sender, $e)
-    $e.Cancel = $true
-    $Script:ConfirmExit = $true
-})
+try {
+    [Console]::TreatControlCAsInput = $false
+    [Console]::CancelKeyPress.Add_Invoked({
+        param($sender, $e)
+        $e.Cancel = $true
+        $Script:ConfirmExit = $true
+    })
+} catch {
+    # CancelKeyPress not available in this host (e.g. ISE, VS Code terminal)
+}
 
 # --- Path Configuration ---
-$Script:ROOT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Script:ROOT_DIR = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $Script:WPY_PATH = Join-Path $Script:ROOT_DIR "WPy64-312101\python"
 $Script:PY_EXE = Join-Path $Script:WPY_PATH "python.exe"
 $Script:BIN_DIR = Join-Path $Script:ROOT_DIR "bin"

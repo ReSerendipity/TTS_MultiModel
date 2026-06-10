@@ -237,7 +237,13 @@ def create_app() -> FastAPI:
         load_thread.start()
         logger.info("[启动] 服务已启动，模型正在后台加载...")
 
-    app.add_event_handler("startup", startup_event)
+    # Compatible with both old and new FastAPI versions
+    try:
+        app.add_event_handler("startup", startup_event)
+    except AttributeError:
+        @app.on_event("startup")
+        def _startup():
+            startup_event()
 
     return app
 
@@ -256,8 +262,9 @@ def run_server(ip="127.0.0.1", port=7869):
         async def download_guide(request: Request, path: str = ""):
             templates: Jinja2Templates = request.app.state.templates
             return templates.TemplateResponse(
-                "download_guide.html",
-                {"request": request, "missing": missing, "version": VERSION},
+                request=request,
+                name="download_guide.html",
+                context={"missing": missing, "version": VERSION},
             )
 
     uvicorn.run(app, host=ip, port=int(port))

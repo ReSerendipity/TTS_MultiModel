@@ -1,44 +1,30 @@
 <style>
-.settings-toggle {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 22px;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-.settings-toggle input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-.settings-toggle .toggle-track {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #374151;
-    border-radius: 22px;
-    transition: background-color 0.3s;
-}
-.settings-toggle .toggle-track::before {
-    content: '';
-    position: absolute;
-    height: 16px;
-    width: 16px;
-    left: 3px;
-    bottom: 3px;
-    background-color: #fff;
-    border-radius: 50%;
-    transition: transform 0.3s;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-}
-.settings-toggle input:checked + .toggle-track {
-    background-color: #10B981;
-}
-.settings-toggle input:checked + .toggle-track::before {
-    transform: translateX(18px);
+/* Toggle switch styles - using high-specificity selectors to override main.css */
+#tab-content .card label.settings-toggle,
+#tab-content .card .settings-toggle {
+    display: inline-block !important;
+    width: 40px !important;
+    height: 22px !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    font-size: inherit !important;
+    font-weight: normal !important;
+    color: inherit !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    min-height: auto !important;
+    line-height: normal !important;
+    max-width: 40px !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    cursor: pointer !important;
+    overflow: hidden !important;
+    vertical-align: middle !important;
 }
 </style>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
@@ -115,9 +101,10 @@
                         <span style="color:var(--text-muted);font-size:13px;">{{ "retry_badcase"|t(lang) }}</span>
                         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ "retry_badcase_hint"|t(lang) }}</div>
                     </div>
-                    <label class="settings-toggle">
-                        <input id="settings-retry-badcase" type="checkbox" checked />
-                        <span class="toggle-track"></span>
+                    <label class="settings-toggle" style="display:inline-block !important;width:40px !important;height:22px !important;max-width:40px !important;position:relative !important;cursor:pointer !important;margin:0 !important;padding:0 !important;overflow:visible !important;flex-shrink:0 !important;vertical-align:middle !important;text-transform:none !important;letter-spacing:normal !important;font-size:inherit !important;font-weight:normal !important;color:inherit !important;text-align:left !important;border:none !important;background:transparent !important;box-shadow:none !important;min-height:auto !important;line-height:normal !important;">
+                        <input id="settings-retry-badcase" type="checkbox" checked style="opacity:0 !important;width:0 !important;height:0 !important;position:absolute !important;margin:0 !important;padding:0 !important;" />
+                        <span class="toggle-track" style="display:block !important;position:absolute !important;top:0 !important;left:0 !important;width:40px !important;height:22px !important;background-color:#9CA3AF !important;border-radius:22px !important;border:2px solid rgba(0,0,0,0.1) !important;box-shadow:0 1px 3px rgba(0,0,0,0.2) !important;transition:background-color 0.3s !important;pointer-events:none !important;"></span>
+                        <span class="toggle-knob" style="display:block !important;position:absolute !important;top:3px !important;left:3px !important;width:16px !important;height:16px !important;background-color:#FFFFFF !important;border-radius:50% !important;box-shadow:0 1px 3px rgba(0,0,0,0.3) !important;transition:transform 0.3s !important;pointer-events:none !important;"></span>
                     </label>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
@@ -153,9 +140,10 @@
                         <span style="color:var(--text-muted);font-size:13px;">{{ "trim_silence"|t(lang) }}</span>
                         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ "trim_silence_hint"|t(lang) }}</div>
                     </div>
-                    <label class="settings-toggle">
-                        <input id="settings-trim-silence-vad" type="checkbox" checked />
-                        <span class="toggle-track"></span>
+                    <label class="settings-toggle" style="display:inline-block !important;width:40px !important;height:22px !important;max-width:40px !important;position:relative !important;cursor:pointer !important;margin:0 !important;padding:0 !important;overflow:visible !important;flex-shrink:0 !important;vertical-align:middle !important;text-transform:none !important;letter-spacing:normal !important;font-size:inherit !important;font-weight:normal !important;color:inherit !important;text-align:left !important;border:none !important;background:transparent !important;box-shadow:none !important;min-height:auto !important;line-height:normal !important;">
+                        <input id="settings-trim-silence-vad" type="checkbox" checked style="opacity:0 !important;width:0 !important;height:0 !important;position:absolute !important;margin:0 !important;padding:0 !important;" />
+                        <span class="toggle-track" style="display:block !important;position:absolute !important;top:0 !important;left:0 !important;width:40px !important;height:22px !important;background-color:#9CA3AF !important;border-radius:22px !important;border:2px solid rgba(0,0,0,0.1) !important;box-shadow:0 1px 3px rgba(0,0,0,0.2) !important;transition:background-color 0.3s !important;pointer-events:none !important;"></span>
+                        <span class="toggle-knob" style="display:block !important;position:absolute !important;top:3px !important;left:3px !important;width:16px !important;height:16px !important;background-color:#FFFFFF !important;border-radius:50% !important;box-shadow:0 1px 3px rgba(0,0,0,0.3) !important;transition:transform 0.3s !important;pointer-events:none !important;"></span>
                     </label>
                 </div>
             </div>
@@ -209,7 +197,7 @@
 
     <div class="card">
         <div class="card-header">
-            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1-1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
             <h3 class="card-header-title">{{ "general_settings"|t(lang) }}</h3>
         </div>
         <div id="settings-general">
@@ -219,9 +207,10 @@
                         <span style="color:var(--text-muted);font-size:13px;">{{ "auto_save"|t(lang) }}</span>
                         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ "auto_save_hint"|t(lang) }}</div>
                     </div>
-                    <label class="settings-toggle">
-                        <input id="settings-auto-save" type="checkbox" checked />
-                        <span class="toggle-track"></span>
+                    <label class="settings-toggle" style="display:inline-block !important;width:40px !important;height:22px !important;max-width:40px !important;position:relative !important;cursor:pointer !important;margin:0 !important;padding:0 !important;overflow:visible !important;flex-shrink:0 !important;vertical-align:middle !important;text-transform:none !important;letter-spacing:normal !important;font-size:inherit !important;font-weight:normal !important;color:inherit !important;text-align:left !important;border:none !important;background:transparent !important;box-shadow:none !important;min-height:auto !important;line-height:normal !important;">
+                        <input id="settings-auto-save" type="checkbox" checked style="opacity:0 !important;width:0 !important;height:0 !important;position:absolute !important;margin:0 !important;padding:0 !important;" />
+                        <span class="toggle-track" style="display:block !important;position:absolute !important;top:0 !important;left:0 !important;width:40px !important;height:22px !important;background-color:#9CA3AF !important;border-radius:22px !important;border:2px solid rgba(0,0,0,0.1) !important;box-shadow:0 1px 3px rgba(0,0,0,0.2) !important;transition:background-color 0.3s !important;pointer-events:none !important;"></span>
+                        <span class="toggle-knob" style="display:block !important;position:absolute !important;top:3px !important;left:3px !important;width:16px !important;height:16px !important;background-color:#FFFFFF !important;border-radius:50% !important;box-shadow:0 1px 3px rgba(0,0,0,0.3) !important;transition:transform 0.3s !important;pointer-events:none !important;"></span>
                     </label>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
@@ -229,9 +218,10 @@
                         <span style="color:var(--text-muted);font-size:13px;">{{ "auto_play"|t(lang) }}</span>
                         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ "auto_play_hint"|t(lang) }}</div>
                     </div>
-                    <label class="settings-toggle">
-                        <input id="settings-auto-play" type="checkbox" />
-                        <span class="toggle-track"></span>
+                    <label class="settings-toggle" style="display:inline-block !important;width:40px !important;height:22px !important;max-width:40px !important;position:relative !important;cursor:pointer !important;margin:0 !important;padding:0 !important;overflow:visible !important;flex-shrink:0 !important;vertical-align:middle !important;text-transform:none !important;letter-spacing:normal !important;font-size:inherit !important;font-weight:normal !important;color:inherit !important;text-align:left !important;border:none !important;background:transparent !important;box-shadow:none !important;min-height:auto !important;line-height:normal !important;">
+                        <input id="settings-auto-play" type="checkbox" style="opacity:0 !important;width:0 !important;height:0 !important;position:absolute !important;margin:0 !important;padding:0 !important;" />
+                        <span class="toggle-track" style="display:block !important;position:absolute !important;top:0 !important;left:0 !important;width:40px !important;height:22px !important;background-color:#9CA3AF !important;border-radius:22px !important;border:2px solid rgba(0,0,0,0.1) !important;box-shadow:0 1px 3px rgba(0,0,0,0.2) !important;transition:background-color 0.3s !important;pointer-events:none !important;"></span>
+                        <span class="toggle-knob" style="display:block !important;position:absolute !important;top:3px !important;left:3px !important;width:16px !important;height:16px !important;background-color:#FFFFFF !important;border-radius:50% !important;box-shadow:0 1px 3px rgba(0,0,0,0.3) !important;transition:transform 0.3s !important;pointer-events:none !important;"></span>
                     </label>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
@@ -239,9 +229,10 @@
                         <span style="color:var(--text-muted);font-size:13px;">{{ "notifications"|t(lang) }}</span>
                         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ "notifications_hint"|t(lang) }}</div>
                     </div>
-                    <label class="settings-toggle">
-                        <input id="settings-notifications" type="checkbox" checked />
-                        <span class="toggle-track"></span>
+                    <label class="settings-toggle" style="display:inline-block !important;width:40px !important;height:22px !important;max-width:40px !important;position:relative !important;cursor:pointer !important;margin:0 !important;padding:0 !important;overflow:visible !important;flex-shrink:0 !important;vertical-align:middle !important;text-transform:none !important;letter-spacing:normal !important;font-size:inherit !important;font-weight:normal !important;color:inherit !important;text-align:left !important;border:none !important;background:transparent !important;box-shadow:none !important;min-height:auto !important;line-height:normal !important;">
+                        <input id="settings-notifications" type="checkbox" checked style="opacity:0 !important;width:0 !important;height:0 !important;position:absolute !important;margin:0 !important;padding:0 !important;" />
+                        <span class="toggle-track" style="display:block !important;position:absolute !important;top:0 !important;left:0 !important;width:40px !important;height:22px !important;background-color:#9CA3AF !important;border-radius:22px !important;border:2px solid rgba(0,0,0,0.1) !important;box-shadow:0 1px 3px rgba(0,0,0,0.2) !important;transition:background-color 0.3s !important;pointer-events:none !important;"></span>
+                        <span class="toggle-knob" style="display:block !important;position:absolute !important;top:3px !important;left:3px !important;width:16px !important;height:16px !important;background-color:#FFFFFF !important;border-radius:50% !important;box-shadow:0 1px 3px rgba(0,0,0,0.3) !important;transition:transform 0.3s !important;pointer-events:none !important;"></span>
                     </label>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
@@ -265,6 +256,32 @@
         return (window.I18N && window.I18N[key]) || key;
     };
 
+    // Initialize toggle switch visual state
+    function initToggles() {
+        var toggles = document.querySelectorAll('.settings-toggle');
+        for (var i = 0; i < toggles.length; i++) {
+            (function(toggle) {
+                var input = toggle.querySelector('input[type="checkbox"]');
+                var track = toggle.querySelector('.toggle-track');
+                var knob = toggle.querySelector('.toggle-knob');
+                if (!input || !track || !knob) return;
+
+                function updateVisual() {
+                    if (input.checked) {
+                        track.style.backgroundColor = '#10B981';
+                        knob.style.transform = 'translateX(18px)';
+                    } else {
+                        track.style.backgroundColor = '#9CA3AF';
+                        knob.style.transform = 'translateX(0)';
+                    }
+                }
+
+                updateVisual();
+                input.addEventListener('change', updateVisual);
+            })(toggles[i]);
+        }
+    }
+
     function isCpuMode() {
         var dev = document.getElementById('settings-device');
         return dev && (dev.textContent === 'CPU' || dev.textContent.includes('CPU'));
@@ -277,11 +294,11 @@
         var card = section.parentElement;
         var cardTitle = card.querySelector('.card-header-title');
         if (cardTitle) cardTitle.textContent = t(cpu ? 'cpu_memory' : 'gpu_vram');
-        
+
         var labels = section.querySelectorAll('.vram-label');
         var cpuKeys = ['memory_usage', 'memory_total', 'memory_free', 'cpu_util'];
         var gpuKeys = ['vram_usage', 'vram_total', 'vram_free', 'gpu_util'];
-        
+
         for (var i = 0; i < labels.length && i < 4; i++) {
             labels[i].textContent = t(cpu ? cpuKeys[i] : gpuKeys[i]);
         }
@@ -317,7 +334,7 @@
                     if (vramFree) vramFree.textContent = data.memory_free || '--';
                     var gpuUtil = document.getElementById('settings-gpu-util');
                     if (gpuUtil) gpuUtil.textContent = data.cpu_util || '--';
-                    
+
                     var vramBar = document.getElementById('settings-vram-bar');
                     if (vramBar && data.memory_percent) {
                         vramBar.style.width = data.memory_percent + '%';
@@ -363,6 +380,9 @@
                     var formatEl = document.getElementById('settings-output-format');
                     if (formatEl && gs.output_format) formatEl.value = gs.output_format;
                 }
+
+                // Re-apply toggle visuals after data updates
+                initToggles();
             })
             .catch(function(err) {
                 console.error('Failed to fetch settings:', err);
@@ -376,7 +396,6 @@
             .then(function(data) {
                 if (!data || data.status !== 'ok' || !data.params) return;
                 var p = data.params;
-                // max_len and split_max_chars are now fixed, no need to update UI
                 var retryBadcase = document.getElementById('settings-retry-badcase');
                 if (retryBadcase) { retryBadcase.checked = p.retry_badcase !== false; }
                 var retryMaxTimes = document.getElementById('settings-retry-max-times');
@@ -389,6 +408,9 @@
                 if (idleTimeout) idleTimeout.value = p.idle_timeout != null ? p.idle_timeout : 300;
                 var trimSilence = document.getElementById('settings-trim-silence-vad');
                 if (trimSilence) { trimSilence.checked = p.trim_silence_vad !== false; }
+
+                // Re-apply toggle visuals after data updates
+                initToggles();
             })
             .catch(function(err) {
                 console.error('Failed to fetch advanced params:', err);
@@ -521,6 +543,7 @@
         });
     };
 
+    initToggles();
     fetchSettingsData();
     var refreshInterval = setInterval(fetchSettingsData, 30000);
 

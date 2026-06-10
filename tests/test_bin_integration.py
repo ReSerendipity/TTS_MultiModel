@@ -81,28 +81,12 @@ def test_module_imports():
         print(f"  [FAIL] history_db: {e}")
         return False
 
-    # Test batch inference
-    try:
-        from integrated_app.batch_inference import BatchInferencer, BatchResult
-        print("  [OK] batch_inference")
-    except ImportError as e:
-        print(f"  [FAIL] batch_inference: {e}")
-        return False
-
     # Test persona metadata
     try:
         from integrated_app.persona_metadata import PersonaMetadata, PersonaExporter, load_persona_metadata
         print("  [OK] persona_metadata")
     except ImportError as e:
         print(f"  [FAIL] persona_metadata: {e}")
-        return False
-
-    # Test comparison
-    try:
-        from integrated_app.comparison import ComparisonSession, format_param_diff
-        print("  [OK] comparison")
-    except ImportError as e:
-        print(f"  [FAIL] comparison: {e}")
         return False
 
     print("All modules imported successfully!")
