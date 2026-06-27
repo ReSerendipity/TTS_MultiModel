@@ -40,9 +40,11 @@ from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
+
 class EngineName(str, Enum):
     VOXCPM2 = "voxcpm2"
     INDEXTTS2 = "indextts2"
+
 
 ENGINE_DISPLAY_NAMES: dict[str, str] = {
     EngineName.VOXCPM2.value: "VoxCPM2",
@@ -74,14 +76,14 @@ class ModelRegistry:
     operation.
     """
 
-    _instance: "ModelRegistry" | None = None
+    _instance: ModelRegistry | None = None
     _init_done: bool = False
 
     # ------------------------------------------------------------------
     # Singleton
     # ------------------------------------------------------------------
 
-    def __new__(cls) -> "ModelRegistry":
+    def __new__(cls) -> ModelRegistry:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -213,6 +215,15 @@ class ModelRegistry:
     # Batch update helpers (single lock acquisition)
     # ------------------------------------------------------------------
 
+    def _notify_sse(self):
+        """通知 SSE 事件总线状态已变化。"""
+        try:
+            from .routes.sse import event_bus
+
+            event_bus.notify()
+        except Exception:
+            pass
+
     def set_voxcpm_loaded(
         self,
         model,
@@ -238,6 +249,7 @@ class ModelRegistry:
             self._current_engine = EngineName.VOXCPM2.value
             self._current_type = EngineName.VOXCPM2.value
             self._current_size = EngineName.VOXCPM2.value
+        self._notify_sse()
 
     def set_indextts2_loaded(self, engine) -> None:
         """Atomically set all IndexTTS 2.0 loaded state.
@@ -251,6 +263,7 @@ class ModelRegistry:
             self._current_engine = EngineName.INDEXTTS2.value
             self._current_type = EngineName.INDEXTTS2.value
             self._current_size = EngineName.INDEXTTS2.value
+        self._notify_sse()
 
     def clear_voxcpm(self) -> None:
         """Atomically clear all VoxCPM2 model references and flags.
@@ -267,6 +280,7 @@ class ModelRegistry:
             self.voxcpm_voiceclone_enabled = False
             self.voxcpm_control_enabled = False
             self._voxcpm2_engine_instance = None
+        self._notify_sse()
 
     def clear_indextts2(self) -> None:
         """Atomically clear all IndexTTS 2.0 engine references.
@@ -277,6 +291,7 @@ class ModelRegistry:
         """
         with self._lock:
             self._indextts2_engine = None
+        self._notify_sse()
 
     def clear_all(self) -> None:
         """Atomically reset all core state to defaults.
@@ -296,6 +311,7 @@ class ModelRegistry:
             self.voxcpm_voiceclone_enabled = False
             self.voxcpm_control_enabled = False
             self._voxcpm2_engine_instance = None
+        self._notify_sse()
 
     # ------------------------------------------------------------------
     # Query helpers
@@ -303,17 +319,11 @@ class ModelRegistry:
 
     def is_voxcpm_ready(self) -> bool:
         with self._lock:
-            return (
-                self._voxcpm_model is not None
-                and self._current_engine == EngineName.VOXCPM2.value
-            )
+            return self._voxcpm_model is not None and self._current_engine == EngineName.VOXCPM2.value
 
     def is_indextts2_ready(self) -> bool:
         with self._lock:
-            return (
-                self._indextts2_engine is not None
-                and self._current_engine == EngineName.INDEXTTS2.value
-            )
+            return self._indextts2_engine is not None and self._current_engine == EngineName.INDEXTTS2.value
 
     def is_engine_ready(self) -> bool:
         """Check if the current engine is ready.
@@ -360,8 +370,9 @@ class ModelRegistry:
         Returns ``None`` if no engine is loaded.
         """
         if self.current_engine == "voxcpm2" and self.voxcpm_model is not None:
-            if not hasattr(self, '_voxcpm2_engine_instance') or self._voxcpm2_engine_instance is None:
+            if not hasattr(self, "_voxcpm2_engine_instance") or self._voxcpm2_engine_instance is None:
                 from .engines.voxcpm2.engine import VoxCPM2Engine
+
                 self._voxcpm2_engine_instance = VoxCPM2Engine()
             return self._voxcpm2_engine_instance
         elif self.current_engine == "indextts2" and self.indextts2_engine is not None:
@@ -373,10 +384,11 @@ class ModelRegistry:
             raise ValueError(f"Unknown engine: {engine!r}")
         with self._lock:
             self._current_engine = engine
+        self._notify_sse()
 
     def get_engine_display_name(self, engine: str | None = None) -> str:
         """Return the display name for the given engine (or current engine)."""
-        eng = engine or self.current_engine
+        eng = engine or self.current_engine or ""
         return ENGINE_DISPLAY_NAMES.get(eng, eng or "None")
 
 

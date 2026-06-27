@@ -14,26 +14,40 @@ from ._base import (
 
 
 def fn_voxcpm_ultimate_clone(
-    text: str, instruction: str, ref_audio_path: str | None,
-    advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
-    advanced_steps: int, advanced_seed: int,
+    text: str,
+    instruction: str,
+    ref_audio_path: str | None,
+    advanced_cfg: float,
+    advanced_norm: bool,
+    advanced_denoise: float,
+    advanced_steps: int,
+    advanced_seed: int,
 ) -> tuple[tuple | None, str]:
     from ...model_manager import _check_voxcpm2_lock
     from ...model_registry import registry
+
     if registry.voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
     @tts_error_handler
-    def _wrapped(text, instruction, ref_audio_path, advanced_cfg, advanced_norm, advanced_denoise, advanced_steps, advanced_seed):
+    def _wrapped(
+        text, instruction, ref_audio_path, advanced_cfg, advanced_norm, advanced_denoise, advanced_steps, advanced_seed
+    ):
         if not _check_voxcpm2_lock():
             raise GenerationError("模型正在加载或切换中，请稍后再试")
         _gen_tracker.start_generation()
         start_time = time.time()
         try:
             return _fn_voxcpm_ultimate_clone_impl(
-                text, instruction, ref_audio_path,
-                advanced_cfg, advanced_norm, advanced_denoise,
-                advanced_steps, advanced_seed, start_time,
+                text,
+                instruction,
+                ref_audio_path,
+                advanced_cfg,
+                advanced_norm,
+                advanced_denoise,
+                advanced_steps,
+                advanced_seed,
+                start_time,
             )
         finally:
             elapsed = time.time() - start_time
@@ -41,13 +55,21 @@ def fn_voxcpm_ultimate_clone(
             _progress_mgr.schedule_reset(delay_seconds=120)
             logger.info(f"[VoxCPM极致克隆] 生成耗时 {elapsed:.1f} 秒")
 
-    return _wrapped(text, instruction, ref_audio_path, advanced_cfg, advanced_norm, advanced_denoise, advanced_steps, advanced_seed)
+    return _wrapped(
+        text, instruction, ref_audio_path, advanced_cfg, advanced_norm, advanced_denoise, advanced_steps, advanced_seed
+    )
 
 
 def _fn_voxcpm_ultimate_clone_impl(
-    text: str, instruction: str, ref_audio_path: str | None,
-    advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
-    advanced_steps: int, advanced_seed: int, start_time: float = 0,
+    text: str,
+    instruction: str,
+    ref_audio_path: str | None,
+    advanced_cfg: float,
+    advanced_norm: bool,
+    advanced_denoise: float,
+    advanced_steps: int,
+    advanced_seed: int,
+    start_time: float = 0,
 ) -> tuple[tuple | None, str]:
     import tempfile
 
@@ -56,7 +78,7 @@ def _fn_voxcpm_ultimate_clone_impl(
     _progress_mgr.start(total_segments=1, phase="ASR 识别参考音频...")
 
     processed_ref_path_for_asr = ref_audio_path
-    if ref_audio_path and hasattr(registry.voxcpm_model, 'denoiser') and registry.voxcpm_model.denoiser:
+    if ref_audio_path and hasattr(registry.voxcpm_model, "denoiser") and registry.voxcpm_model.denoiser:
         _progress_mgr.update_phase("参考音频降噪...")
         try:
             with tempfile.NamedTemporaryFile(suffix="_denoised.wav", delete=False) as tmp:
@@ -80,6 +102,7 @@ def _fn_voxcpm_ultimate_clone_impl(
         finally:
             if processed_ref_path_for_asr != ref_audio_path and os.path.isfile(processed_ref_path_for_asr):
                 import contextlib
+
                 with contextlib.suppress(Exception):
                     os.remove(processed_ref_path_for_asr)
 

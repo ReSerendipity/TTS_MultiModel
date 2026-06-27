@@ -1,5 +1,4 @@
 from ..utils import router
-
 from . import synthesize
 
-__all__ = ["router"]
+__all__ = ["router", "synthesize"]

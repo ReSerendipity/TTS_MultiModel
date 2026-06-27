@@ -30,13 +30,13 @@ async def generate_voxcpm_script(
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
 ):
-    model_not_ready = _check_engine_ready("voxcpm2")
+    model_not_ready = _check_engine_ready(request, "voxcpm2")
     if model_not_ready:
         return model_not_ready
     if not text.strip():
-        return _error_html("文本不能为空")
+        return _error_html(request, "文本不能为空")
     if len(text) > MAX_TEXT_LENGTH:
-        return _error_html(f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
+        return _error_html(request, f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
 
     advanced_norm = _parse_bool_form(norm)
     advanced_denoise = 1.0 if _parse_bool_form(denoise) else 0.0
@@ -44,6 +44,7 @@ async def generate_voxcpm_script(
     persona_map_with_wav = {}
     if persona_names.strip():
         from ....persona_manager import load_persona_embedding
+
         persona_name_list = [n.strip() for n in persona_names.split(",") if n.strip()]
         for pname in persona_name_list:
             safe_name = os.path.basename(pname)
@@ -61,23 +62,32 @@ async def generate_voxcpm_script(
     def _run():
         engine = registry.get_current_engine()
         return engine.generate_script(
-            text, persona_map=persona_map_with_wav if persona_map_with_wav else None,
-            advanced_cfg=cfg, advanced_norm=advanced_norm,
-            advanced_denoise=advanced_denoise, advanced_steps=steps,
-            advanced_seed=seed, lang=lang,
+            text,
+            persona_map=persona_map_with_wav if persona_map_with_wav else None,
+            advanced_cfg=cfg,
+            advanced_norm=advanced_norm,
+            advanced_denoise=advanced_denoise,
+            advanced_steps=steps,
+            advanced_seed=seed,
+            lang=lang,
         )
 
     def _degraded_run():
         engine = registry.get_current_engine()
         degraded_steps = max(steps // 2, 4)
         return engine.generate_script(
-            text, persona_map=persona_map_with_wav if persona_map_with_wav else None,
-            advanced_cfg=cfg, advanced_norm=advanced_norm,
-            advanced_denoise=0.0, advanced_steps=degraded_steps,
-            advanced_seed=seed, lang=lang,
+            text,
+            persona_map=persona_map_with_wav if persona_map_with_wav else None,
+            advanced_cfg=cfg,
+            advanced_norm=advanced_norm,
+            advanced_denoise=0.0,
+            advanced_steps=degraded_steps,
+            advanced_seed=seed,
+            lang=lang,
         )
 
     return await _execute_generation(
+        request,
         text=text,
         run_fn=_run,
         endpoint_name="VoxCPM script",

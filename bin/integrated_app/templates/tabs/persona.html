@@ -1,23 +1,29 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
         <h3 class="card-header-title">{{ "voice_library"|t(lang) }}</h3>
     </div>
 
     <!-- 空状态容器：独立渲染，根据数据状态切换显示/隐藏 -->
-    <div id="persona-empty-state" style="{{ 'display:block;' if total_persona_count == 0 else 'display:none;' }}">
-        <div class="empty-state" style="text-align:center;padding:48px 24px;">
-            <div class="empty-state-icon" style="font-size:64px;margin-bottom:16px;opacity:0.5;">🎙️</div>
-            <h3 style="margin:0 0 8px 0;color:var(--text-primary);">{{ "no_custom_voice"|t(lang) }}</h3>
-            <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "clone_to_create"|t(lang) }}</p>
-            <button class="primary-btn" onclick="window.activateTab && window.activateTab('voice_clone')">{{ "go_clone"|t(lang) }}</button>
+    <div id="persona-empty-state" style="{{ 'display:block;' if total_persona_count == 0 else 'display:none;' }}" aria-live="polite" aria-atomic="true">
+        <div class="empty-state empty-state-content">
+            <div class="empty-state-icon">
+                <svg aria-hidden="true" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6;">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" x2="12" y1="19" y2="22"/>
+                </svg>
+            </div>
+            <h3 class="empty-state-title" id="persona-empty-title">{{ "no_custom_voice"|t(lang) }}</h3>
+            <p class="empty-state-desc" id="persona-empty-desc">{{ "clone_to_create"|t(lang) }}</p>
+            <button class="tts-btn tts-btn-primary" id="persona-empty-action" onclick="TTSApp.sidebar.activateTab('voice_clone')">{{ "go_clone"|t(lang) }}</button>
         </div>
     </div>
 
     <!-- 统计卡片：仅在有数据时显示 -->
     {% if total_persona_count > 0 %}
     <div class="stat-card" id="persona-stat-card">
-        <span class="stat-card-icon">🎙️</span>
+        <span class="stat-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
         <div>
             <div class="stat-card-value">{{ total_persona_count }}</div>
             <div class="stat-card-label">{{ "custom_voice_count"|t(lang) }}</div>
@@ -36,12 +42,13 @@
         </div>
     </div>
     <div class="persona-action-bar">
-        <button class="primary-btn persona-action-btn" onclick="searchPersona()" aria-label="{{ 'search'|t(lang) }}">{{ "search"|t(lang) }}</button>
-        <button class="stop-btn persona-action-btn" onclick="clearPersonaSearch()" aria-label="{{ 'clear_search'|t(lang) }}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <button class="tts-btn tts-btn-primary persona-action-btn" onclick="searchPersona()" aria-label="{{ 'search'|t(lang) }}">{{ "search"|t(lang) }}</button>
+        <button class="tts-btn tts-btn-danger persona-action-btn" onclick="clearPersonaSearch()" aria-label="{{ 'clear_search'|t(lang) }}">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             {{ "clear_search"|t(lang) }}
         </button>
-        <button class="secondary-btn persona-action-btn" onclick="refreshPersonaList()">{{ "refresh_list"|t(lang) }}</button>
+        <button class="tts-btn tts-btn-secondary persona-action-btn" onclick="refreshPersonaList()">{{ "refresh_list"|t(lang) }}</button>
+        <button class="tts-btn tts-btn-primary persona-action-btn" id="persona-add-btn" aria-label="{{ 'create_voice'|t(lang) }}">{{ "create_voice"|t(lang) }}</button>
     </div>
     <div id="persona-search-info" class="persona-search-info"></div>
     <!-- Persona Card Skeleton -->
@@ -152,7 +159,7 @@
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            background: var(--card-bg);
+            background: var(--bg-card);
             border-radius: 12px;
             overflow: hidden;
         }
@@ -165,7 +172,7 @@
             letter-spacing: 0.5px;
             padding: 12px 16px;
             text-align: left;
-            border-bottom: 2px solid var(--border-color);
+            border-bottom: 2px solid var(--border-subtle);
         }
         .persona-table thead th:nth-child(1) { width: 60px; text-align: center; }
         .persona-table thead th:nth-child(2) { width: 120px; }
@@ -175,10 +182,10 @@
         .persona-table thead th:nth-child(6) { }
         .persona-table tbody tr {
             transition: background 0.15s ease;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-subtle);
         }
         .persona-table tbody tr:last-child { border-bottom: none; }
-        .persona-table tbody tr:hover { background: var(--hover-bg); }
+        .persona-table tbody tr:hover { background: var(--bg-tertiary); }
         .persona-table tbody tr.selected { background: var(--primary-bg); }
         .persona-table tbody td {
             padding: 12px 16px;
@@ -199,8 +206,8 @@
             height: 32px;
             border-radius: 50%;
             border: none;
-            background: var(--primary-color);
-            color: white;
+            background: var(--accent-primary);
+            color: var(--text-on-primary);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -209,10 +216,44 @@
         }
         .persona-play-btn:hover {
             transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(107, 92, 231, 0.4);
+            box-shadow: 0 4px 12px var(--primary-glow-strong);
         }
         .persona-play-btn:active { transform: scale(0.95); }
         .persona-play-btn .persona-play-icon { font-size: 12px; }
+        .persona-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--overlay-bg);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .persona-modal-overlay.is-open { display: flex; }
+        .persona-modal-content {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px var(--glass-black-50);
+        }
+        .persona-modal-title {
+            margin: 0 0 16px 0;
+            color: var(--text-primary);
+        }
+        .persona-modal-body {
+            margin: 0 0 24px 0;
+            color: var(--text-secondary);
+        }
+        .persona-modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -222,8 +263,8 @@
             font-size: 12px;
             font-weight: 500;
         }
-        .status-badge.firm { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-        .status-badge.pending { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .status-badge.firm { background: var(--success-bg); color: var(--accent-success); }
+        .status-badge.pending { background: var(--error-bg); color: var(--accent-error); }
 
         /* === Persona Toolbar & Layout === */
         .persona-toolbar {
@@ -263,11 +304,11 @@
             flex: 1;
         }
         .skeleton-stagger-1 { animation-delay: 0s; }
-        .skeleton-stagger-2 { animation-delay: 0.1s; }
-        .skeleton-stagger-3 { animation-delay: 0.2s; }
-        .skeleton-stagger-4 { animation-delay: 0.3s; }
-        .skeleton-stagger-5 { animation-delay: 0.4s; }
-        .skeleton-stagger-6 { animation-delay: 0.5s; }
+        .skeleton-stagger-2 { animation-delay: 0.08s; }
+        .skeleton-stagger-3 { animation-delay: 0.16s; }
+        .skeleton-stagger-4 { animation-delay: 0.24s; }
+        .skeleton-stagger-5 { animation-delay: 0.32s; }
+        .skeleton-stagger-6 { animation-delay: 0.40s; }
 
         /* === Empty State Hierarchy === */
         .empty-state-hint {
@@ -301,8 +342,8 @@
             gap: 8px;
             margin-top: 8px;
         }
-        .persona-bottom-actions .secondary-btn,
-        .persona-bottom-actions .stop-btn {
+        .persona-bottom-actions .tts-btn-secondary,
+        .persona-bottom-actions .tts-btn-danger {
             flex: 1;
         }
         .persona-delete-status {
@@ -324,20 +365,21 @@
             <tbody id="persona-table-body">
                 {% for row in persona_table_data %}
                 <tr class="persona-row" onclick="selectPersonaRow(this)" style="cursor:pointer;">
-                    <td>
-                        <button class="persona-play-btn" onclick="event.stopPropagation(); playPersonaAudio('{{ row[0] }}', this)" title="{{ 'preview_voice'|t(lang) }}" aria-label="{{ 'preview_voice'|t(lang) }} {{ row[0] }}">
-                            <span class="persona-play-icon">&#9654;</span>
+                    <td data-label="{{ 'preview'|t(lang) }}" style="padding:8px 12px;">
+                        <button class="persona-play-btn" onclick="event.stopPropagation(); playPersonaAudio('{{ row[0] }}', this)" title="{{ 'preview_voice'|t(lang) }}" aria-label="{{ 'preview_voice'|t(lang) }} {{ row[0] }}" style="display:inline-flex;align-items:center;gap:6px;width:auto;border-radius:var(--radius-md);padding:4px 8px;">
+                            <canvas class="waveform-preview" width="80" height="24" data-bars="30" style="width:80px;height:24px;border-radius:4px;flex-shrink:0;"></canvas>
+                            <span class="persona-play-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
                         </button>
                     </td>
-                    <td>{{ row[0] }}</td>
-                    <td>
+                    <td data-label="{{ 'voice_name'|t(lang) }}">{{ row[0] }}</td>
+                    <td data-label="{{ 'firm_status'|t(lang) }}">
                         <span class="status-badge {{ 'firm' if '✅' in row[1] else 'pending' }}">
-                            {{ row[1] }}
+                            {% if '✅' in row[1] %}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> {{ row[1].replace('✅', '').strip() }}{% else %}{{ row[1] }}{% endif %}
                         </span>
                     </td>
-                    <td>{{ row[2] }}</td>
-                    <td>{{ row[3] }}</td>
-                    <td><span class="ref-text" title="{{ row[4] }}">{{ row[4] }}</span></td>
+                    <td data-label="{{ 'audio_size'|t(lang) }}">{{ row[2] }}</td>
+                    <td data-label="{{ 'create_time'|t(lang) }}">{{ row[3] }}</td>
+                    <td data-label="{{ 'ref_text_col'|t(lang) }}"><span class="ref-text" title="{{ row[4] }}">{{ row[4] }}</span></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -357,10 +399,35 @@
         </div>
     </div>
     <div class="persona-bottom-actions skeleton-content hidden" id="persona-actions">
-        <button class="secondary-btn" onclick="playSelectedPersona()" aria-label="{{ 'play'|t(lang) }}">{{ "play"|t(lang) }}</button>
-        <button class="stop-btn" onclick="deleteSelectedPersona()" aria-label="{{ 'delete'|t(lang) }}">{{ "delete"|t(lang) }}</button>
+        <button class="tts-btn tts-btn-secondary" onclick="playSelectedPersona()" aria-label="{{ 'play'|t(lang) }}">{{ "play"|t(lang) }}</button>
+        <button class="tts-btn tts-btn-danger" onclick="deleteSelectedPersona()" aria-label="{{ 'delete'|t(lang) }}">{{ "delete"|t(lang) }}</button>
     </div>
-    <div id="persona-delete-status" class="persona-delete-status"></div>
+    <div id="persona-delete-status" class="persona-delete-status" aria-live="polite"></div>
+
+    <!-- Persona Create/Edit Modal -->
+    <div id="persona-form-modal" role="dialog" aria-modal="true" aria-labelledby="persona-form-modal-title" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--overlay-bg);z-index:9999;align-items:center;justify-content:center;">
+        <div class="modal-content" style="background:var(--bg-secondary);padding:24px;border-radius:var(--radius-xl);max-width:500px;width:90%;box-shadow:var(--shadow-modal);">
+            <h3 id="persona-form-modal-title" style="margin:0 0 16px 0;color:var(--text-primary);">{{ "create_voice"|t(lang) }}</h3>
+            <form id="persona-form">
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;margin-bottom:4px;color:var(--text-secondary);">{{ "voice_name"|t(lang) }}</label>
+                    <input type="text" name="persona_name" required style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;margin-bottom:4px;color:var(--text-secondary);">{{ "instruction"|t(lang) }}</label>
+                    <textarea name="instruction" rows="3" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);"></textarea>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;margin-bottom:4px;color:var(--text-secondary);">{{ "ref_audio"|t(lang) }}</label>
+                    <input type="file" name="ref_audio" accept="audio/*" style="width:100%;">
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button type="button" class="tts-btn tts-btn-secondary modal-close-btn">{{ "cancel"|t(lang) }}</button>
+                    <button type="submit" class="tts-btn tts-btn-primary">{{ "save"|t(lang) }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 <script>
 (function(){
@@ -368,6 +435,17 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // Apply staggered entrance animation to list items
+    function applyListItemAnimation(container, itemSelector) {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var items = container.querySelectorAll(itemSelector);
+        var maxItems = Math.min(items.length, 20);
+        for (var i = 0; i < maxItems; i++) {
+            items[i].classList.add('list-item-enter');
+            items[i].style.animationDelay = (i * 30) + 'ms';
+        }
     }
 
     var totalPersonaCount = {{ total_persona_count }};
@@ -400,8 +478,11 @@
         listEl.style.transform = 'none';
     }
 
-    // 切换空状态与列表/卡片的显示
-    function toggleEmptyState(hasResults) {
+    // 切换空状态与列表/卡片的显示（区分首次无数据和搜索无结果）
+    function toggleEmptyState(hasResults, isSearchNoResult) {
+        var titleEl = document.getElementById('persona-empty-title');
+        var descEl = document.getElementById('persona-empty-desc');
+        var actionEl = document.getElementById('persona-empty-action');
         if (hasResults) {
             // 有结果：隐藏空状态，显示列表/卡片
             if (emptyState) emptyState.style.display = 'none';
@@ -410,6 +491,23 @@
             // 无结果：显示空状态，隐藏列表/卡片
             if (emptyState) emptyState.style.display = 'block';
             if (statCard) statCard.style.display = 'none';
+            if (isSearchNoResult) {
+                // 搜索无结果
+                if (titleEl) titleEl.textContent = '{{ "no_matches"|t(lang) }}';
+                if (descEl) descEl.textContent = '{{ "try_other_keyword"|t(lang, default="换个关键词试试？") }}';
+                if (actionEl) {
+                    actionEl.textContent = '{{ "clear_search"|t(lang) }}';
+                    actionEl.setAttribute('onclick', 'clearPersonaSearch()');
+                }
+            } else {
+                // 首次无数据
+                if (titleEl) titleEl.textContent = '{{ "no_custom_voice"|t(lang) }}';
+                if (descEl) descEl.textContent = '{{ "clone_to_create"|t(lang) }}';
+                if (actionEl) {
+                    actionEl.textContent = '{{ "go_clone"|t(lang) }}';
+                    actionEl.setAttribute('onclick', "TTSApp.sidebar.activateTab('voice_clone')");
+                }
+            }
         }
     }
     
@@ -456,26 +554,76 @@
         if (!name) return;
         var audio = document.getElementById('persona-preview-audio');
         var statusEl = document.getElementById('persona-delete-status');
+
+        // Clean up any previous listeners from a prior play
+        if (btn && btn._personaCleanup) {
+            btn._personaCleanup();
+            btn._personaCleanup = null;
+        }
+
         // Update UI to show loading
         if (btn) {
             btn.innerHTML = '<span class="persona-play-icon">⟳</span>';
             btn.disabled = true;
         }
+
+        function restoreBtn() {
+            if (btn) {
+                btn.innerHTML = '<span class="persona-play-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>';
+                btn.disabled = false;
+                btn._personaCleanup = null;
+            }
+        }
+
+        function showPlaying() {
+            if (btn) {
+                btn.innerHTML = '<span class="persona-play-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></span>';
+                btn.disabled = false;
+            }
+        }
+
+        function setupEndListeners(audioEl) {
+            var onEnded = function() {
+                restoreBtn();
+                audioEl.removeEventListener('ended', onEnded);
+                audioEl.removeEventListener('error', onError);
+            };
+            var onError = function() {
+                restoreBtn();
+                audioEl.removeEventListener('ended', onEnded);
+                audioEl.removeEventListener('error', onError);
+            };
+            audioEl.addEventListener('ended', onEnded);
+            audioEl.addEventListener('error', onError);
+            if (btn) {
+                btn._personaCleanup = function() {
+                    audioEl.removeEventListener('ended', onEnded);
+                    audioEl.removeEventListener('error', onError);
+                };
+            }
+        }
+
         var audioSrc = '/api/persona/audio/' + encodeURIComponent(name);
         if (window.globalAudioPlayer) {
             window.globalAudioPlayer.play(audioSrc, name);
+            // Try to access the underlying audio element for end/error events
+            var globalAudio = window.globalAudioPlayer.audio || (window.globalAudioPlayer.getElement && window.globalAudioPlayer.getElement());
+            if (globalAudio) {
+                showPlaying();
+                setupEndListeners(globalAudio);
+            } else {
+                // Cannot detect playback end; show playing state at least
+                showPlaying();
+            }
         } else {
             audio.src = audioSrc;
             audio.play().then(function() {
-                if (statusEl) statusEl.innerHTML = '<div class="tts-success-block">🎵 {{ "playing"|t(lang) }}: ' + name + '</div>';
+                if (statusEl) statusEl.innerHTML = '<div class="tts-success-block"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> {{ "playing"|t(lang) }}: ' + name + '</div>';
+                showPlaying();
+                setupEndListeners(audio);
             }).catch(function(err) {
                 if (statusEl) statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "play_failed"|t(lang) }}</div><div class="error-message">{{ "audio_not_exist"|t(lang) }}: ' + name + '</div></div>';
-            }).finally(function() {
-                // Restore button
-                if (btn) {
-                    btn.innerHTML = '<span class="persona-play-icon">&#9654;</span>';
-                    btn.disabled = false;
-                }
+                restoreBtn();
             });
         }
     };
@@ -492,7 +640,7 @@
                 document.getElementById('persona-delete-status').innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "play_failed"|t(lang) }}</div><div class="error-message">{{ "audio_not_exist"|t(lang) }}: ' + name + '</div></div>';
             });
         }
-        document.getElementById('persona-delete-status').innerHTML = '<div class="tts-success-block">🎵 {{ "playing"|t(lang) }}: ' + name + '</div>';
+        document.getElementById('persona-delete-status').innerHTML = '<div class="tts-success-block"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> {{ "playing"|t(lang) }}: ' + name + '</div>';
     };
     window.deleteSelectedPersona = function() {
         var name = document.getElementById('selected-persona').value;
@@ -506,13 +654,13 @@
         var modal = document.createElement('div');
         modal.className = 'custom-modal';
         modal.innerHTML = `
-            <div class="custom-modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;">
-                <div class="custom-modal-content" style="background:var(--bg-secondary);padding:24px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+            <div class="custom-modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--overlay-bg);z-index:9999;display:flex;align-items:center;justify-content:center;">
+                <div class="custom-modal-content" style="background:var(--bg-secondary);padding:24px;border-radius:var(--radius-xl);max-width:400px;width:90%;box-shadow:var(--shadow-modal);">
                     <h3 style="margin:0 0 16px 0;color:var(--text-primary);">{{ "confirm_delete"|t(lang) }}</h3>
                     <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "delete_confirm_msg"|t(lang) }} "${safeName}" {{ "delete_warning"|t(lang) }}</p>
                     <div style="display:flex;gap:12px;justify-content:flex-end;">
-                        <button class="secondary-btn" onclick="this.closest('.custom-modal').remove()">{{ "cancel"|t(lang) }}</button>
-                        <button class="stop-btn" onclick="confirmDeletePersona('${name}')">{{ "delete"|t(lang) }}</button>
+                        <button class="tts-btn tts-btn-secondary" onclick="this.closest('.custom-modal').remove()">{{ "cancel"|t(lang) }}</button>
+                        <button class="tts-btn tts-btn-danger" onclick="confirmDeletePersona('${name}')">{{ "delete"|t(lang) }}</button>
                     </div>
                 </div>
             </div>
@@ -526,7 +674,7 @@
             .then(function(r){ return r.json(); })
             .then(function(data){
                 if (data.status === 'ok') {
-                    document.getElementById('persona-delete-status').innerHTML = '<div class="tts-success-block">✅ ' + data.message + '</div>';
+                    document.getElementById('persona-delete-status').innerHTML = '<div class="tts-success-block"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> ' + data.message + '</div>';
                     refreshPersonaList();
                 } else {
                     document.getElementById('persona-delete-status').innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "delete_failed"|t(lang) }}</div><div class="error-message">' + data.message + '</div></div>';
@@ -543,7 +691,7 @@
             .then(function(r){ return r.json(); })
             .then(function(data){
                 var records = data.records || [];
-                updatePersonaTable(records);
+                updatePersonaTable(records, !!keyword);
                 var count = records.length;
                 document.getElementById('persona-search-info').innerHTML = keyword ? '{{ "found"|t(lang) }} <strong>' + count + '</strong> {{ "matching_voices"|t(lang) }}' : '{{ "total_voices"|t(lang) }} <strong>' + count + '</strong> {{ "voices"|t(lang) }}';
                 
@@ -554,7 +702,7 @@
                     toggleEmptyState(true);
                 } else {
                     showList();
-                    toggleEmptyState(false);
+                    toggleEmptyState(false, !!keyword);
                 }
             }).catch(function(err){
                 console.error('[searchPersona] error:', err);
@@ -588,7 +736,7 @@
                 console.error('[refreshPersonaList] error:', err);
             });
     };
-    function updatePersonaTable(records) {
+    function updatePersonaTable(records, isSearchNoResult) {
         var tbody = document.getElementById('persona-table-body');
         if (records.length > 0) {
             var html = '';
@@ -596,22 +744,24 @@
                 var safeName = escapeHtml(r[0]);
                 var safeNameAttr = r[0].replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 html += '<tr class="persona-row" onclick="selectPersonaRow(this)" style="cursor:pointer;" aria-label="{{ 'voice_name'|t(lang) }} ' + safeName + '">' +
-                    '<td style="padding:8px 12px;">' +
+                    '<td data-label="{{ 'preview'|t(lang) }}" style="padding:8px 12px;">' +
                     '<button class="persona-play-btn" onclick="event.stopPropagation(); playPersonaAudio(\'' + safeNameAttr + '\', this)" title="{{ 'preview_voice'|t(lang) }}" aria-label="{{ 'preview_voice'|t(lang) }} ' + safeName + '">' +
-                    '<span class="persona-play-icon">&#9654;</span></button></td>' +
-                    '<td style="padding:8px 12px;">' + safeName + '</td>' +
-                    '<td style="padding:8px 12px;">' + escapeHtml(r[1]) + '</td>' +
-                    '<td style="padding:8px 12px;">' + escapeHtml(r[2]) + '</td>' +
-                    '<td style="padding:8px 12px;">' + escapeHtml(r[3]) + '</td>' +
-                    '<td style="padding:8px 12px;">' + escapeHtml(r[4]) + '</td></tr>';
+                    '<span class="persona-play-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span></button></td>' +
+                    '<td data-label="{{ 'voice_name'|t(lang) }}" style="padding:8px 12px;">' + safeName + '</td>' +
+                    '<td data-label="{{ 'firm_status'|t(lang) }}" style="padding:8px 12px;"><span class="status-badge ' + (r[1].indexOf('✅') >= 0 ? 'firm' : 'pending') + '">' + (r[1].indexOf('✅') >= 0 ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:3px;"><polyline points="20 6 9 17 4 12"/></svg> ' + escapeHtml(r[1].replace('✅', '').trim()) : escapeHtml(r[1])) + '</span></td>' +
+                    '<td data-label="{{ 'audio_size'|t(lang) }}" style="padding:8px 12px;">' + escapeHtml(r[2]) + '</td>' +
+                    '<td data-label="{{ 'create_time'|t(lang) }}" style="padding:8px 12px;">' + escapeHtml(r[3]) + '</td>' +
+                    '<td data-label="{{ 'ref_text_col'|t(lang) }}" style="padding:8px 12px;">' + escapeHtml(r[4]) + '</td></tr>';
             });
             tbody.innerHTML = html;
+            // Apply staggered entrance animation
+            applyListItemAnimation(tbody, '.persona-row');
             // 有数据时隐藏空状态，显示列表
             toggleEmptyState(true);
         } else {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">{{ "no_voices"|t(lang) }}</td></tr>';
             // 无数据时显示空状态
-            toggleEmptyState(false);
+            toggleEmptyState(false, isSearchNoResult);
         }
     }
     document.getElementById('persona-search').addEventListener('input', function() {
@@ -664,7 +814,7 @@
                 '<div class="voice-card-header">' +
                 '<div class="voice-card-title">' + safeName + '</div>' +
                 '<button class="persona-card-play-btn" onclick="playPersonaAudio(\'' + safeNameAttr + '\', this)" title="{{ 'preview'|t(lang) }}" aria-label="{{ 'preview'|t(lang) }} ' + safeName + '">' +
-                '<span class="persona-play-icon">&#9654;</span></button>' +
+                '<span class="persona-play-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span></button>' +
                 '</div>' +
                 '<div class="voice-card-meta">' + escapeHtml(status) + ' · ' + escapeHtml(size) + '</div>' +
                 '<div class="voice-card-ref-text">' + escapeHtml(refText.length > 60 ? refText.substring(0, 60) + '...' : refText) + '</div>' +
@@ -688,6 +838,93 @@
         });
         Toast.show('{{ "voice_selected"|t(lang) }}: ' + name, 'success', 2000);
     };
+
+    // === Persona Form Modal Handling ===
+    var personaAddBtn = document.getElementById('persona-add-btn');
+    var personaFormModal = document.getElementById('persona-form-modal');
+    var personaModalCloseBtns = personaFormModal ? personaFormModal.querySelectorAll('.modal-close-btn') : [];
+
+    function getFocusableElements(container) {
+        if (!container) return [];
+        var selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+        var elements = Array.prototype.slice.call(container.querySelectorAll(selectors));
+        // Filter out hidden elements
+        return elements.filter(function(el) {
+            return el.offsetParent !== null || el === document.activeElement;
+        });
+    }
+
+    function openPersonaFormModal() {
+        if (personaFormModal) {
+            personaFormModal.style.display = 'flex';
+            // Focus the first focusable element inside the modal synchronously
+            // so that keyboard focus moves into the modal immediately.
+            var focusable = getFocusableElements(personaFormModal);
+            if (focusable.length > 0) {
+                focusable[0].focus();
+            }
+        }
+    }
+
+    function closePersonaFormModal() {
+        if (personaFormModal) {
+            personaFormModal.style.display = 'none';
+        }
+    }
+
+    if (personaAddBtn) {
+        personaAddBtn.addEventListener('click', openPersonaFormModal);
+    }
+
+    personaModalCloseBtns.forEach(function(btn) {
+        btn.addEventListener('click', closePersonaFormModal);
+    });
+
+    // Focus trap: keep Tab focus within the modal when it is open
+    if (personaFormModal) {
+        personaFormModal.addEventListener('keydown', function(e) {
+            if (e.key !== 'Tab') return;
+            if (personaFormModal.style.display === 'none') return;
+
+            var focusable = getFocusableElements(personaFormModal);
+            if (focusable.length === 0) return;
+
+            var firstEl = focusable[0];
+            var lastEl = focusable[focusable.length - 1];
+
+            if (e.shiftKey) {
+                // Shift+Tab: if focus is on the first element, wrap to the last
+                if (document.activeElement === firstEl) {
+                    e.preventDefault();
+                    lastEl.focus();
+                }
+            } else {
+                // Tab: if focus is on the last element, wrap to the first
+                if (document.activeElement === lastEl) {
+                    e.preventDefault();
+                    firstEl.focus();
+                }
+            }
+        });
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && personaFormModal && personaFormModal.style.display !== 'none') {
+            closePersonaFormModal();
+        }
+    });
+
+    // Prevent form submission from actually submitting (for now)
+    if (personaFormModal) {
+        var personaForm = personaFormModal.querySelector('#persona-form');
+        if (personaForm) {
+            personaForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                closePersonaFormModal();
+            });
+        }
+    }
 
 })();
 </script>

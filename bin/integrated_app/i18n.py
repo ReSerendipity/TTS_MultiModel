@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 import json
 import os
+from typing import Any
 
 _LOCALES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "locales")
 
@@ -13,7 +13,8 @@ _LANG_FILE_MAP = {
     "ko": "ko.json",
 }
 
-_I18N_TRANSLATIONS = {}
+_I18N_TRANSLATIONS: dict[str, Any] = {}
+
 
 def _load_translations(lang):
     if lang in _I18N_TRANSLATIONS:
@@ -24,10 +25,11 @@ def _load_translations(lang):
     filepath = os.path.join(_LOCALES_DIR, filename)
     if not os.path.exists(filepath):
         return None
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         data = json.load(f)
     _I18N_TRANSLATIONS[lang] = data
     return data
+
 
 def _resolve_key(translations, key):
     if "." in key:
@@ -41,7 +43,9 @@ def _resolve_key(translations, key):
         return result if isinstance(result, str) else None
     return translations.get(key)
 
+
 _DEFAULT_LANG = "zh-CN"
+
 
 def t(key, lang=_DEFAULT_LANG, default=None):
     lang_dict = _load_translations(lang)
@@ -55,6 +59,7 @@ def t(key, lang=_DEFAULT_LANG, default=None):
         if result is not None:
             return result
     return default if default is not None else key
+
 
 def get_lang(request):
     lang = request.query_params.get("lang")
@@ -73,8 +78,10 @@ def get_lang(request):
             return lang_map[lang]
     return _DEFAULT_LANG
 
+
 def register_i18n_filters(env):
     env.filters["t"] = t
+
 
 class _I18NCallable:
     def __call__(self, key, lang=_DEFAULT_LANG):
@@ -84,14 +91,15 @@ class _I18NCallable:
         en_dict = _load_translations("en")
         return f"I18N(keys={len(en_dict) if en_dict else 0})"
 
+
 I18N = _I18NCallable()
 
+
 def get_i18n_json(lang):
-    import json as _json
     translations = _load_translations(lang)
     if translations is None:
         translations = _load_translations("zh-CN") or {}
     en_dict = _load_translations("en") or {}
     merged = dict(en_dict)
     merged.update(translations)
-    return _json.dumps(merged, ensure_ascii=False)
+    return merged

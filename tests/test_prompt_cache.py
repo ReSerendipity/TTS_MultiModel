@@ -68,35 +68,57 @@ class TestPromptCacheOperations:
         """Create a temporary cache directory."""
         return str(tmp_path / "prompt_cache")
 
+    def _set_cache_dir(self, cache_dir):
+        """Monkeypatch the global cache directory for isolated tests."""
+        from pathlib import Path
+        import integrated_app.prompt_cache as pc
+        os.makedirs(cache_dir, exist_ok=True)
+        pc._PROMPT_CACHE_DIR = Path(cache_dir)
+
     def test_cache_directory_creation(self, cache_dir):
         """Cache directory is created on first use."""
-        from integrated_app.prompt_cache import PromptCacheManager
-        manager = PromptCacheManager(cache_dir=cache_dir)
+        from integrated_app.prompt_cache import _ensure_cache_dir
+        self._set_cache_dir(cache_dir)
+        _ensure_cache_dir()
         assert os.path.isdir(cache_dir)
 
     def test_save_and_load(self, cache_dir):
         """Can save and load a cache entry."""
-        from integrated_app.prompt_cache import PromptCacheManager
-        manager = PromptCacheManager(cache_dir=cache_dir)
-        # Save
-        manager.save_prompt_cache("test_key", {"data": "test_value"})
-        # Load
-        result = manager.load_cached_prompt("test_key")
+        from integrated_app.prompt_cache import save_prompt_cache, load_cached_prompt
+        self._set_cache_dir(cache_dir)
+        audio_path = os.path.join(cache_dir, "test_audio.wav")
+        # Create a dummy file so cache key can be computed from content
+        with open(audio_path, "wb") as f:
+            f.write(b"test_audio_data")
+        save_prompt_cache(audio_path, {"data": "test_value"})
+        result = load_cached_prompt(audio_path)
         assert result is not None
+        assert result["data"] == "test_value"
 
     def test_cache_stats(self, cache_dir):
         """Can get cache statistics."""
-        from integrated_app.prompt_cache import PromptCacheManager
-        manager = PromptCacheManager(cache_dir=cache_dir)
-        stats = manager.get_cache_stats()
+        from integrated_app.prompt_cache import save_prompt_cache, get_cache_stats, _ensure_cache_dir
+        self._set_cache_dir(cache_dir)
+        _ensure_cache_dir()
+        audio_path = os.path.join(cache_dir, "stats_audio.wav")
+        with open(audio_path, "wb") as f:
+            f.write(b"stats_audio_data")
+        save_prompt_cache(audio_path, {"data": "test_value"})
+        stats = get_cache_stats()
         assert isinstance(stats, dict)
-        assert "total_entries" in stats
+        assert "entries" in stats
+        assert stats["entries"] >= 1
 
     def test_clear_cache(self, cache_dir):
         """Can clear the cache."""
-        from integrated_app.prompt_cache import PromptCacheManager
-        manager = PromptCacheManager(cache_dir=cache_dir)
-        manager.save_prompt_cache("clear_key", {"data": "value"})
-        manager.clear_prompt_cache()
-        stats = manager.get_cache_stats()
-        assert stats["total_entries"] == 0
+        from integrated_app.prompt_cache import save_prompt_cache, load_cached_prompt, clear_prompt_cache, get_cache_stats, _ensure_cache_dir
+        self._set_cache_dir(cache_dir)
+        _ensure_cache_dir()
+        audio_path = os.path.join(cache_dir, "clear_audio.wav")
+        with open(audio_path, "wb") as f:
+            f.write(b"clear_audio_data")
+        save_prompt_cache(audio_path, {"data": "value"})
+        assert load_cached_prompt(audio_path) is not None
+        clear_prompt_cache()
+        stats = get_cache_stats()
+        assert stats["entries"] == 0

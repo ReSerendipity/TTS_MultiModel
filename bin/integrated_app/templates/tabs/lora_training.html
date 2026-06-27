@@ -1,6 +1,6 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
         <h3 class="card-header-title">{{ "lora_fine_tuning"|t(lang) }}</h3>
     </div>
 
@@ -78,20 +78,20 @@
                 </div>
 
                 <div style="display:flex;gap:8px;margin-top:16px;">
-                    <button type="button" class="primary-btn" onclick="startTraining()" style="flex:1;">{{ "start_training"|t(lang) }}</button>
-                    <button type="button" class="secondary-btn" onclick="stopTraining()" style="flex:1;">{{ "stop_training"|t(lang) }}</button>
+                    <button type="button" class="tts-btn tts-btn-primary" onclick="startTraining()" style="flex:1;">{{ "start_training"|t(lang) }}</button>
+                    <button type="button" class="tts-btn tts-btn-secondary" onclick="stopTraining()" style="flex:1;">{{ "stop_training"|t(lang) }}</button>
                 </div>
             </div>
 
             <div style="flex:1;">
                 <div style="font-size:14px;font-weight:500;margin-bottom:12px;">{{ "training_log"|t(lang) }}</div>
-                <div id="ft-training-log" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:#10B981;height:400px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;">{{ "waiting"|t(lang) }}</div>
+                <div id="ft-training-log" style="background:var(--glass-black-30);border-radius:var(--radius-md);padding:12px;font-family:monospace;font-size:11px;color:var(--color-success);height:400px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;">{{ "waiting"|t(lang) }}</div>
 
                 <div style="margin-top:12px;">
                     <div style="font-size:14px;font-weight:500;margin-bottom:8px;">{{ "training_status"|t(lang) }}</div>
-                    <div id="ft-training-status" style="background:rgba(107,114,128,0.08);border:1px solid rgba(107,114,128,0.2);border-radius:8px;padding:12px;">
+                    <div id="ft-training-status" style="background:var(--status-neutral-bg);border:1px solid var(--status-neutral-border);border-radius:var(--radius-md);padding:12px;" aria-live="polite">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span id="ft-status-dot" style="width:8px;height:8px;border-radius:50%;background:#6B7280;"></span>
+                            <span id="ft-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--status-neutral-dot);"></span>
                             <span id="ft-status-text" style="font-size:13px;color:var(--text-secondary);">{{ "idle"|t(lang) }}</span>
                         </div>
                     </div>
@@ -141,7 +141,7 @@ function startTraining() {
         lora: loraConfig,
     };
 
-    statusDot.style.background = '#F59E0B';
+    statusDot.style.background = 'var(--color-warning)';
     statusText.textContent = '{{ "starting_training"|t(lang) }}';
     logEl.textContent = '{{ "starting_training"|t(lang) }}\n';
 
@@ -154,27 +154,29 @@ function startTraining() {
     .then(function(data) {
         if (data.status === 'ok') {
             _trainingProcessId = data.process_id;
-            statusDot.style.background = '#10B981';
+            statusDot.style.background = 'var(--color-success)';
             statusText.textContent = '{{ "training"|t(lang) }} (PID: ' + data.process_id + ')';
             pollTrainingLog();
         } else {
-            statusDot.style.background = '#EF4444';
+            statusDot.style.background = 'var(--color-error)';
             statusText.textContent = '{{ "start_failed"|t(lang) }}: ' + (data.message || '{{ "unknown_error"|t(lang) }}');
             logEl.textContent += '{{ "error"|t(lang) }}: ' + (data.message || '{{ "unknown_error"|t(lang) }}') + '\n';
         }
     })
     .catch(function(e) {
-        statusDot.style.background = '#EF4444';
+        statusDot.style.background = 'var(--color-error)';
         statusText.textContent = '{{ "start_error"|t(lang) }}';
         logEl.textContent += '{{ "exception"|t(lang) }}: ' + e.message + '\n';
     });
 }
 
 function stopTraining() {
-    fetch('/api/training/stop', {method: 'POST'})
+    var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
+    var stopHeaders = csrfToken ? {'X-CSRF-Token': csrfToken} : {};
+    fetch('/api/training/stop', {method: 'POST', headers: stopHeaders})
     .then(function(r) { return r.json(); })
     .then(function(data) {
-        document.getElementById('ft-status-dot').style.background = '#6B7280';
+        document.getElementById('ft-status-dot').style.background = 'var(--status-neutral-dot)';
         document.getElementById('ft-status-text').textContent = '{{ "stopped"|t(lang) }}';
         document.getElementById('ft-training-log').textContent += '\n{{ "training_stopped"|t(lang) }}\n';
     })
@@ -196,7 +198,7 @@ function pollTrainingLog() {
         if (data.running) {
             setTimeout(pollTrainingLog, 2000);
         } else {
-            document.getElementById('ft-status-dot').style.background = '#6B7280';
+            document.getElementById('ft-status-dot').style.background = 'var(--status-neutral-dot)';
             document.getElementById('ft-status-text').textContent = '{{ "training_complete"|t(lang) }}';
             _trainingProcessId = null;
         }

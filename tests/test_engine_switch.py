@@ -12,14 +12,15 @@ class TestEngineSwitch:
             list(gen)
 
     def test_vram_check_raises_insufficient(self):
-        with patch("integrated_app.model_manager.GPUBackendManager") as mock_gpu:
+        with patch("integrated_app.gpu_backend.GPUBackendManager") as mock_gpu:
             mock_gpu.detect_backend.return_value = MagicMock(value="cuda")
             mock_gpu.get_device_properties.return_value = {"total_memory": 8 * 1024**3}
             mock_gpu.memory_allocated.return_value = 7 * 1024**3
-            with pytest.raises(InsufficientVRAMError):
-                from integrated_app.model_manager import switch_engine
-                gen = switch_engine("voxcpm2")
-                list(gen)
+            with patch("integrated_app.model_manager.get_gpu_device", return_value=0):
+                with pytest.raises(InsufficientVRAMError):
+                    from integrated_app.model_manager import switch_engine
+                    gen = switch_engine("voxcpm2")
+                    list(gen)
 
     def test_engine_name_enum_values(self):
         assert EngineName.VOXCPM2.value == "voxcpm2"

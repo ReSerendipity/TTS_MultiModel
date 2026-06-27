@@ -1,9 +1,11 @@
+import asyncio
+import contextlib
+import json
+import logging
 import os
 import sys
-import json
-import subprocess
-import threading
-import logging
+
+import aiofiles
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
@@ -16,8 +18,9 @@ logger = logging.getLogger("tts_multimodel.training")
 router = APIRouter(prefix="/api/training", tags=["training"])
 
 _training_process = None
+_training_reader_task = None
 _training_log = ""
-_training_log_lock = threading.Lock()
+_training_log_lock = asyncio.Lock()
 _MAX_LOG_LENGTH = 1_000_000
 
 
@@ -30,29 +33,31 @@ def _validate_path(base_dir: str, user_path: str) -> str:
     return joined
 
 
-def _detect_sample_rate(pretrained_path: str) -> int:
+async def _detect_sample_rate(pretrained_path: str) -> int:
     config_file = os.path.join(pretrained_path, "config.json")
     if not os.path.isfile(config_file):
-        logger.warning(f"config.json not found at {config_file}, using default sample_rate=44100")
+        logger.warning(f"在 {config_file} 未找到 config.json，使用默认 sample_rate=44100")
         return 44100
     try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+        async with aiofiles.open(config_file, encoding="utf-8") as f:
+            content = await f.read()
+            cfg = json.loads(content)
         sr = int(cfg["audio_vae_config"]["sample_rate"])
-        logger.info(f"Auto-detected sample_rate={sr} from {config_file}")
+        logger.info(f"自动检测 sample_rate={sr} 来自 {config_file}")
         return sr
     except (KeyError, ValueError, json.JSONDecodeError) as e:
-        logger.warning(f"Failed to detect sample_rate from {config_file}: {e}, using default 44100")
+        logger.warning(f"从 {config_file} 检测 sample_rate 失败: {e}，使用默认值 44100")
         return 44100
 
 
-def _detect_out_sample_rate(pretrained_path: str) -> int:
+async def _detect_out_sample_rate(pretrained_path: str) -> int:
     config_file = os.path.join(pretrained_path, "config.json")
     if not os.path.isfile(config_file):
         return 0
     try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+        async with aiofiles.open(config_file, encoding="utf-8") as f:
+            content = await f.read()
+            cfg = json.loads(content)
         out_sr = cfg.get("audio_vae_config", {}).get("out_sample_rate")
         return int(out_sr) if out_sr else 0
     except (KeyError, ValueError, json.JSONDecodeError):
@@ -64,17 +69,17 @@ def _validate_training_params(body: dict) -> list[str]:
     errors: list[str] = []
 
     _RANGE_CHECKS = {
-        "learning_rate":   (float, True,  0,     True,  1.0,   "> 0 and <= 1.0"),
-        "num_iters":       (int,   True,  1,     True,  100000, ">= 1 and <= 100000"),
-        "batch_size":      (int,   True,  1,     True,  32,     ">= 1 and <= 32"),
-        "grad_accum_steps": (int,  True,  1,     True,  64,     ">= 1 and <= 64"),
-        "save_interval":   (int,   True,  100,   True,  50000,  ">= 100 and <= 50000"),
-        "log_interval":    (int,   True,  1,     True,  1000,   ">= 1 and <= 1000"),
-        "weight_decay":    (float, True,  0,     True,  1.0,    ">= 0 and <= 1.0"),
-        "warmup_steps":    (int,   True,  0,     True,  10000,  ">= 0 and <= 10000"),
-        "max_grad_norm":   (float, True,  0,     True,  100.0,  "> 0 and <= 100.0"),
-        "num_workers":     (int,   True,  0,     True,  16,     ">= 0 and <= 16"),
-        "valid_interval":  (int,   True,  100,   True,  50000,  ">= 100 and <= 50000"),
+        "learning_rate": (float, True, 0, True, 1.0, "> 0 and <= 1.0"),
+        "num_iters": (int, False, 1, True, 100000, ">= 1 and <= 100000"),
+        "batch_size": (int, False, 1, True, 32, ">= 1 and <= 32"),
+        "grad_accum_steps": (int, False, 1, True, 64, ">= 1 and <= 64"),
+        "save_interval": (int, False, 100, True, 50000, ">= 100 and <= 50000"),
+        "log_interval": (int, False, 1, True, 1000, ">= 1 and <= 1000"),
+        "weight_decay": (float, False, 0, True, 1.0, ">= 0 and <= 1.0"),
+        "warmup_steps": (int, False, 0, True, 10000, ">= 0 and <= 10000"),
+        "max_grad_norm": (float, True, 0, True, 100.0, "> 0 and <= 100.0"),
+        "num_workers": (int, False, 0, True, 16, ">= 0 and <= 16"),
+        "valid_interval": (int, False, 100, True, 50000, ">= 100 and <= 50000"),
     }
 
     for param, (typ, lo_strict, lo, hi_strict, hi, desc) in _RANGE_CHECKS.items():
@@ -100,11 +105,35 @@ def _validate_training_params(body: dict) -> list[str]:
     return errors
 
 
+def _is_training_running() -> bool:
+    return _training_process is not None and _training_process.returncode is None
+
+
+async def _read_training_output(process: asyncio.subprocess.Process):
+    """异步读取训练子进程 stdout 并追加到全局日志缓冲区。"""
+    global _training_log
+    if process.stdout is None:
+        return
+    try:
+        while True:
+            line = await process.stdout.readline()
+            if not line:
+                break
+            decoded = line.decode("utf-8", errors="replace")
+            async with _training_log_lock:
+                _training_log += decoded
+                if len(_training_log) > _MAX_LOG_LENGTH:
+                    _training_log = _training_log[-_MAX_LOG_LENGTH:]
+    except Exception as e:
+        async with _training_log_lock:
+            _training_log += f"\nLog read error: {e}\n"
+
+
 @router.post("/start", summary="开始训练", description="启动 LoRA 微调训练")
 async def start_training(request: Request):
-    global _training_process, _training_log
+    global _training_process, _training_reader_task, _training_log
 
-    if _training_process is not None and _training_process.poll() is None:
+    if _is_training_running():
         return JSONResponse({"status": "error", "message": "Training already running"})
 
     try:
@@ -162,14 +191,14 @@ async def start_training(request: Request):
     except ValueError as e:
         return JSONResponse({"status": "error", "message": str(e)})
 
-    sample_rate = _detect_sample_rate(pretrained_path)
-    out_sample_rate = _detect_out_sample_rate(pretrained_path)
+    sample_rate = await _detect_sample_rate(pretrained_path)
+    out_sample_rate = await _detect_out_sample_rate(pretrained_path)
 
     user_sr = body.get("sample_rate")
     if user_sr is not None:
         user_sr = int(user_sr)
         if user_sr != sample_rate:
-            logger.warning(f"User sample_rate={user_sr} differs from auto-detected {sample_rate}, using auto-detected value")
+            logger.warning(f"用户 sample_rate={user_sr} 与自动检测值 {sample_rate} 不同，使用自动检测值")
     else:
         user_sr = sample_rate
 
@@ -210,58 +239,51 @@ async def start_training(request: Request):
     config_path = os.path.join(save_path, "train_config.yaml")
     try:
         import yaml as _yaml
-        with open(config_path, "w", encoding="utf-8") as f:
-            _yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+
+        async with aiofiles.open(config_path, "w", encoding="utf-8") as f:
+            await f.write(_yaml.dump(config, default_flow_style=False, allow_unicode=True))
     except ImportError:
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
-        logger.warning("PyYAML not installed, saved config as JSON instead")
+        async with aiofiles.open(config_path, "w", encoding="utf-8") as f:
+            await f.write(json.dumps(config, indent=2, ensure_ascii=False))
+        logger.warning("未安装 PyYAML，已改为保存 JSON 格式配置")
 
     cmd = [sys.executable, train_script, "--config_path", config_path]
 
-    with _training_log_lock:
+    async with _training_log_lock:
         _training_log = f"Starting training: {' '.join(cmd)}\n"
 
     try:
-        _training_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+        _training_process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
             cwd=project_root,
             env={**os.environ, "TOKENIZERS_PARALLELISM": "false"},
         )
 
-        def _read_output():
-            global _training_log
-            try:
-                for line in iter(_training_process.stdout.readline, b""):
-                    decoded = line.decode("utf-8", errors="replace")
-                    with _training_log_lock:
-                        _training_log += decoded
-                        if len(_training_log) > _MAX_LOG_LENGTH:
-                            _training_log = _training_log[-_MAX_LOG_LENGTH:]
-            except Exception as e:
-                with _training_log_lock:
-                    _training_log += f"\nLog read error: {e}\n"
-
-        t = threading.Thread(target=_read_output, daemon=True)
-        t.start()
+        _training_reader_task = asyncio.create_task(_read_training_output(_training_process))
 
         return JSONResponse({"status": "ok", "process_id": _training_process.pid})
     except Exception as e:
-        logger.error(f"Training start failed: {e}")
+        logger.error(f"训练启动失败: {e}")
         return JSONResponse({"status": "error", "message": "训练启动失败，请检查配置和日志"})
 
 
 @router.post("/stop", summary="停止训练", description="停止正在进行的训练")
 async def stop_training():
-    global _training_process
-    if _training_process is not None and _training_process.poll() is None:
+    global _training_process, _training_reader_task
+    if _is_training_running():
         _training_process.terminate()
         try:
-            _training_process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
+            await asyncio.wait_for(_training_process.wait(), timeout=10.0)
+        except asyncio.TimeoutError:
             _training_process.kill()
+            await _training_process.wait()
+        if _training_reader_task is not None:
+            _training_reader_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await _training_reader_task
+            _training_reader_task = None
         return JSONResponse({"status": "ok", "message": "Training stopped"})
     return JSONResponse({"status": "ok", "message": "No training running"})
 
@@ -269,7 +291,7 @@ async def stop_training():
 @router.get("/log", summary="训练日志", description="获取训练日志")
 async def get_training_log():
     global _training_process, _training_log
-    running = _training_process is not None and _training_process.poll() is None
-    with _training_log_lock:
+    running = _is_training_running()
+    async with _training_log_lock:
         log = _training_log
     return JSONResponse({"log": log, "running": running})

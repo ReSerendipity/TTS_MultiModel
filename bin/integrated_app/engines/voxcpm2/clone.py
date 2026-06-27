@@ -12,9 +12,15 @@ from .decorators import with_generation_context
 
 
 @with_generation_context(phase_name="VoxCPM可控克隆")
-def fn_voxcpm_clone(text: str, instruction: str, ref_audio_path: str | None,
-                    cfg_value: float = 2.0, inference_timesteps: int = 10,
-                    denoise: bool = True, normalize: bool = True) -> tuple[tuple | None, str]:
+def fn_voxcpm_clone(
+    text: str,
+    instruction: str,
+    ref_audio_path: str | None,
+    cfg_value: float = 2.0,
+    inference_timesteps: int = 10,
+    denoise: bool = True,
+    normalize: bool = True,
+) -> tuple[tuple | None, str]:
     from ...prompt_cache import load_cached_prompt
 
     start_time = time.time()

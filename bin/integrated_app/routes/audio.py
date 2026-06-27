@@ -1,12 +1,14 @@
-import os
-import time
 import glob
 import logging
+import os
+import time
 
-from fastapi import APIRouter, Request, UploadFile, File
+import aiofiles
+from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from ..config import SAVE_DIR, PERSONA_DIR, PROJECT_ROOT, MAX_UPLOAD_SIZE_BYTES as MAX_UPLOAD_SIZE
+from ..config import MAX_UPLOAD_SIZE_BYTES as MAX_UPLOAD_SIZE
+from ..config import PERSONA_DIR, PROJECT_ROOT, SAVE_DIR
 from ..history_db import get_history_db
 from .generate.utils import ALLOWED_AUDIO_EXTENSIONS
 
@@ -14,14 +16,26 @@ router = APIRouter(prefix="/api", tags=["audio"])
 
 logger = logging.getLogger("tts_multimodel")
 
+
+def _sync_history_incremental():
+    """Background task: sync only files newer than the last sync watermark."""
+    try:
+        history_manager = get_history_db()
+        before = history_manager.last_sync_mtime
+        history_manager.sync_from_filesystem(since_mtime=before)
+        logger.info(f"[历史同步] 增量同步完成，水位线: {before:.3f} -> {history_manager.last_sync_mtime:.3f}")
+    except Exception as e:
+        logger.error(f"[历史同步] 后台增量同步失败: {e}")
+
+
 _AUDIO_MAGIC_BYTES = {
-    b"RIFF": ".wav",     # WAV files start with RIFF
-    b"ID3": ".mp3",      # MP3 files with ID3 tag
-    b"\xff\xfb": ".mp3", # MP3 files without ID3 tag
-    b"\xff\xf3": ".mp3", # MP3 files (MPEG-1 Layer 3)
-    b"\xff\xf2": ".mp3", # MP3 files (MPEG-2 Layer 3)
-    b"fLaC": ".flac",    # FLAC files
-    b"OggS": ".ogg",     # OGG files
+    b"RIFF": ".wav",  # WAV files start with RIFF
+    b"ID3": ".mp3",  # MP3 files with ID3 tag
+    b"\xff\xfb": ".mp3",  # MP3 files without ID3 tag
+    b"\xff\xf3": ".mp3",  # MP3 files (MPEG-1 Layer 3)
+    b"\xff\xf2": ".mp3",  # MP3 files (MPEG-2 Layer 3)
+    b"fLaC": ".flac",  # FLAC files
+    b"OggS": ".ogg",  # OGG files
     b"\x00\x00\x00": ".m4a",  # M4A/MP4 container (often starts with 00 00 00)
 }
 
@@ -36,32 +50,27 @@ def _validate_audio_content(content: bytes, claimed_ext: str) -> bool:
     """
     header = content[:16]
     if len(header) < 4:
-        logger.warning("Audio file too short to validate magic bytes, allowing upload")
+        logger.warning("音频文件过短，无法验证魔数签名，允许上传")
         return True
 
     # Special case: M4A/MP4 container — check for ftyp at bytes 4-7
     if header[:3] == b"\x00\x00\x00" and len(header) >= 8 and header[4:8] == b"ftyp":
-        if claimed_ext not in {".m4a", ".mp4"}:
-            return False
-        return True
+        return claimed_ext in {".m4a", ".mp4"}
 
     detected_ext = None
     for magic, ext in _AUDIO_MAGIC_BYTES.items():
         if magic == b"\x00\x00\x00":
             continue  # Already handled above
-        if header[:len(magic)] == magic:
+        if header[: len(magic)] == magic:
             detected_ext = ext
             break
 
     if detected_ext is None:
         # Cannot determine format from magic bytes — allow upload with warning
-        logger.warning(f"Could not determine audio format from magic bytes for claimed extension '{claimed_ext}', allowing upload")
+        logger.warning(f"无法通过魔数签名确定音频格式（声明扩展名 '{claimed_ext}'），允许上传")
         return True
 
-    if detected_ext != claimed_ext:
-        return False
-
-    return True
+    return detected_ext == claimed_ext
 
 
 @router.get("/audio/{filename}", summary="获取音频", description="获取生成的音频文件")
@@ -102,7 +111,10 @@ async def upload_audio(file: UploadFile = File(...)):
         _, ext = os.path.splitext(file.filename or "")
         if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
             return JSONResponse(
-                {"status": "error", "message": f"Unsupported file type: {ext}. Allowed: {', '.join(sorted(ALLOWED_AUDIO_EXTENSIONS))}"},
+                {
+                    "status": "error",
+                    "message": f"Unsupported file type: {ext}. Allowed: {', '.join(sorted(ALLOWED_AUDIO_EXTENSIONS))}",
+                },
                 status_code=400,
             )
         timestamp = int(time.time() * 1000)
@@ -118,14 +130,17 @@ async def upload_audio(file: UploadFile = File(...)):
         # Validate file content matches claimed audio format
         if not _validate_audio_content(content, ext.lower()):
             return JSONResponse(
-                {"status": "error", "message": "File content does not match the claimed audio format. The file may be corrupted or not a valid audio file."},
+                {
+                    "status": "error",
+                    "message": "File content does not match the claimed audio format. The file may be corrupted or not a valid audio file.",
+                },
                 status_code=400,
             )
-        with open(file_path, "wb") as f:
-            f.write(content)
+        async with aiofiles.open(file_path, "wb") as f:
+            await f.write(content)
         return JSONResponse({"status": "ok", "path": file_path, "filename": filename})
     except Exception as e:
-        logger.error(f"Audio upload failed: {e}")
+        logger.error(f"音频上传失败: {e}")
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
@@ -149,6 +164,7 @@ async def speaker_sample(key: str):
 async def history_table(request: Request):
     keyword = request.query_params.get("keyword", "")
     time_filter = request.query_params.get("time_filter", "all")
+    duration_filter = request.query_params.get("duration_filter", "all")
     include_hidden = request.query_params.get("include_hidden", "false").lower() == "true"
     try:
         limit = int(request.query_params.get("limit", 20))
@@ -158,30 +174,25 @@ async def history_table(request: Request):
         offset = int(request.query_params.get("offset", 0))
     except (ValueError, TypeError):
         offset = 0
-    
+
     # 使用新的历史记录管理器
     history_manager = get_history_db()
-    
-    # 首先尝试从文件系统同步
-    try:
-        history_manager.sync_from_filesystem()
-    except Exception as e:
-        logger.error(f"Failed to sync history from filesystem: {e}")
-    
+
     # 限制每页最大数量
     if limit > 100:
         limit = 100
     elif limit <= 0:
         limit = 20
-    
+
     result = history_manager.get_paginated_records(
         limit=limit,
         offset=offset,
         search_keyword=keyword,
         time_filter=time_filter,
-        include_hidden=include_hidden
+        duration_filter=duration_filter,
+        include_hidden=include_hidden,
     )
-    
+
     # 转换为与之前兼容的格式
     records = []
     for rec in result["items"]:
@@ -191,24 +202,21 @@ async def history_table(request: Request):
         duration = rec.get("duration_seconds", 0) or 0
         # duration_seconds may be a string from legacy JSON migration (e.g. "48.7s")
         try:
-            duration = float(str(duration).rstrip('s'))
+            duration = float(str(duration).rstrip("s"))
         except (ValueError, TypeError):
             duration = 0
         duration_str = f"{duration:.1f}s" if duration > 0 else "<1s"
-        records.append([
-            rec.get("filename", ""),
-            rec.get("created_at", ""),
-            duration_str,
-            size_str
-        ])
-    
-    return JSONResponse({
-        "status": "ok",
-        "records": records,
-        "total": result["total"],
-        "hasMore": result["hasMore"],
-        "loaded": result["loaded"],
-    })
+        records.append([rec.get("filename", ""), rec.get("created_at", ""), duration_str, size_str])
+
+    return JSONResponse(
+        {
+            "status": "ok",
+            "records": records,
+            "total": result["total"],
+            "hasMore": result["hasMore"],
+            "loaded": result["loaded"],
+        }
+    )
 
 
 @router.post("/batch_export_history", summary="批量导出", description="批量导出历史记录中的音频文件")
@@ -226,12 +234,12 @@ async def batch_delete_history(request: Request):
     payload = await request.json()
     ids = payload.get("ids", [])
     delete_files = payload.get("delete_files", False)
-    
+
     if not ids:
         return JSONResponse({"status": "error", "error": "No records selected"}, status_code=400)
-    
+
     history_manager = get_history_db()
-    
+
     if delete_files:
         # 彻底删除文件和记录
         count = history_manager.delete_multiple_records(ids, delete_files=True)
@@ -240,7 +248,7 @@ async def batch_delete_history(request: Request):
         # 只隐藏记录
         count = history_manager.hide_multiple_records(ids)
         action = "hidden"
-    
+
     return JSONResponse({"status": "ok", "count": count, "action": action})
 
 
@@ -251,7 +259,7 @@ async def hide_history_records(request: Request):
     ids = payload.get("ids", [])
     if not ids:
         return JSONResponse({"status": "error", "error": "No records selected"}, status_code=400)
-    
+
     history_manager = get_history_db()
     count = history_manager.hide_multiple_records(ids)
     return JSONResponse({"status": "ok", "count": count})
@@ -262,10 +270,10 @@ async def clear_all_history(request: Request):
     """清除所有历史记录（默认只隐藏）"""
     payload = await request.json()
     hide_only = payload.get("hide_only", True)
-    
+
     history_manager = get_history_db()
     count = history_manager.clear_all_records(hide_only=hide_only)
-    
+
     action = "hidden" if hide_only else "cleared"
     return JSONResponse({"status": "ok", "count": count, "action": action})
 
@@ -277,7 +285,7 @@ async def show_history_records(request: Request):
     ids = payload.get("ids", [])
     if not ids:
         return JSONResponse({"status": "error", "error": "未选择记录"}, status_code=400)
-    
+
     history_manager = get_history_db()
     count = history_manager.show_multiple_records(ids)
     return JSONResponse({"status": "ok", "count": count})
@@ -291,9 +299,8 @@ async def show_all_history(request: Request):
     return JSONResponse({"status": "ok", "count": count})
 
 
-@router.post("/history/sync", summary="同步记录", description="同步文件系统与数据库的历史记录")
-async def sync_history():
-    """从文件系统同步历史记录"""
-    history_manager = get_history_db()
-    count = history_manager.sync_from_filesystem()
-    return JSONResponse({"status": "ok", "added_count": count})
+@router.post("/history/sync", summary="同步记录", description="触发后台增量同步文件系统与数据库的历史记录")
+async def sync_history(background_tasks: BackgroundTasks):
+    """触发后台增量同步历史记录，不阻塞 HTTP 响应。"""
+    background_tasks.add_task(_sync_history_incremental)
+    return JSONResponse({"status": "ok", "message": "增量同步已触发"})

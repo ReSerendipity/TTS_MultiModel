@@ -10,8 +10,6 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-import torch
-
 logger = logging.getLogger("tts_multimodel")
 
 
@@ -155,15 +153,15 @@ class AdaptiveLRUCache(LRUCache):
         try:
             if isinstance(value, tuple) and len(value) > 0:
                 first = value[0]
-                if hasattr(first, 'nbytes'):
+                if hasattr(first, "nbytes"):
                     total = first.nbytes
                     for item in value[1:]:
-                        if hasattr(item, 'nbytes'):
+                        if hasattr(item, "nbytes"):
                             total += item.nbytes
                         else:
-                            total += getattr(item, '__sizeof__', lambda: 1024)()
+                            total += getattr(item, "__sizeof__", lambda: 1024)()
                     return total
-            if hasattr(value, '__sizeof__'):
+            if hasattr(value, "__sizeof__"):
                 return value.__sizeof__()
         except Exception:
             pass
@@ -171,30 +169,21 @@ class AdaptiveLRUCache(LRUCache):
 
     @staticmethod
     def _get_gpu_memory_percent() -> float:
-        """Query current GPU memory allocation percentage (multi-backend).
+        """Query current GPU memory allocation percentage via GPUBackendManager.
 
         Returns:
             Memory usage percentage (0.0 to 100.0), or 0.0 if GPU unavailable.
         """
         try:
-            from .gpu_backend import GPUBackendManager, GPUBackend
-            
+            from .gpu_backend import GPUBackendManager
+
             if not GPUBackendManager.is_available():
                 return 0.0
-            
-            backend = GPUBackendManager.detect_backend()
-            device = GPUBackendManager.get_device()
-            
-            if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
-                total = torch.cuda.get_device_properties(device).total_memory
-                allocated = torch.cuda.memory_allocated(device)
-            elif backend == GPUBackend.XPU:
-                import intel_extension_for_pytorch as ipex
-                total = ipex.xpu.get_device_properties(device).get('total_memory', 0)
-                allocated = ipex.xpu.memory_allocated(device)
-            else:
-                return 0.0
-            
+
+            mem_info = GPUBackendManager.get_memory_info()
+            total = mem_info[0]
+            allocated = mem_info[1]
+
             if total == 0:
                 return 0.0
             return allocated / total * 100
@@ -227,8 +216,8 @@ class AdaptiveLRUCache(LRUCache):
                 self._cache.popitem(last=False)
             if old_max != target:
                 logger.info(
-                    f"[AdaptiveCache] capacity adjusted: {old_max} -> {target} "
-                    f"(GPU usage: {self._get_gpu_memory_percent():.1f}%)"
+                    f"[AdaptiveCache] 容量已调整: {old_max} -> {target} "
+                    f"(GPU 使用率: {self._get_gpu_memory_percent():.1f}%)"
                 )
         return target
 
@@ -249,7 +238,11 @@ class AdaptiveLRUCache(LRUCache):
                 self._eviction_count += 1
         self._put_count += 1
         now = time.monotonic()
-        if len(self._cache) >= self._maxsize or now - self._last_adapt_time >= self._adapt_interval or self._put_count >= self._adapt_every_n:
+        if (
+            len(self._cache) >= self._maxsize
+            or now - self._last_adapt_time >= self._adapt_interval
+            or self._put_count >= self._adapt_every_n
+        ):
             self.adapt_capacity()
             self._last_adapt_time = now
             self._put_count = 0

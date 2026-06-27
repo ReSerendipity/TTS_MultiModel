@@ -1,3 +1,4 @@
+import contextlib
 import os
 import time
 
@@ -6,9 +7,7 @@ from fastapi import File, Form, Request, UploadFile
 
 from ....config import MAX_TEXT_LENGTH, SAVE_DIR
 from ..utils import (
-    _error_html,
     _execute_generation,
-    logger,
     pre_validate,
     router,
     save_uploaded_audio,
@@ -41,25 +40,29 @@ async def generate_indextts2(
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
 ):
-    err = pre_validate("indextts2", text, MAX_TEXT_LENGTH)
+    err = pre_validate(request, "indextts2", text, MAX_TEXT_LENGTH)
     if err:
         return err
 
-    from ....model_registry import registry
     from ....generation import split_text_for_tts
+    from ....model_registry import registry
+
     engine = registry.get_current_engine()
 
     ref_audio_path = None
     emo_audio_path = None
 
-    ref_audio_path, err = await save_uploaded_audio(ref_audio)
+    ref_audio_path, err = await save_uploaded_audio(request, ref_audio)
     if err:
         return err
 
-    emo_audio_path, err = await save_uploaded_audio(emo_audio)
+    emo_audio_path, err = await save_uploaded_audio(request, emo_audio)
     if err:
         return err
 
+    emotion_mode: str | None = None
+    emotion_data: str | dict[str, float] | None = None
+    emotion_alpha: float = emo_alpha
     if emo_text and emo_text.strip():
         emotion_mode = "text"
         emotion_data = emo_text.strip()
@@ -82,10 +85,6 @@ async def generate_indextts2(
         if any(v > 0 for v in emotion_dict.values()):
             emotion_mode = "vector"
             emotion_data = emotion_dict
-        else:
-            emotion_mode = None
-            emotion_data = None
-        emotion_alpha = emo_alpha
 
     target_dur = target_duration if target_duration > 0 else None
 
@@ -119,14 +118,13 @@ async def generate_indextts2(
             result_path = engine.infer(**infer_kwargs)
             if result_path and os.path.exists(result_path):
                 import scipy.io.wavfile as wavfile
+
                 sr, data = wavfile.read(result_path)
                 if data.dtype != np.int16:
                     data = (data.astype(np.float32) * 32768.0).clip(-32768, 32767).astype(np.int16)
                 all_audio.append(data)
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(result_path)
-                except OSError:
-                    pass
 
         if not all_audio:
             return None, "生成失败：未产生任何音频数据"
@@ -136,10 +134,12 @@ async def generate_indextts2(
         filename = f"indextts2_{timestamp}.wav"
         output_path = os.path.join(SAVE_DIR, filename)
         import scipy.io.wavfile as wavfile
+
         wavfile.write(output_path, 44100, combined)
-        return (44100, "wav", filename), f"IndexTTS 2.0 生成完成"
+        return (44100, "wav", filename), "IndexTTS 2.0 生成完成"
 
     return await _execute_generation(
+        request,
         text=text,
         run_fn=_run,
         endpoint_name="IndexTTS2",

@@ -1,16 +1,15 @@
-# -*- coding: utf-8 -*-
 """Abstract engine interface using Python Protocol for type-safe duck typing.
 Supports VoxCPM2 and IndexTTS 2.0 dual-engine architecture.
 """
 
-from typing import Protocol, Generator, Tuple, Any, Optional, runtime_checkable
-from pathlib import Path
+from collections.abc import Generator
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
 class TTSEngine(Protocol):
     """Protocol that all TTS engines must implement.
-    
+
     This provides a unified interface for the route layer to call into
     any TTS engine without knowing the specific implementation details.
     """
@@ -33,9 +32,9 @@ class TTSEngine(Protocol):
         instruction: str = "",
         normalize: bool = True,
         **kwargs,
-    ) -> Tuple[str, str]:
+    ) -> tuple[Any, str]:
         """Generate audio from text/voice description.
-        
+
         Returns (audio_path, message)
         """
         ...
@@ -43,13 +42,13 @@ class TTSEngine(Protocol):
     def generate_voice_clone(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         instruction: str = "",
         normalize: bool = True,
         **kwargs,
-    ) -> Tuple[str, str]:
+    ) -> tuple[Any, str]:
         """Generate audio using voice clone from reference audio.
-        
+
         Returns (audio_path, message)
         """
         ...
@@ -60,9 +59,9 @@ class TTSEngine(Protocol):
         speaker_map: dict = None,
         persona_map: dict = None,
         **kwargs,
-    ) -> Tuple[str, str]:
+    ) -> tuple[Any, str]:
         """Generate audio from multi-character script.
-        
+
         Returns (audio_path, message)
         """
         ...
@@ -70,11 +69,11 @@ class TTSEngine(Protocol):
     def generate_streaming(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         **kwargs,
     ) -> Generator[Any, None, None]:
         """Generate audio in streaming mode for long text.
-        
+
         Yields audio chunks as they are generated.
         """
         ...
@@ -83,7 +82,7 @@ class TTSEngine(Protocol):
 @runtime_checkable
 class ControllableTTSEngine(Protocol):
     """Extended protocol for engines that support fine-grained generation control.
-    
+
     Engines like VoxCPM2 can implement this for ultimate clone mode,
     LoRA fine-tuning, prompt continuation, and advanced parameters.
     """
@@ -92,16 +91,16 @@ class ControllableTTSEngine(Protocol):
         self,
         text: str,
         instruction: str = "",
-        ref_audio_path: Optional[str] = None,
+        ref_audio_path: str | None = None,
         advanced_cfg: float = 2.0,
         advanced_norm: bool = True,
         advanced_denoise: float = 1.0,
         advanced_steps: int = 10,
         advanced_seed: int = -1,
         **kwargs,
-    ) -> Tuple[str, str]:
+    ) -> tuple[Any, str]:
         """Generate audio with full controllable parameters.
-        
+
         Returns (audio_path, message)
         """
         ...
@@ -112,16 +111,16 @@ class ControllableTTSEngine(Protocol):
         prompt_wav_path: str,
         prompt_text: str,
         **kwargs,
-    ) -> Tuple[str, str]:
+    ) -> tuple[Any, str]:
         """Generate audio with prompt continuation mode.
-        
+
         Returns (audio_path, message)
         """
         ...
 
-    def load_lora(self, lora_weights_path: str) -> Tuple[list, list]:
+    def load_lora(self, lora_weights_path: str) -> tuple[list, list]:
         """Load LoRA fine-tuning weights.
-        
+
         Returns (loaded_keys, skipped_keys)
         """
         ...
@@ -148,18 +147,14 @@ class ControllableTTSEngine(Protocol):
 class EngineRegistry(Protocol):
     """Protocol for engine registry that manages engine discovery and instantiation."""
 
-    def register(self, name: str, engine_class: type) -> None:
-        ...
+    def register(self, name: str, engine_class: type) -> None: ...
 
-    def get(self, name: str) -> Optional[type]:
-        ...
+    def get(self, name: str) -> type | None: ...
 
-    def list_engines(self) -> list:
-        ...
+    def list_engines(self) -> list: ...
 
 
 class InMemoryEngineRegistry:
-
     def __init__(self):
         self._engines: dict[str, type] = {}
         self._metadata: dict[str, dict] = {}
@@ -171,7 +166,7 @@ class InMemoryEngineRegistry:
             "vram_requirement": vram_requirement,
         }
 
-    def get(self, name: str) -> Optional[type]:
+    def get(self, name: str) -> type | None:
         return self._engines.get(name)
 
     def list_engines(self) -> list[str]:
@@ -195,6 +190,7 @@ def _register_builtin_engines():
     """Register built-in TTS engines."""
     try:
         from .engines.voxcpm2.engine import VoxCPM2Engine
+
         engine_registry.register(
             "voxcpm2",
             VoxCPM2Engine,
@@ -206,6 +202,7 @@ def _register_builtin_engines():
 
     try:
         from .engines.indextts2_engine import IndexTTS2Engine
+
         engine_registry.register(
             "indextts2",
             IndexTTS2Engine,

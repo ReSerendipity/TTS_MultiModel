@@ -1,23 +1,23 @@
 {# Post Processing Panel - Shared partial for VoxCPM2 tabs #}
 {# Usage: include 'partials/post_processing.html' with prefix, lang variables #}
-<details class="pp-section" id="{{ prefix }}-pp-section" style="display:none;margin-top:8px;border:1px solid var(--border-subtle,rgba(139,92,246,0.2));border-radius:10px;background:var(--bg-secondary,#16213e);">
+<details class="pp-section" id="{{ prefix }}-pp-section" style="display:none;margin-top:8px;border:1px solid var(--border-subtle,var(--border-medium));border-radius:10px;background:var(--bg-secondary,var(--bg-primary));">
     <summary style="padding:10px 14px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text-secondary);">{{ "post_processing"|t(lang) }}</summary>
     <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">
         <div>
-            <label style="font-size:12px;color:var(--text-secondary);">{{ "speed_factor"|t(lang) }}</label>
+            <label for="{{ prefix }}-pp-tempo" style="font-size:12px;color:var(--text-secondary);">{{ "speed_factor"|t(lang) }}</label>
             <div style="display:flex;align-items:center;gap:6px;">
-                <input type="range" id="{{ prefix }}-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;" oninput="document.getElementById('{{ prefix }}-pp-tempo-val').textContent=this.value">
+                <input type="range" id="{{ prefix }}-pp-tempo" aria-label="{{ 'speed_factor'|t(lang) }}" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;" oninput="document.getElementById('{{ prefix }}-pp-tempo-val').textContent=this.value">
                 <span id="{{ prefix }}-pp-tempo-val" style="font-size:12px;min-width:28px;text-align:center;">1.0</span>
             </div>
         </div>
         <div>
-            <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
-                <input type="checkbox" id="{{ prefix }}-pp-enhance">
+            <label for="{{ prefix }}-pp-enhance" style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="{{ prefix }}-pp-enhance" aria-label="{{ 'voice_enhancement'|t(lang) }}">
                 {{ "voice_enhancement"|t(lang) }}
             </label>
         </div>
     </div>
     <div style="padding:0 12px 10px;text-align:right;">
-        <button type="button" class="secondary-btn" onclick="{{ prefix.replace('-','_') }}Reprocess()">{{ "reprocess"|t(lang) }}</button>
+        <button type="button" class="tts-btn tts-btn-secondary" onclick="{{ prefix.replace('-','_') }}Reprocess()">{{ "reprocess"|t(lang) }}</button>
     </div>
 </details>

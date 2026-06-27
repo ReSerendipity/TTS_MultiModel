@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Decorators for VoxCPM2 generation functions.
 
 Extracts the common pattern of model checking, lock acquisition,
@@ -7,11 +6,12 @@ tracker/progress management, and error handling into reusable decorators.
 
 import functools
 import time
+from collections.abc import Callable
+from typing import Any
 
 from ...exceptions import EngineSwitchError, GenerationError, tts_error_handler
 from ...model_manager import _check_voxcpm2_lock, _gen_tracker, _progress_mgr
 from ...model_registry import registry
-
 from ._base import logger
 
 
@@ -46,7 +46,8 @@ def with_generation_context(
             ...
             return output_path, message
     """
-    def decorator(func: callable) -> callable:
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # 1. Check model readiness

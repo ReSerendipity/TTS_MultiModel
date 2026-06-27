@@ -1,11 +1,11 @@
-import time
-import threading
+import logging
 import subprocess
-from typing import List, Dict, Any, Optional
+import threading
+import time
+from typing import Any
 
 from fastapi import APIRouter
 
-import logging
 logger = logging.getLogger("tts_multimodel")
 
 router = APIRouter(tags=["system"])
@@ -13,12 +13,11 @@ router = APIRouter(tags=["system"])
 
 def _get_gpu_device():
     import torch
-    from ...gpu_backend import GPUBackendManager, GPUBackend
+
+    from ...gpu_backend import GPUBackendManager
 
     if not GPUBackendManager.is_available():
         return 0
-
-    backend = GPUBackendManager.detect_backend()
 
     try:
         device = GPUBackendManager.get_device()
@@ -28,7 +27,8 @@ def _get_gpu_device():
     except Exception:
         return 0
 
-_nvml_state = {
+
+_nvml_state: dict[str, Any] = {
     "handle": None,
     "initialized": False,
     "init_time": 0.0,
@@ -41,29 +41,27 @@ _nvml_lock = threading.Lock()
 _NVML_CACHE_TTL = 300
 
 
-def _get_nvml_handle() -> Optional[Any]:
+def _get_nvml_handle() -> Any | None:
     global _nvml_state
 
     with _nvml_lock:
         current_time = time.time()
 
-        if (_nvml_state["initialized"] and
-            _nvml_state["handle"] is not None and
-            not _nvml_state["init_failed"]):
+        if _nvml_state["initialized"] and _nvml_state["handle"] is not None and not _nvml_state["init_failed"]:
             if current_time - _nvml_state["init_time"] < _NVML_CACHE_TTL:
                 return _nvml_state["handle"]
             else:
-                logger.info("NVML handle cache expired, reinitializing...")
+                logger.info("NVML 句柄缓存已过期，正在重新初始化...")
                 _nvml_state["initialized"] = False
                 _nvml_state["handle"] = None
 
         if _nvml_state["init_failed"]:
             last_failure_time = _nvml_state.get("failure_time", 0)
             if current_time - last_failure_time < 60:
-                logger.debug(f"NVML init failed recently, skipping retry. Last error: {_nvml_state['last_error']}")
+                logger.debug(f"NVML 最近初始化失败，跳过重试。上次错误: {_nvml_state['last_error']}")
                 return None
             else:
-                logger.info("Retrying NVML initialization after cooldown period...")
+                logger.info("冷却期后重试 NVML 初始化...")
                 _nvml_state["init_failed"] = False
 
         try:
@@ -72,11 +70,11 @@ def _get_nvml_handle() -> Optional[Any]:
             if not _nvml_state["initialized"]:
                 try:
                     pynvml.nvmlInit()
-                    logger.info("NVML library initialized successfully")
+                    logger.info("NVML 库初始化成功")
                 except pynvml.NVMLError_LibraryNotLoaded:
-                    logger.debug("NVML already initialized")
+                    logger.debug("NVML 已初始化")
                 except Exception as init_err:
-                    logger.warning(f"NVML library initialization failed: {init_err}")
+                    logger.warning(f"NVML 库初始化失败: {init_err}")
                     _nvml_state["init_failed"] = True
                     _nvml_state["failure_time"] = current_time
                     _nvml_state["last_error"] = str(init_err)
@@ -91,17 +89,17 @@ def _get_nvml_handle() -> Optional[Any]:
             try:
                 handle = pynvml.nvmlDeviceGetHandleByIndex(device_idx)
                 _nvml_state["handle"] = handle
-                logger.info(f"Successfully obtained NVML handle for GPU #{device_idx}")
+                logger.info(f"成功获取 GPU #{device_idx} 的 NVML 句柄")
             except Exception as handle_err:
-                logger.warning(f"Failed to get NVML handle for GPU #{device_idx}: {handle_err}")
+                logger.warning(f"获取 GPU #{device_idx} 的 NVML 句柄失败: {handle_err}")
                 if device_idx != 0:
                     try:
                         handle = pynvml.nvmlDeviceGetHandleByIndex(0)
                         _nvml_state["handle"] = handle
                         _nvml_state["device_index"] = 0
-                        logger.info("Successfully obtained NVML handle for GPU #0 as fallback")
+                        logger.info("已成功获取 GPU #0 的 NVML 句柄作为回退")
                     except Exception as fallback_err:
-                        logger.warning(f"Failed to get NVML handle for GPU #0 fallback: {fallback_err}")
+                        logger.warning(f"获取 GPU #0 回退 NVML 句柄失败: {fallback_err}")
                         _nvml_state["init_failed"] = True
                         _nvml_state["failure_time"] = current_time
                         _nvml_state["last_error"] = str(fallback_err)
@@ -115,68 +113,69 @@ def _get_nvml_handle() -> Optional[Any]:
             return _nvml_state["handle"]
 
         except ImportError:
-            logger.warning("pynvml not installed, GPU monitoring unavailable")
+            logger.warning("未安装 pynvml，GPU 监控不可用")
             _nvml_state["init_failed"] = True
             _nvml_state["failure_time"] = current_time
             _nvml_state["last_error"] = "pynvml not installed"
             return None
         except Exception as e:
-            logger.error(f"Unexpected error during NVML initialization: {e}", exc_info=True)
+            logger.error(f"NVML 初始化期间发生意外错误: {e}", exc_info=True)
             _nvml_state["init_failed"] = True
             _nvml_state["failure_time"] = current_time
             _nvml_state["last_error"] = str(e)
             return None
 
 
-def _get_gpu_utilization_from_nvml() -> Optional[int]:
+def _get_gpu_utilization_from_nvml() -> int | None:
     try:
         handle = _get_nvml_handle()
         if handle is None:
-            logger.debug("NVML handle not available for GPU utilization")
+            logger.debug("NVML 句柄不可用，无法获取 GPU 利用率")
             return None
 
         import pynvml
+
         util_rates = pynvml.nvmlDeviceGetUtilizationRates(handle)
         gpu_util = int(util_rates.gpu)
-        logger.debug(f"GPU utilization from NVML: {gpu_util}%")
+        logger.debug(f"NVML 获取的 GPU 利用率: {gpu_util}%")
         return gpu_util
 
     except Exception as e:
-        logger.warning(f"Failed to get GPU utilization from NVML: {e}")
+        logger.warning(f"从 NVML 获取 GPU 利用率失败: {e}")
         return None
 
 
-def _get_gpu_utilization_from_nvidia_smi() -> Optional[int]:
+def _get_gpu_utilization_from_nvidia_smi() -> int | None:
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
             capture_output=True,
             text=True,
             timeout=5,
-            check=False
+            check=False,
         )
 
         if result.returncode == 0 and result.stdout.strip():
             util_value = int(result.stdout.strip().split("\n")[0].strip())
-            logger.debug(f"GPU utilization from nvidia-smi: {util_value}%")
+            logger.debug(f"nvidia-smi 获取的 GPU 利用率: {util_value}%")
             return util_value
 
-        logger.debug(f"nvidia-smi returned empty or error output: {result.stderr}")
+        logger.debug(f"nvidia-smi 返回空输出或错误: {result.stderr}")
         return None
 
     except FileNotFoundError:
-        logger.debug("nvidia-smi not found in PATH")
+        logger.debug("nvidia-smi 未在 PATH 中找到")
         return None
     except subprocess.TimeoutExpired:
-        logger.warning("nvidia-smi command timed out")
+        logger.warning("nvidia-smi 命令超时")
         return None
     except Exception as e:
-        logger.warning(f"Failed to get GPU utilization from nvidia-smi: {e}")
+        logger.warning(f"从 nvidia-smi 获取 GPU 利用率失败: {e}")
         return None
 
 
 def _get_gpu_utilization() -> int:
-    from ...gpu_backend import GPUBackendManager, GPUBackend
+    from ...gpu_backend import GPUBackend, GPUBackendManager
 
     backend = GPUBackendManager.detect_backend()
 

@@ -29,13 +29,13 @@ async def generate_voxcpm_design(
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
 ):
-    model_not_ready = _check_engine_ready("voxcpm2")
+    model_not_ready = _check_engine_ready(request, "voxcpm2")
     if model_not_ready:
         return model_not_ready
     if not text.strip():
-        return _error_html("文本不能为空")
+        return _error_html(request, "文本不能为空")
     if len(text) > MAX_TEXT_LENGTH:
-        return _error_html(f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
+        return _error_html(request, f"文本长度超过限制（最大 {MAX_TEXT_LENGTH} 字符）")
 
     instruction = _merge_dialect(instruction, lang)
     advanced_denoise = _parse_bool_form(denoise)
@@ -43,6 +43,7 @@ async def generate_voxcpm_design(
     actual_ref_path = None
     if persona_name:
         from ....persona_manager import load_persona_embedding
+
         safe_name = os.path.basename(persona_name)
         persona_data = load_persona_embedding(safe_name)
         if persona_data is not None:
@@ -51,22 +52,35 @@ async def generate_voxcpm_design(
                 actual_ref_path = wav_path
                 logger.info(f"[VoxCPM声音设计] 已加载音色 '{safe_name}' 的参考音频")
             else:
-                return _error_html(f"音色文件不存在: {safe_name}")
+                return _error_html(request, f"音色文件不存在: {safe_name}")
         else:
             logger.warning(f"[VoxCPM声音设计] 音色 '{safe_name}' 不存在，将使用默认音色")
 
     def _run():
         engine = registry.get_current_engine()
-        return engine.generate_voice_design(text, instruction, cfg_value=cfg, inference_timesteps=steps,
-                                            denoise=advanced_denoise, ref_audio_path=actual_ref_path)
+        return engine.generate_voice_design(
+            text,
+            instruction,
+            cfg_value=cfg,
+            inference_timesteps=steps,
+            denoise=advanced_denoise,
+            ref_audio_path=actual_ref_path,
+        )
 
     def _degraded_run():
         engine = registry.get_current_engine()
         degraded_steps = max(steps // 2, 4)
-        return engine.generate_voice_design(text, instruction, cfg_value=cfg, inference_timesteps=degraded_steps,
-                                            denoise=False, ref_audio_path=actual_ref_path)
+        return engine.generate_voice_design(
+            text,
+            instruction,
+            cfg_value=cfg,
+            inference_timesteps=degraded_steps,
+            denoise=False,
+            ref_audio_path=actual_ref_path,
+        )
 
     return await _execute_generation(
+        request,
         text=text,
         run_fn=_run,
         endpoint_name="VoxCPM design",

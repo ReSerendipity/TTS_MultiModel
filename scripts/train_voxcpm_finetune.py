@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 
 import sys
 from pathlib import Path
@@ -7,15 +8,14 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 import contextlib
-from typing import Dict
+import os
+import signal
 
 import argbind
 import torch
 from tensorboardX import SummaryWriter
 from torch.optim import AdamW
 from transformers import get_cosine_schedule_with_warmup
-import signal
-import os
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -29,7 +29,7 @@ except ImportError:
 
 import json
 
-from voxcpm.model import VoxCPMModel, VoxCPM2Model
+from voxcpm.model import VoxCPM2Model, VoxCPMModel
 from voxcpm.model.voxcpm import LoRAConfig as LoRAConfigV1
 from voxcpm.model.voxcpm2 import LoRAConfig as LoRAConfigV2
 from voxcpm.training import (
@@ -62,7 +62,7 @@ def train(
     max_batch_tokens: int = 0,
     save_path: str = "checkpoints",
     tensorboard: str = "",
-    lambdas: Dict[str, float] = {"loss/diff": 1.0, "loss/stop": 1.0},
+    lambdas: dict[str, float] | None = None,
     lora: dict = None,
     config_path: str = "",
     max_grad_norm: float = 0.0,  # gradient clipping; 0 = disabled (backward compat)
@@ -70,6 +70,8 @@ def train(
     hf_model_id: str = "",  # HuggingFace model ID (e.g., "openbmb/VoxCPM1.5")
     distribute: bool = False,  # If True, save hf_model_id as base_model; otherwise save pretrained_path
 ):
+    if lambdas is None:
+        lambdas = {"loss/diff": 1.0, "loss/stop": 1.0}
     _ = config_path
 
     # Validate distribution options
@@ -91,7 +93,7 @@ def train(
     tracker = TrainingTracker(writer=writer, log_file=str(save_dir / "train.log"), rank=accelerator.rank)
 
     # Auto-detect model architecture from config.json
-    with open(os.path.join(pretrained_path, "config.json"), "r", encoding="utf-8") as _f:
+    with open(os.path.join(pretrained_path, "config.json"), encoding="utf-8") as _f:
         _arch = json.load(_f).get("architecture", "voxcpm").lower()
     _model_cls = VoxCPM2Model if _arch == "voxcpm2" else VoxCPMModel
     LoRAConfig = LoRAConfigV2 if _arch == "voxcpm2" else LoRAConfigV1
@@ -145,7 +147,7 @@ def train(
             patch_size=base_model.config.patch_size,
         )
         max_sample_len = max_batch_tokens // batch_size if batch_size > 0 else max(est_lengths)
-        keep_indices = [i for i, L in enumerate(est_lengths) if L <= max_sample_len]
+        keep_indices = [i for i, L in enumerate(est_lengths) if max_sample_len >= L]
 
         if len(keep_indices) < len(train_ds) and accelerator.rank == 0:
             tracker.print(
@@ -380,8 +382,9 @@ def validate(
     valid_interval=1000,
 ):
     """Validate and generate sample audio"""
-    import numpy as np  # noqa: F401
     from collections import defaultdict
+
+    import numpy as np  # noqa: F401
 
     model.eval()
     total_losses = []
@@ -448,8 +451,8 @@ def validate(
             )
         except Exception as e:
             tracker.print(f"[Warning] Failed to generate sample audio: {e}")
-            import traceback
             import io
+            import traceback
 
             buf = io.StringIO()
             traceback.print_exc(file=buf)
@@ -471,8 +474,8 @@ def validate(
 
 def compute_mel_spectrogram(audio_np, sample_rate, n_mels=128):
     """Compute Mel Spectrogram (dB) using librosa"""
-    import numpy as np
     import librosa
+    import numpy as np
 
     audio_np = audio_np.flatten().astype(np.float32)
     mel = librosa.feature.melspectrogram(y=audio_np, sr=sample_rate, n_mels=n_mels, fmax=sample_rate // 2)
@@ -486,8 +489,8 @@ def create_mel_figure(gen_audio_np, gen_mel, sample_rate, step=None, ref_audio_n
     import matplotlib
 
     matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
     import librosa.display
+    import matplotlib.pyplot as plt
 
     fmax = sample_rate // 2
     step_str = f" @ Step {step}" if step is not None else ""
@@ -500,7 +503,7 @@ def create_mel_figure(gen_audio_np, gen_mel, sample_rate, step=None, ref_audio_n
             ref_mel, sr=sample_rate, x_axis="time", y_axis="mel", fmax=fmax, cmap="viridis", ax=ax_ref
         )
         ax_ref.set_title(
-            f"Reference (GT) - {len(ref_audio_np)/sample_rate:.2f}s{step_str}",
+            f"Reference (GT) - {len(ref_audio_np) / sample_rate:.2f}s{step_str}",
             fontsize=10,
             fontweight="bold",
             color="#28A745",
@@ -511,7 +514,7 @@ def create_mel_figure(gen_audio_np, gen_mel, sample_rate, step=None, ref_audio_n
             gen_mel, sr=sample_rate, x_axis="time", y_axis="mel", fmax=fmax, cmap="viridis", ax=ax_gen
         )
         ax_gen.set_title(
-            f"Generated - {len(gen_audio_np)/sample_rate:.2f}s", fontsize=10, fontweight="bold", color="#DC3545"
+            f"Generated - {len(gen_audio_np) / sample_rate:.2f}s", fontsize=10, fontweight="bold", color="#DC3545"
         )
         plt.colorbar(img_gen, ax=ax_gen, format="%+2.0f dB", pad=0.02)
     else:
@@ -520,7 +523,7 @@ def create_mel_figure(gen_audio_np, gen_mel, sample_rate, step=None, ref_audio_n
         img = librosa.display.specshow(
             gen_mel, sr=sample_rate, x_axis="time", y_axis="mel", fmax=fmax, cmap="viridis", ax=ax
         )
-        ax.set_title(f"Generated - {len(gen_audio_np)/sample_rate:.2f}s{step_str}", fontsize=11, fontweight="bold")
+        ax.set_title(f"Generated - {len(gen_audio_np) / sample_rate:.2f}s{step_str}", fontsize=11, fontweight="bold")
         plt.colorbar(img, ax=ax, format="%+2.0f dB", pad=0.02)
 
     plt.tight_layout()
@@ -579,7 +582,7 @@ def generate_sample_audio(
                     ref_audio_np = (
                         F.resample(torch.from_numpy(ref_audio_np).unsqueeze(0), ref_sr, sample_rate).squeeze(0).numpy()
                     )
-                log(f"[Audio] Loaded reference audio for sample {i}: duration={len(ref_audio_np)/sample_rate:.2f}s")
+                log(f"[Audio] Loaded reference audio for sample {i}: duration={len(ref_audio_np) / sample_rate:.2f}s")
         except Exception as e:
             log(f"[Warning] Failed to load reference audio: {e}")
 
@@ -597,9 +600,8 @@ def generate_sample_audio(
                 if torch.cuda.is_available()
                 else contextlib.nullcontext()
             )
-            with torch.no_grad():
-                with autocast_ctx:
-                    generated = unwrapped_model.generate(target_text=text, inference_timesteps=10, cfg_value=2.0)
+            with torch.no_grad(), autocast_ctx:
+                generated = unwrapped_model.generate(target_text=text, inference_timesteps=10, cfg_value=2.0)
 
             # Restore training setup
             # unwrapped_model.to(torch.float32)
@@ -619,7 +621,7 @@ def generate_sample_audio(
 
             tag = f"val_sample_{i}"
             writer.add_audio(f"{tag}/generated_audio", gen_audio_np, global_step=step, sample_rate=gen_sr)
-            log(f"[Audio] Generated audio for sample {i}: duration={len(gen_audio_np)/gen_sr:.2f}s")
+            log(f"[Audio] Generated audio for sample {i}: duration={len(gen_audio_np) / gen_sr:.2f}s")
 
             # Log reference audio (at encoder input rate, which is what val_ds provides)
             if ref_audio_np is not None:
@@ -723,7 +725,7 @@ def load_checkpoint(model, optimizer, scheduler, save_dir: Path, rank: int = 0):
 
     state_path = latest_folder / "training_state.json"
     if state_path.exists():
-        with open(state_path, "r", encoding="utf-8") as f:
+        with open(state_path, encoding="utf-8") as f:
             state = json.load(f)
         resume_step = int(state.get("step", 0))
         if rank == 0:

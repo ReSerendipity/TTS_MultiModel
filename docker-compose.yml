@@ -14,7 +14,7 @@ services:
       - TTS_AUTO_LOAD_MODEL=1
       - TTS_AUTO_LOAD_ENGINE=voxcpm2
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7869/api/system/health')"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7869/api/health/ping')"]
       interval: 30s
       timeout: 10s
       start_period: 60s

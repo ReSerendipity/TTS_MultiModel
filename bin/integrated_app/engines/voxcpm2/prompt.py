@@ -2,9 +2,9 @@ import os
 import time
 
 from ._base import (
+    SAVE_DIR,
     EngineSwitchError,
     GenerationError,
-    SAVE_DIR,
     _advanced_kwargs,
     _gen_tracker,
     _progress_mgr,
@@ -17,6 +17,7 @@ from ._base import (
 def fn_voxcpm_prompt_continue(text: str, prompt_wav_path: str, prompt_text: str) -> tuple[tuple | None, str]:
     from ...model_manager import _check_voxcpm2_lock
     from ...model_registry import registry
+
     if registry.voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
@@ -38,7 +39,9 @@ def fn_voxcpm_prompt_continue(text: str, prompt_wav_path: str, prompt_text: str)
     return _wrapped(text, prompt_wav_path, prompt_text)
 
 
-def _fn_voxcpm_prompt_continue_impl(text: str, prompt_wav_path: str, prompt_text: str, start_time: float = 0) -> tuple[tuple | None, str]:
+def _fn_voxcpm_prompt_continue_impl(
+    text: str, prompt_wav_path: str, prompt_text: str, start_time: float = 0
+) -> tuple[tuple | None, str]:
     from ...model_registry import registry
 
     _progress_mgr.update_phase("Prompt 延续推理中...")

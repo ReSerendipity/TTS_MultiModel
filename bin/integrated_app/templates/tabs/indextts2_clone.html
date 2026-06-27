@@ -1,48 +1,36 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
         <h3 class="card-header-title">{{ "tab_indextts2_clone"|t(lang) }}</h3>
     </div>
     <div class="tts-card-desc">{{ "indextts2_clone_desc"|t(lang) }}</div>
-    <style>
-        #it2c-form { width: 100% !important; max-width: none !important; display: block !important; }
-        /* it2c-auto-resize specific overrides for tts-auto-resize */
-        .it2c-auto-resize.tts-auto-resize { min-height: 80px; padding: 12px 14px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
-        .it2c-file-name { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
-        .it2c-duration-selector { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-        .it2c-duration-btn { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; font-size: 12px; transition: all 0.2s ease; }
-        .it2c-duration-btn:hover { border-color: var(--primary); color: var(--primary); }
-        .it2c-duration-btn.active { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); font-weight: 600; }
-        .it2c-audio-preview { margin-top: 10px; display: none; }
-        .it2c-audio-preview audio { width: 100%; }
-    </style>
     <form id="it2c-form" hx-post="/api/generate/indextts2/clone" hx-target="#it2c-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
         <input type="hidden" name="mode" value="clone">
         <label for="it2c-ref-audio">{{ "ref_audio"|t(lang) }}</label>
         <div class="tts-file-upload" onclick="document.getElementById('it2c-ref-audio-input').click()">
             <input type="file" id="it2c-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2cFileName(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div style="font-size:13px;color:var(--text-secondary);">{{ "upload_clone_ref"|t(lang) }}</div>
+            <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="tts-upload-text">{{ "upload_clone_ref"|t(lang) }}</div>
             <div id="it2c-ref-audio-name" class="it2c-file-name">{{ "supported_formats"|t(lang) }} (5-30s)</div>
         </div>
         <div class="it2c-audio-preview" id="it2c-audio-preview">
             <audio id="it2c-preview-audio" controls></audio>
         </div>
-        <label for="it2c-text">{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="it2c-text" class="tts-full-width tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="CharCounter.update({textareaId:'it2c-text',counterId:'it2c-char-counter',maxChars:{{engine_max_total_chars}},counterClass:'it2c-char-counter'})"></textarea>
-        <div id="it2c-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
+        {% with prefix='it2c', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
         {% with prefix='it2c' %}
         {% include 'partials/language_selector.html' %}
         {% endwith %}
-        <label>{{ "duration_mode"|t(lang) }}</label>
-        <div style="margin-bottom:10px;">
-            <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
+        <div class="tts-form-group">
+            <label class="tts-form-label">{{ "duration_mode"|t(lang) }}</label>
+            <label class="tts-checkbox-label">
                 <input type="radio" name="duration_mode" value="free" checked onchange="toggleIt2cDurationMode('free')">
-                <span style="font-size:13px;">{{ "duration_free"|t(lang) }}</span>
+                {{ "duration_free"|t(lang) }}
             </label>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <label class="tts-checkbox-label">
                 <input type="radio" name="duration_mode" value="fixed" onchange="toggleIt2cDurationMode('fixed')">
-                <span style="font-size:13px;">{{ "duration_specified"|t(lang) }}</span>
+                {{ "duration_specified"|t(lang) }}
             </label>
         </div>
         <div id="it2c-duration-options" style="display:none;">
@@ -53,7 +41,7 @@
             </div>
             <input type="hidden" name="duration_scale" id="it2c-duration-scale" value="1.0">
         </div>
-        <button type="submit" class="primary-btn generate-btn tts-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
+        <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "indextts2_generate"|t(lang) }}</span></button>
     </form>
 </div>
 {% with prefix='it2c', title_key='result_audio' %}
@@ -61,6 +49,18 @@
 {% endwith %}
 <script>
 (function(){
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'it2c-form',
+        resultId: 'it2c-result',
+        statusId: 'it2c-status',
+        textareaId: 'it2c-text',
+        counterId: 'it2c-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'tts-char-counter'
+    });
+
     window.updateIt2cFileName = function(input) {
         var nameEl = document.getElementById('it2c-ref-audio-name');
         var previewEl = document.getElementById('it2c-audio-preview');
@@ -83,35 +83,5 @@
         btn.classList.add('active');
         document.getElementById('it2c-duration-scale').value = btn.dataset.speed;
     };
-    var form = document.getElementById('it2c-form');
-    var submitBtn = form.querySelector('button[type="submit"]');
-    var originalText = submitBtn.innerHTML;
-    form.addEventListener('submit', function(e) {
-        if (!form.querySelector('textarea[name="text"]').value.trim()) {
-            e.preventDefault();
-            var status = document.getElementById('it2c-status');
-            if (status) { status.className = 'status-message error'; status.textContent = '{{ "enter_text"|t(lang) }}'; }
-            return false;
-        }
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '{{ "generating"|t(lang) }}...';
-    });
-    document.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.target && evt.detail.target.id === 'it2c-result') {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }
-    });
-    form.addEventListener('htmx:afterSettle', function(e) {
-        if (e.detail.successful) {
-            try {
-                var resultEl = document.getElementById('it2c-result');
-                var audioSrc = resultEl.querySelector('audio');
-                if (audioSrc && window.globalAudioPlayer) {
-                    window.globalAudioPlayer.play(audioSrc.src, 'IndexTTS2 Clone');
-                }
-            } catch(ex) {}
-        }
-    });
 })();
 </script>

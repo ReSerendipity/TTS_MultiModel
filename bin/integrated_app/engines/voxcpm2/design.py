@@ -12,12 +12,18 @@ from ._base import (
 )
 
 
-def fn_voxcpm_design(text: str, instruction: str,
-                     cfg_value: float = 2.0, inference_timesteps: int = 10,
-                     denoise: bool = True,
-                     ref_audio_path: str | None = None) -> tuple[tuple | None, str]:
+def fn_voxcpm_design(
+    text: str,
+    instruction: str,
+    cfg_value: float = 2.0,
+    inference_timesteps: int = 10,
+    denoise: bool = True,
+    ref_audio_path: str | None = None,
+    normalize: bool = True,
+) -> tuple[tuple | None, str]:
     from ...model_manager import _check_voxcpm2_lock
     from ...model_registry import registry
+
     if registry.voxcpm_model is None:
         raise EngineSwitchError("请先切换并加载 VoxCPM2 引擎")
 
@@ -28,10 +34,11 @@ def fn_voxcpm_design(text: str, instruction: str,
         _gen_tracker.start_generation()
         start_time = time.time()
         try:
+
             def gen_kwargs_builder(seg_text, ref_path, prompt_cache):
                 kwargs = dict(
                     text=seg_text,
-                    normalize=True,
+                    normalize=normalize,
                     cfg_value=cfg_value,
                     inference_timesteps=inference_timesteps,
                     denoise=denoise,

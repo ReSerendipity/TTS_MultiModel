@@ -22,7 +22,7 @@ A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAP
 - **Batch Processing** - Support for batch audio generation
 - **History Management** - SQLite-based history tracking with search, filter, and pagination
 - **Multi-language** - Internationalization support (i18n) for Chinese, English, Japanese, Korean
-- **Multi-GPU Backend** - Support for NVIDIA CUDA, AMD ROCM, Intel XPU, Apple MPS, and CPU
+- **Multi-GPU Backend** - Support for NVIDIA CUDA, Apple MPS, and CPU
 - **GPU Acceleration** - Optimized for GPU-based inference with adaptive VRAM management
 - **9 Official Speakers** - Pre-configured voice personas covering various voice types
 
@@ -32,9 +32,10 @@ A powerful multi-model Text-to-Speech (TTS) web application with a modern FastAP
 
 - **Operating System**: Windows 10/11 (64-bit) or Linux
 - **Python**: 3.12+ (bundled WinPython included for Windows, or install your own)
-- **GPU**: NVIDIA GPU (CUDA) / AMD GPU (ROCM) / Intel GPU (XPU) (recommended for optimal performance)
-  - Both integrated and discrete GPUs are supported
+- **GPU**: NVIDIA GPU (CUDA) recommended for optimal performance
+  - Apple Silicon (MPS) is supported
   - Minimum 6.5GB VRAM required for VoxCPM2 model
+  - CPU mode is available but slower
 - **VC Redistributable** (Windows only): Visual C++ Redistributable (included in `VC运行库/` folder)
 
 ### Windows
@@ -371,10 +372,9 @@ For architecture details, see [Project Architecture](docs/PROJECT_ARCHITECTURE.m
    - Check directory structure matches expected layout
 
 3. **GPU Not Detected**:
-   - Install GPU-compatible PyTorch version (CUDA for NVIDIA, ROCM for AMD, XPU for Intel)
+   - Install GPU-compatible PyTorch version (CUDA for NVIDIA)
    - Verify GPU drivers are up to date
-   - For integrated GPUs (iGPU), ensure system memory is sufficient (VoxCPM2 requires ~6.5GB VRAM)
-   - Check `python -c "import torch; print(torch.cuda.is_available())"` or equivalent for your backend
+   - Check `python -c "import torch; print(torch.cuda.is_available())"`
 
 4. **Port Already in Use**:
    - The app will auto-select an available port

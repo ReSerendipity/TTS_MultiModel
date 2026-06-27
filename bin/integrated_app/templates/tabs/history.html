@@ -1,22 +1,27 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>
+        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>
         <h3 class="card-header-title">{{ "history"|t(lang) }}</h3>
     </div>
     
     <!-- 空状态容器，在 history_count == 0 时默认显示 -->
-    <div id="history-empty-state" style="{{ 'display:block;' if history_count == 0 else 'display:none;' }}">
-        <div class="empty-state" style="text-align:center;padding:48px 24px;">
-            <div class="empty-state-icon" style="font-size:64px;margin-bottom:16px;opacity:0.5;">📭</div>
-            <h3 style="margin:0 0 8px 0;color:var(--text-primary);">{{ "no_records"|t(lang) }}</h3>
-            <p style="margin:0 0 24px 0;color:var(--text-secondary);">{{ "records_auto_show"|t(lang) }}</p>
-            <button class="primary-btn" onclick="window.activateTab && window.activateTab('voice_design')">{{ "start_first"|t(lang) }}</button>
+    <div id="history-empty-state" style="{{ 'display:block;' if history_count == 0 else 'display:none;' }}" aria-live="polite" aria-atomic="true">
+        <div class="empty-state empty-state-content">
+            <div class="empty-state-icon">
+                <svg aria-hidden="true" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6;">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <path d="M22 7l-10 7L2 7"/>
+                </svg>
+            </div>
+            <h3 class="empty-state-title" id="history-empty-title">{{ "no_records"|t(lang) }}</h3>
+            <p class="empty-state-desc" id="history-empty-desc">{{ "records_auto_show"|t(lang) }}</p>
+            <button class="tts-btn tts-btn-primary" id="history-empty-action" onclick="TTSApp.sidebar.activateTab('voice_design')">{{ "start_first"|t(lang) }}</button>
         </div>
     </div>
     
     <!-- 统计卡片，始终渲染但根据数量显示 -->
     <div class="stat-card" id="history-stat-card" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
-        <span class="stat-card-icon">📜</span>
+        <span class="stat-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg></span>
         <div>
             <div class="stat-card-value">{{ history_count }}</div>
             <div class="stat-card-label">{{ "records_count"|t(lang) }}</div>
@@ -30,6 +35,11 @@
         <span class="time-filter-chip" data-time="today" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('today')">{{ "today"|t(lang) }}</span>
         <span class="time-filter-chip" data-time="week" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('week')">{{ "week"|t(lang) }}</span>
         <span class="time-filter-chip" data-time="month" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('month')">{{ "month"|t(lang) }}</span>
+        <span class="filter-bar-label" style="margin-left:12px;">{{ "duration_filter"|t(lang) }}</span>
+        <span class="time-filter-chip active" data-duration="all" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('all')">{{ "duration_all"|t(lang) }}</span>
+        <span class="time-filter-chip" data-duration="lt5" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('lt5')">{{ "duration_lt5"|t(lang) }}</span>
+        <span class="time-filter-chip" data-duration="5to10" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('5to10')">{{ "duration_5to10"|t(lang) }}</span>
+        <span class="time-filter-chip" data-duration="gt10" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('gt10')">{{ "duration_gt10"|t(lang) }}</span>
         <label class="hidden-toggle-label" style="margin-left:12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
             <input type="checkbox" id="show-hidden-checkbox" onchange="toggleHiddenRecords()">
             <span id="show-hidden-label-text">{{ "show_hidden"|t(lang, default="显示隐藏记录") }}</span>
@@ -38,10 +48,11 @@
     <div class="history-search-bar" id="history-search-bar" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
         <input type="text" id="hist-search" class="history-search-input" placeholder="{{ 'keyword_search'|t(lang) }}">
         <input type="hidden" id="hist-time-filter" value="all">
+        <input type="hidden" id="hist-duration-filter" value="all">
         <div class="history-search-actions">
-            <button class="secondary-btn history-search-btn" onclick="refreshHistory()">{{ "refresh_records"|t(lang) }}</button>
-            <button class="stop-btn history-search-btn" onclick="clearHistorySearch()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <button class="tts-btn tts-btn-secondary history-search-btn" onclick="refreshHistory()">{{ "refresh_records"|t(lang) }}</button>
+            <button class="tts-btn tts-btn-danger history-search-btn" onclick="clearHistorySearch()">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 {{ "clear_search"|t(lang) }}
             </button>
         </div>
@@ -77,7 +88,7 @@
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            background: var(--card-bg);
+            background: var(--bg-card);
             border-radius: 12px;
             overflow: hidden;
         }
@@ -90,7 +101,7 @@
             letter-spacing: 0.5px;
             padding: 10px 12px;
             text-align: left;
-            border-bottom: 2px solid var(--border-color);
+            border-bottom: 2px solid var(--border-subtle);
         }
         .history-table thead th:nth-child(1) {
             width: 40px;
@@ -98,12 +109,12 @@
         }
         .history-table tbody tr {
             transition: background 0.15s ease, transform 0.15s ease;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-subtle);
             cursor: default;
         }
         .history-table tbody tr:last-child { border-bottom: none; }
         .history-table tbody tr:hover {
-            background: var(--hover-bg);
+            background: var(--bg-tertiary);
         }
         .history-table tbody td {
             padding: 8px 12px;
@@ -276,7 +287,7 @@
         .pagination-page-btn.active {
             background: var(--primary);
             border-color: var(--primary);
-            color: white;
+            color: var(--text-on-primary);
         }
         .pagination-size {
             display: flex;
@@ -304,28 +315,30 @@
             }
         }
         </style>
+        <div class="table-scroll-wrapper">
         <table class="history-table">
             <thead>
                 <tr>
-                    <th><input type="checkbox" class="history-header-checkbox" onclick="toggleAllHistory(this.checked)"></th>
+                    <th><input type="checkbox" class="history-header-checkbox" onclick="toggleAllHistory(this.checked)" aria-label="{{ 'select_all'|t(lang) }}"></th>
                     <th>{{ "filename"|t(lang) }}</th>
                     <th>{{ "gen_time"|t(lang) }}</th>
                     <th>{{ "duration"|t(lang) }}</th>
                     <th>{{ "size"|t(lang) }}</th>
                 </tr>
             </thead>
-            <tbody id="hist-table-body">
+            <tbody id="hist-table-body" role="rowgroup">
                 {% for row in history_records %}
-                <tr class="history-record-row">
+                <tr class="history-record-row" role="row">
                     <td><input type="checkbox" class="history-row-checkbox" data-history-id="{{ row[0] }}"></td>
-                    <td>{{ row[0] }}</td>
-                    <td>{{ row[1] }}</td>
-                    <td><span class="history-duration">{{ row[2] }}</span></td>
-                    <td>{{ row[3] }}</td>
+                    <td data-label="{{ 'filename'|t(lang) }}">{{ row[0] }}</td>
+                    <td data-label="{{ 'gen_time'|t(lang) }}">{{ row[1] }}</td>
+                    <td data-label="{{ 'duration'|t(lang) }}"><span class="history-duration">{{ row[2] }}</span></td>
+                    <td data-label="{{ 'size'|t(lang) }}">{{ row[3] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
     <!-- Pagination Controls -->
     <div class="history-pagination" id="history-pagination" style="display:none;">
@@ -333,11 +346,11 @@
             <span id="pagination-text">{{ "page"|t(lang) }} 1 / 1</span>
         </div>
         <div class="pagination-controls">
-            <button class="secondary-btn pagination-btn" id="pagination-first" onclick="goToPage(1)" disabled>{{ "first_page"|t(lang) }}</button>
-            <button class="secondary-btn pagination-btn" id="pagination-prev" onclick="goToPrevPage()" disabled>{{ "prev_page"|t(lang) }}</button>
+            <button class="tts-btn tts-btn-secondary pagination-btn" id="pagination-first" onclick="goToPage(1)" disabled>{{ "first_page"|t(lang) }}</button>
+            <button class="tts-btn tts-btn-secondary pagination-btn" id="pagination-prev" onclick="goToPrevPage()" disabled>{{ "prev_page"|t(lang) }}</button>
             <div class="pagination-pages" id="pagination-pages"></div>
-            <button class="secondary-btn pagination-btn" id="pagination-next" onclick="goToNextPage()" disabled>{{ "next_page"|t(lang) }}</button>
-            <button class="secondary-btn pagination-btn" id="pagination-last" onclick="goToLastPage()" disabled>{{ "last_page"|t(lang) }}</button>
+            <button class="tts-btn tts-btn-secondary pagination-btn" id="pagination-next" onclick="goToNextPage()" disabled>{{ "next_page"|t(lang) }}</button>
+            <button class="tts-btn tts-btn-secondary pagination-btn" id="pagination-last" onclick="goToLastPage()" disabled>{{ "last_page"|t(lang) }}</button>
         </div>
         <div class="pagination-size">
             <label>{{ "per_page"|t(lang) }}:</label>
@@ -360,10 +373,10 @@
     <div class="history-batch-bar skeleton-content hidden" id="history-batch-actions">
         <span class="batch-hint">{{ "select_rows_hint"|t(lang) }}</span>
         <span class="batch-spacer"></span>
-        <button class="secondary-btn batch-btn" onclick="batchExportHistory()">{{ "batch_export"|t(lang) }}</button>
-        <button class="stop-btn batch-btn" onclick="batchDeleteHistory()">{{ "batch_delete"|t(lang) }}</button>
-        <button class="secondary-btn batch-btn" onclick="batchShowHistory()" id="show-selected-btn" style="display:none;">恢复显示</button>
-        <button class="secondary-btn batch-btn" onclick="showAllHistory()" id="show-all-btn" style="display:none;">恢复全部</button>
+        <button class="tts-btn tts-btn-secondary batch-btn" onclick="batchExportHistory()">{{ "batch_export"|t(lang) }}</button>
+        <button class="tts-btn tts-btn-danger batch-btn" onclick="batchDeleteHistory()">{{ "batch_delete"|t(lang) }}</button>
+        <button class="tts-btn tts-btn-secondary batch-btn" onclick="batchShowHistory()" id="show-selected-btn" style="display:none;">{{ "show_selected"|t(lang) }}</button>
+        <button class="tts-btn tts-btn-secondary batch-btn" onclick="showAllHistory()" id="show-all-btn" style="display:none;">{{ "show_all"|t(lang) }}</button>
     </div>
 </div>
 <script>
@@ -408,10 +421,31 @@
         if (batchActions) batchActions.style.display = 'none';
     }
 
-    // 显示空状态
-    function showEmptyState() {
+    // 显示空状态（区分首次无数据和搜索无结果）
+    function showEmptyState(isSearchNoResult) {
         if (emptyState) emptyState.style.display = 'block';
         hideSearchUI();
+        // 根据场景切换文案和按钮
+        var titleEl = document.getElementById('history-empty-title');
+        var descEl = document.getElementById('history-empty-desc');
+        var actionEl = document.getElementById('history-empty-action');
+        if (isSearchNoResult) {
+            // 搜索无结果
+            if (titleEl) titleEl.textContent = '{{ "no_matches"|t(lang) }}';
+            if (descEl) descEl.textContent = '{{ "try_other_keyword"|t(lang, default="换个关键词试试？") }}';
+            if (actionEl) {
+                actionEl.textContent = '{{ "clear_search"|t(lang) }}';
+                actionEl.setAttribute('onclick', 'clearHistorySearch()');
+            }
+        } else {
+            // 首次无数据
+            if (titleEl) titleEl.textContent = '{{ "no_records"|t(lang) }}';
+            if (descEl) descEl.textContent = '{{ "records_auto_show"|t(lang) }}';
+            if (actionEl) {
+                actionEl.textContent = '{{ "start_first"|t(lang) }}';
+                actionEl.setAttribute('onclick', "TTSApp.sidebar.activateTab('voice_design')");
+            }
+        }
     }
 
     // 隐藏空状态
@@ -447,7 +481,27 @@
     setTimeout(ensureContentVisible, 100);
     setTimeout(ensureContentVisible, 500);
 
+    // Apply staggered entrance animation to list items
+    function applyListItemAnimation(container, itemSelector) {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var items = container.querySelectorAll(itemSelector);
+        var maxItems = Math.min(items.length, 20);
+        for (var i = 0; i < maxItems; i++) {
+            items[i].classList.add('list-item-enter');
+            items[i].style.animationDelay = (i * 30) + 'ms';
+        }
+    }
+
     // Render rows helper
+    var currentSearchKeyword = '';
+
+    function highlightText(text, keyword) {
+        if (!keyword) return text;
+        var escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var regex = new RegExp('(' + escaped + ')', 'gi');
+        return text.replace(regex, '<mark style="background:var(--accent-warning);color:var(--text-primary);padding:0 2px;border-radius:2px;">$1</mark>');
+    }
+
     function renderRows(records, append) {
         var tbody = document.getElementById('hist-table-body');
         if (!append) {
@@ -465,18 +519,26 @@
             tdCheck.appendChild(checkbox);
 
             var tdName = document.createElement('td');
-            tdName.textContent = r[0];  // Safe: uses textContent
+            tdName.setAttribute('data-label', t('filename'));
+            if (currentSearchKeyword) {
+                tdName.innerHTML = highlightText(r[0], currentSearchKeyword);
+            } else {
+                tdName.textContent = r[0];
+            }
 
             var tdTime = document.createElement('td');
+            tdTime.setAttribute('data-label', t('gen_time'));
             tdTime.textContent = r[1];  // Safe: uses textContent
 
             var tdDuration = document.createElement('td');
+            tdDuration.setAttribute('data-label', t('duration'));
             var durationSpan = document.createElement('span');
             durationSpan.className = 'history-duration';
             durationSpan.textContent = r[2];
             tdDuration.appendChild(durationSpan);
 
             var tdSize = document.createElement('td');
+            tdSize.setAttribute('data-label', t('size'));
             tdSize.textContent = r[3];  // Safe: uses textContent
 
             tr.appendChild(tdCheck);
@@ -486,6 +548,7 @@
             tr.appendChild(tdSize);
             tbody.appendChild(tr);
         });
+        applyListItemAnimation(tbody, '.history-record-row');
     }
 
     function showLoading() {
@@ -511,14 +574,17 @@
         if (isLoading || !hasMore) return;
         var searchEl = document.getElementById('hist-search');
         var timeEl = document.getElementById('hist-time-filter');
+        var durationEl = document.getElementById('hist-duration-filter');
         if (!searchEl || !timeEl) return;
         isLoading = true;
         showLoading();
 
         var keyword = searchEl.value;
         var timeFilter = timeEl.value;
+        var durationFilter = durationEl ? durationEl.value : 'all';
         var url = '/api/history/table?keyword=' + encodeURIComponent(keyword) +
             '&time_filter=' + encodeURIComponent(timeFilter) +
+            '&duration_filter=' + encodeURIComponent(durationFilter) +
             '&limit=' + PAGE_SIZE +
             '&offset=' + loadedRecords;
 
@@ -549,7 +615,10 @@
 
     window.refreshHistory = function() {
         var keyword = document.getElementById('hist-search').value;
+        currentSearchKeyword = keyword;
         var timeFilter = document.getElementById('hist-time-filter').value;
+        var durationEl = document.getElementById('hist-duration-filter');
+        var durationFilter = durationEl ? durationEl.value : 'all';
         // Reset pagination state
         loadedRecords = 0;
         hasMore = true;
@@ -560,7 +629,7 @@
 
         if (skeleton) skeleton.classList.add('active');
         contentEls.forEach(function(el) { el.classList.add('hidden'); });
-        fetch('/api/history/table?keyword=' + encodeURIComponent(keyword) + '&time_filter=' + encodeURIComponent(timeFilter) + '&limit=' + PAGE_SIZE + '&offset=0')
+        fetch('/api/history/table?keyword=' + encodeURIComponent(keyword) + '&time_filter=' + encodeURIComponent(timeFilter) + '&duration_filter=' + encodeURIComponent(durationFilter) + '&limit=' + PAGE_SIZE + '&offset=0')
             .then(function(r){ return r.json(); })
             .then(function(data){
                 if (data.records && data.records.length > 0) {
@@ -573,8 +642,9 @@
                     updateInfoText();
                     showContent();
                 } else {
-                    // 搜索无结果，显示空状态
-                    showEmptyState();
+                    // 搜索无结果，显示空状态（区分首次无数据和搜索无结果）
+                    var isSearchNoResult = !!keyword || timeFilter !== 'all' || durationFilter !== 'all';
+                    showEmptyState(isSearchNoResult);
                     var tbody = document.getElementById('hist-table-body');
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">{{ "no_records"|t(lang) }}</td></tr>';
                     var infoEl = document.getElementById('hist-info');
@@ -583,13 +653,6 @@
                     // 确保表格容器隐藏
                     var tableContainer = document.getElementById('hist-table-container');
                     if (tableContainer) tableContainer.classList.add('hidden');
-                    // 显示空状态提示
-                    if (emptyState) {
-                        var hintEl = emptyState.querySelector('p');
-                        if (hintEl) {
-                            hintEl.textContent = keyword ? '{{ "no_matches"|t(lang) }}' : '{{ "records_auto_show"|t(lang) }}';
-                        }
-                    }
                 }
             }).catch(function(){
                 if (skeleton) skeleton.classList.remove('active');
@@ -599,8 +662,10 @@
     window.clearHistorySearch = function() {
         document.getElementById('hist-search').value = '';
         document.getElementById('hist-time-filter').value = 'all';
+        document.getElementById('hist-duration-filter').value = 'all';
         document.querySelectorAll('.time-filter-chip').forEach(function(c){ c.classList.remove('active'); });
         document.querySelector('.time-filter-chip[data-time="all"]').classList.add('active');
+        document.querySelector('.time-filter-chip[data-duration="all"]').classList.add('active');
         refreshHistory();
     };
 
@@ -671,6 +736,12 @@
         document.querySelectorAll('.time-filter-chip').forEach(function(c){ c.classList.remove('active'); });
         document.querySelector('.time-filter-chip[data-time="' + filter + '"]').classList.add('active');
         document.getElementById('hist-time-filter').value = filter;
+        refreshHistory();
+    };
+    window.filterHistoryDuration = function(duration) {
+        document.querySelectorAll('.time-filter-chip[data-duration]').forEach(function(c){ c.classList.remove('active'); });
+        document.querySelector('.time-filter-chip[data-duration="' + duration + '"]').classList.add('active');
+        document.getElementById('hist-duration-filter').value = duration;
         refreshHistory();
     };
 
@@ -790,6 +861,8 @@
     function refreshHistoryWithHidden(showHidden) {
         var keyword = document.getElementById('hist-search').value;
         var timeFilter = document.getElementById('hist-time-filter').value;
+        var durationEl = document.getElementById('hist-duration-filter');
+        var durationFilter = durationEl ? durationEl.value : 'all';
         loadedRecords = 0;
         hasMore = true;
         totalRecords = 0;
@@ -799,9 +872,10 @@
 
         if (skeleton) skeleton.classList.add('active');
         contentEls.forEach(function(el) { el.classList.add('hidden'); });
-        
+
         var url = '/api/history/table?keyword=' + encodeURIComponent(keyword) +
             '&time_filter=' + encodeURIComponent(timeFilter) +
+            '&duration_filter=' + encodeURIComponent(durationFilter) +
             '&include_hidden=' + (showHidden ? 'true' : 'false') +
             '&limit=' + PAGE_SIZE +
             '&offset=0';

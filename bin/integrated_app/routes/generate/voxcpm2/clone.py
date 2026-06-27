@@ -3,7 +3,7 @@ import time
 
 from fastapi import File, Form, Request, UploadFile
 
-from ....config import MAX_TEXT_LENGTH, SAVE_DIR
+from ....config import MAX_TEXT_LENGTH
 from ....model_registry import registry
 from ....monitor import get_health_monitor
 from ..utils import (
@@ -44,7 +44,7 @@ async def generate_voxcpm_clone(
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
 ):
-    err = pre_validate("voxcpm2", text, MAX_TEXT_LENGTH)
+    err = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if err:
         return err
 
@@ -52,14 +52,14 @@ async def generate_voxcpm_clone(
 
     actual_ref_path = ref_audio_path if ref_audio_path else None
 
-    upload_path, err = await save_uploaded_audio(ref_audio_upload)
+    upload_path, err = await save_uploaded_audio(request, ref_audio_upload)
     if err:
         return err
     if upload_path:
         actual_ref_path = upload_path
 
     if not actual_ref_path and persona_name:
-        ref_path, err = resolve_persona_ref(persona_name)
+        ref_path, err = await resolve_persona_ref(request, persona_name)
         if err:
             return err
         if ref_path:
@@ -71,18 +71,31 @@ async def generate_voxcpm_clone(
 
     def _run():
         engine = registry.get_current_engine()
-        return engine.generate_voice_clone(text, instruction, actual_ref_path,
-                                           cfg_value=cfg, inference_timesteps=steps,
-                                           denoise=clone_denoise, normalize=clone_norm)
+        return engine.generate_voice_clone(
+            text=text,
+            reference_audio_path=actual_ref_path,
+            instruction=instruction,
+            cfg_value=cfg,
+            inference_timesteps=steps,
+            denoise=clone_denoise,
+            normalize=clone_norm,
+        )
 
     def _degraded_run():
         engine = registry.get_current_engine()
         degraded_steps = max(steps // 2, 4)
-        return engine.generate_voice_clone(text, instruction, actual_ref_path,
-                                           cfg_value=cfg, inference_timesteps=degraded_steps,
-                                           denoise=False, normalize=clone_norm)
+        return engine.generate_voice_clone(
+            text=text,
+            reference_audio_path=actual_ref_path,
+            instruction=instruction,
+            cfg_value=cfg,
+            inference_timesteps=degraded_steps,
+            denoise=False,
+            normalize=clone_norm,
+        )
 
     return await _execute_generation(
+        request,
         text=text,
         run_fn=_run,
         endpoint_name="VoxCPM clone",
@@ -113,7 +126,7 @@ async def generate_voxcpm_ultimate(
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
 ):
-    err = pre_validate("voxcpm2", text, MAX_TEXT_LENGTH)
+    err = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if err:
         return err
 
@@ -122,7 +135,7 @@ async def generate_voxcpm_ultimate(
     actual_ref_path = ref_audio_path if ref_audio_path else None
 
     if not actual_ref_path and persona_name:
-        ref_path, err = resolve_persona_ref(persona_name)
+        ref_path, err = await resolve_persona_ref(request, persona_name)
         if err:
             return err
         if ref_path:
@@ -135,10 +148,13 @@ async def generate_voxcpm_ultimate(
     def _run():
         engine = registry.get_current_engine()
         return engine.generate_ultimate_clone(
-            text, instruction,
+            text,
+            instruction,
             actual_ref_path if actual_ref_path else None,
-            advanced_cfg=cfg, advanced_norm=advanced_norm,
-            advanced_denoise=advanced_denoise, advanced_steps=steps,
+            advanced_cfg=cfg,
+            advanced_norm=advanced_norm,
+            advanced_denoise=advanced_denoise,
+            advanced_steps=steps,
             advanced_seed=seed,
         )
 
@@ -146,14 +162,18 @@ async def generate_voxcpm_ultimate(
         engine = registry.get_current_engine()
         degraded_steps = max(steps // 2, 4)
         return engine.generate_ultimate_clone(
-            text, instruction,
+            text,
+            instruction,
             actual_ref_path if actual_ref_path else None,
-            advanced_cfg=cfg, advanced_norm=advanced_norm,
-            advanced_denoise=0.0, advanced_steps=degraded_steps,
+            advanced_cfg=cfg,
+            advanced_norm=advanced_norm,
+            advanced_denoise=0.0,
+            advanced_steps=degraded_steps,
             advanced_seed=seed,
         )
 
     return await _execute_generation(
+        request,
         text=text,
         run_fn=_run,
         endpoint_name="VoxCPM ultimate clone",
@@ -178,18 +198,18 @@ async def generate_voxcpm_prompt_continue(
     voice_enhancement: bool = Form(False),
     target_lufs: float | None = Form(None),
 ):
-    err = pre_validate("voxcpm2", text, MAX_TEXT_LENGTH)
+    err = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if err:
         return err
     if not prompt_text.strip():
-        return _error_html("引导文本不能为空")
+        return _error_html(request, "引导文本不能为空")
 
-    prompt_wav_path, err = await save_uploaded_audio(prompt_wav)
+    prompt_wav_path, err = await save_uploaded_audio(request, prompt_wav)
     if err:
         return err
 
     if not prompt_wav_path:
-        return _error_html("请上传引导音频文件")
+        return _error_html(request, "请上传引导音频文件")
 
     import asyncio
 
@@ -207,28 +227,38 @@ async def generate_voxcpm_prompt_continue(
         duration = time.monotonic() - start_time
         if result is None:
             _log_generation("VoxCPM prompt continue", text, "voxcpm2", prompt_text[:50], False, duration, error_msg=msg)
-            return _error_html(msg)
+            return _error_html(request, msg)
         is_degraded = degraded_note is not None
-        _log_generation("VoxCPM prompt continue", text, "voxcpm2", prompt_text[:50], True, duration, is_degraded=is_degraded)
+        _log_generation(
+            "VoxCPM prompt continue", text, "voxcpm2", prompt_text[:50], True, duration, is_degraded=is_degraded
+        )
         _time_estimator.record(len(text), duration, "voxcpm2", segment_count=1)
         from ....config import SAVE_DIR
+
         if isinstance(result, tuple) and len(result) >= 3:
             audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
-            _record_to_history_db(
-                filepath=audio_path, text=text, engine="voxcpm2", duration=duration,
-                model_type="Prompt延续", output_format="wav",
+            await asyncio.to_thread(
+                _record_to_history_db,
+                filepath=audio_path,
+                text=text,
+                engine="voxcpm2",
+                duration=duration,
+                model_type="Prompt延续",
+                output_format="wav",
                 is_success=True,
             )
         monitor = get_health_monitor()
         monitor.record_generation(success=True)
         filename = result[2]
         pp_target_lufs = target_lufs if target_lufs is not None else -16.0
-        filename = _apply_post_processing_to_file(filename, tempo_factor, voice_enhancement, pp_target_lufs)
+        filename = await asyncio.to_thread(
+            _apply_post_processing_to_file, filename, tempo_factor, voice_enhancement, pp_target_lufs
+        )
         if degraded_note:
             return _partial_success_html(filename, msg, degraded_note)
         return _success_html(filename, msg)
     except Exception as e:
         duration = time.monotonic() - start_time
-        logger.error(f"VoxCPM prompt continue generation failed: {e}")
+        logger.error(f"VoxCPM Prompt 延续生成失败: {e}")
         _log_generation("VoxCPM prompt continue", text, "voxcpm2", prompt_text[:50], False, duration, error_msg=str(e))
-        return _error_html(_safe_error_msg(e))
+        return _error_html(request, _safe_error_msg(e))

@@ -1,7 +1,8 @@
 """Bearer Token API 认证中间件"""
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 
 class APIAuthMiddleware(BaseHTTPMiddleware):
@@ -35,4 +36,7 @@ class APIAuthMiddleware(BaseHTTPMiddleware):
         if self.token and auth_header == f"Bearer {self.token}":
             return await call_next(request)
 
-        raise HTTPException(status_code=401, detail="未授权访问：缺少或无效的 Bearer Token")
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "未授权访问：缺少或无效的 Bearer Token"},
+        )

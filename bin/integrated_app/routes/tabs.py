@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Request
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
-import os
 import html
+import os
 
-from ..persona_manager import get_persona_list, get_total_persona_count, get_persona_detail_table
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+from ..config import _DIALECTS, _LANGS, get_config
 from ..history_db import get_history_db
-from ..config import _LANGS, _DIALECTS, GEN_SPLIT_MAX_CHARS
+from ..i18n import get_lang, register_i18n_filters, t
 from ..model_registry import registry
-from ..i18n import t, get_lang, register_i18n_filters
+from ..persona_manager import get_persona_detail_table, get_persona_list, get_total_persona_count
 
 router = APIRouter()
 
@@ -36,8 +37,8 @@ _TAB_TEMPLATES = {
 }
 
 
-# VoxCPM2相关的标签页（这些页面使用VoxCPM2模型，字符上限192）
-_VOXCPM2_TABS = {"voice_design", "voice_clone", "ultimate_clone", "prompt_continue", "voxcpm2"}
+# VoxCPM2相关的标签页（这些页面使用VoxCPM2模型，字符上限8192）
+_VOXCPM2_TABS = {"voice_design", "voice_clone", "ultimate_clone", "script", "prompt_continue", "voxcpm2"}
 
 # IndexTTS2相关的标签页（这些页面使用IndexTTS2模型，字符上限072）
 _INDEXTTS2_TABS = {"indextts2", "indextts2_clone", "indextts2_emotion", "indextts2_duration"}
@@ -45,13 +46,12 @@ _INDEXTTS2_TABS = {"indextts2", "indextts2_clone", "indextts2_emotion", "indextt
 
 def _common_context(request: Request, tab_name: str = ""):
     lang = get_lang(request)
-    # Use configurable split_max_chars from AdvancedParamsConfig
+    # Use configurable split_max_chars from config
     try:
-        from ..config_models import AdvancedParamsConfig
-        split_chars = AdvancedParamsConfig().split_max_chars
+        split_chars = get_config().generation_defaults.split_max_chars
     except Exception:
-        split_chars = GEN_SPLIT_MAX_CHARS
-    
+        split_chars = 200
+
     # Model-specific total character limits: 根据标签页决定，而非registry.current_engine
     if tab_name in _VOXCPM2_TABS:
         engine_max_chars = 8192  # VoxCPM2字符上限
@@ -60,7 +60,7 @@ def _common_context(request: Request, tab_name: str = ""):
     else:
         # 其他标签页（script、settings、history等）使用当前引擎或默认值
         engine_max_chars = 8192 if registry.current_engine == "voxcpm2" else 3072
-    
+
     return {
         "request": request,
         "current_engine": registry.current_engine,
@@ -92,13 +92,7 @@ async def get_tab(request: Request, tab_name: str):
 
     ctx = _common_context(request, tab_name=tab_name)
 
-    if tab_name == "voice_design":
-        ctx["persona_list"] = get_persona_list()
-    elif tab_name == "voice_clone":
-        ctx["persona_list"] = get_persona_list()
-    elif tab_name == "ultimate_clone":
-        ctx["persona_list"] = get_persona_list()
-    elif tab_name == "voxcpm2":
+    if tab_name == "voice_design" or tab_name == "voice_clone" or tab_name == "ultimate_clone" or tab_name == "voxcpm2":
         ctx["persona_list"] = get_persona_list()
     elif tab_name == "history":
         search = request.query_params.get("search_keyword", "")
@@ -119,16 +113,18 @@ async def get_tab(request: Request, tab_name: str):
             duration = rec.get("duration_seconds", 0) or 0
             # duration_seconds may be a string from legacy JSON migration (e.g. "48.7s")
             try:
-                duration = float(str(duration).rstrip('s'))
+                duration = float(str(duration).rstrip("s"))
             except (ValueError, TypeError):
                 duration = 0
             duration_str = f"{duration:.1f}s" if duration > 0 else "<1s"
-            items.append([
-                rec.get("filename", ""),
-                rec.get("created_at", ""),
-                duration_str,
-                size_str,
-            ])
+            items.append(
+                [
+                    rec.get("filename", ""),
+                    rec.get("created_at", ""),
+                    duration_str,
+                    size_str,
+                ]
+            )
         no_records_text = t("history_no_records", ctx["lang"])
         ctx["history_records"] = items if items else [[no_records_text, "-", "-", "-"]]
         ctx["history_count"] = paginated["total"]
@@ -141,4 +137,9 @@ async def get_tab(request: Request, tab_name: str):
         ctx["total_persona_count"] = ctx["persona_count"]
         ctx["persona_table_data"] = get_persona_detail_table()
 
-    return templates.TemplateResponse(request=request, name=template_name, context=ctx, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    return templates.TemplateResponse(
+        request=request,
+        name=template_name,
+        context=ctx,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )

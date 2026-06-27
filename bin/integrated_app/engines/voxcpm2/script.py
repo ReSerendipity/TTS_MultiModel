@@ -5,8 +5,8 @@ import time
 import numpy as np
 
 from ._base import (
-    GenerationError,
     SAVE_DIR,
+    GenerationError,
     _advanced_kwargs,
     _progress_mgr,
     _save_wav_compatible,
@@ -19,8 +19,13 @@ from .decorators import with_generation_context
 
 @with_generation_context(phase_name="VoxCPM剧本工坊", cleanup_fn=cleanup_temp_files)
 def fn_voxcpm_script_studio(
-    script_text: str, advanced_cfg: float, advanced_norm: bool, advanced_denoise: float,
-    advanced_steps: int, advanced_seed: int, lang: str = "中文",
+    script_text: str,
+    advanced_cfg: float,
+    advanced_norm: bool,
+    advanced_denoise: float,
+    advanced_steps: int,
+    advanced_seed: int,
+    lang: str = "中文",
     persona_map_with_wav: dict | None = None,
 ) -> tuple[tuple | None, str]:
     from ...model_registry import registry
@@ -54,7 +59,9 @@ def fn_voxcpm_script_studio(
         if role_idx > 1:
             avg = elapsed / (role_idx - 1)
             remaining = avg * (total_roles - role_idx + 1)
-            logger.info(f"[VoxCPM剧本工坊] 第 {role_idx}/{total_roles} 角色，已耗时 {elapsed:.1f}s，预计剩余 {remaining:.1f}s")
+            logger.info(
+                f"[VoxCPM剧本工坊] 第 {role_idx}/{total_roles} 角色，已耗时 {elapsed:.1f}s，预计剩余 {remaining:.1f}s"
+            )
         else:
             logger.info(f"[VoxCPM剧本工坊] 第 {role_idx}/{total_roles} 角色...")
 

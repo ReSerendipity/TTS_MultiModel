@@ -1,24 +1,24 @@
-# -*- coding: utf-8 -*-
 """SQLite-based history index for fast querying of generation records."""
 
-import os
+import contextlib
 import json
-import sqlite3
 import logging
+import os
+import sqlite3
 import threading
 import time
-from typing import List, Dict, Optional, Any
 from contextlib import contextmanager
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
 
 class HistoryDatabase:
     """SQLite-based history index for efficient querying of generation records.
-    
+
     Replaces slow glob-based filesystem scanning and JSON-based HistoryManager
     with indexed database queries.
-    
+
     Performance features:
     - Thread-local connection pooling (avoids per-query connection overhead)
     - WAL mode for concurrent read/write access
@@ -30,6 +30,7 @@ class HistoryDatabase:
     def __init__(self, db_path: str):
         self._db_path = db_path
         self._thread_local = threading.local()
+        self.last_sync_mtime: float = 0.0
         self._ensure_table()
         self._migrate_add_hidden_column()
         self._migrate_add_created_timestamp_column()
@@ -39,7 +40,7 @@ class HistoryDatabase:
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get a thread-local cached connection. Creates one on first access per thread.
-        
+
         If the database is corrupted (sqlite3.DatabaseError), the corrupted file
         is renamed to {db_path}.corrupted and a fresh database is created.
         """
@@ -53,25 +54,22 @@ class HistoryDatabase:
                 conn.execute("PRAGMA cache_size=-64000")  # 64MB page cache
                 conn.execute("PRAGMA temp_store=MEMORY")
             except sqlite3.DatabaseError:
-                logger.warning(f"Database corrupted: {self._db_path}, attempting auto-rebuild")
+                logger.warning(f"数据库已损坏: {self._db_path}，尝试自动重建")
                 # Close the failed connection if it was partially created
                 if conn is not None:
-                    try:
+                    with contextlib.suppress(Exception):
                         conn.close()
-                    except Exception:
-                        pass
                 # Rename corrupted file and create a fresh database
                 corrupted_path = f"{self._db_path}.corrupted"
                 try:
                     if os.path.exists(self._db_path):
                         # Avoid overwriting existing .corrupted file
                         if os.path.exists(corrupted_path):
-                            import shutil
                             corrupted_path = f"{self._db_path}.corrupted.{int(time.time())}"
                         os.rename(self._db_path, corrupted_path)
-                        logger.warning(f"Renamed corrupted database to: {corrupted_path}")
+                        logger.warning(f"已将损坏的数据库重命名为: {corrupted_path}")
                 except OSError as e:
-                    logger.error(f"Failed to rename corrupted database: {e}")
+                    logger.error(f"重命名损坏的数据库失败: {e}")
                 # Create fresh connection
                 conn = sqlite3.connect(self._db_path)
                 conn.row_factory = sqlite3.Row
@@ -82,7 +80,7 @@ class HistoryDatabase:
                 # Re-run table and index creation for the fresh database
                 self._ensure_table()
                 self._ensure_indexes()
-                logger.info("Successfully rebuilt database after corruption")
+                logger.info("数据库损坏后重建成功")
             self._thread_local.connection = conn
         return conn
 
@@ -90,10 +88,8 @@ class HistoryDatabase:
         """Close the thread-local connection if open."""
         conn = getattr(self._thread_local, "connection", None)
         if conn is not None:
-            try:
+            with contextlib.suppress(Exception):
                 conn.close()
-            except Exception:
-                pass
             self._thread_local.connection = None
 
     @contextmanager
@@ -150,7 +146,7 @@ class HistoryDatabase:
         except sqlite3.OperationalError:
             with self._transaction() as conn:
                 conn.execute("ALTER TABLE generation_history ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
-            logger.info("Migrated database: added 'hidden' column")
+            logger.info("数据库迁移: 已添加 'hidden' 列")
 
     def _migrate_add_created_timestamp_column(self):
         """Add 'created_timestamp' column if it doesn't exist (migration for existing DBs)."""
@@ -160,7 +156,7 @@ class HistoryDatabase:
         except sqlite3.OperationalError:
             with self._transaction() as conn:
                 conn.execute("ALTER TABLE generation_history ADD COLUMN created_timestamp REAL NOT NULL DEFAULT 0")
-            logger.info("Migrated database: added 'created_timestamp' column")
+            logger.info("数据库迁移: 已添加 'created_timestamp' 列")
 
     def _migrate_add_file_missing_column(self):
         """Add 'file_missing' column if it doesn't exist (migration for existing DBs)."""
@@ -170,7 +166,7 @@ class HistoryDatabase:
         except sqlite3.OperationalError:
             with self._transaction() as conn:
                 conn.execute("ALTER TABLE generation_history ADD COLUMN file_missing INTEGER NOT NULL DEFAULT 0")
-            logger.info("Migrated database: added 'file_missing' column")
+            logger.info("数据库迁移: 已添加 'file_missing' 列")
 
     def _ensure_indexes(self):
         """Create missing indexes for common query patterns."""
@@ -194,130 +190,151 @@ class HistoryDatabase:
         """Set performance-oriented PRAGMAs for the database."""
         conn = self._get_connection()
         pragmas = {
-            "journal_mode": "WAL",          # Better concurrent read/write performance
-            "synchronous": "NORMAL",        # Good balance of safety and speed
-            "cache_size": -64000,           # 64MB page cache (negative = KB)
-            "temp_store": "MEMORY",         # Temp tables in memory
-            "mmap_size": 268435456,         # 256MB memory-mapped I/O
-            "optimize": 0,                  # Run deferred optimization
+            "journal_mode": "WAL",  # Better concurrent read/write performance
+            "synchronous": "NORMAL",  # Good balance of safety and speed
+            "cache_size": -64000,  # 64MB page cache (negative = KB)
+            "temp_store": "MEMORY",  # Temp tables in memory
+            "mmap_size": 268435456,  # 256MB memory-mapped I/O
+            "optimize": 0,  # Run deferred optimization
         }
         for pragma, value in pragmas.items():
             try:
-                if isinstance(value, int) and value != 0:
-                    conn.execute(f"PRAGMA {pragma}={value}")
-                elif isinstance(value, str):
+                if isinstance(value, int) and value != 0 or isinstance(value, str):
                     conn.execute(f"PRAGMA {pragma}={value}")
                 elif value == 0:
                     conn.execute(f"PRAGMA {pragma}")
             except Exception:
-                logger.debug(f"Failed to set PRAGMA {pragma}={value}")
+                logger.debug(f"设置 PRAGMA {pragma}={value} 失败")
 
-    def add_record(self, filename: str, filepath: str, created_at: str,
-                   file_size: int, text_preview: str = "", engine: str = "unknown",
-                   persona_name: Optional[str] = None, duration_seconds: float = 0.0) -> int:
+    def add_record(
+        self,
+        filename: str,
+        filepath: str,
+        created_at: str,
+        file_size: int,
+        text_preview: str = "",
+        engine: str = "unknown",
+        persona_name: str | None = None,
+        duration_seconds: float = 0.0,
+    ) -> int:
         """Add a new history record. Returns the record ID."""
         timestamp = time.time()
         with self._transaction() as conn:
-            cursor = conn.execute("""
-                INSERT OR REPLACE INTO generation_history 
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO generation_history
                 (filename, filepath, created_at, file_size_bytes, duration_seconds,
                  text_preview, engine, persona_name, hidden, created_timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
-            """, (
-                filename,
-                filepath,
-                created_at,
-                file_size,
-                duration_seconds,
-                text_preview,
-                engine,
-                persona_name,
-                timestamp,
-            ))
+            """,
+                (
+                    filename,
+                    filepath,
+                    created_at,
+                    file_size,
+                    duration_seconds,
+                    text_preview,
+                    engine,
+                    persona_name,
+                    timestamp,
+                ),
+            )
             return cursor.lastrowid
 
-    def insert(self, record: Dict[str, Any]) -> int:
+    def insert(self, record: dict[str, Any]) -> int:
         """Insert a generation record. Returns the record ID."""
         with self._transaction() as conn:
-            cursor = conn.execute("""
-                INSERT OR REPLACE INTO generation_history 
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO generation_history
                 (filename, filepath, created_at, file_size_bytes, duration_seconds,
                  text_preview, engine, model_type, model_size, lang, persona_name,
                  output_format, temperature, seed, speed, is_success, error_msg, is_degraded, tags,
                  hidden, created_timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                record.get("filename", ""),
-                record.get("filepath", ""),
-                record.get("created_at", ""),
-                record.get("file_size_bytes", 0),
-                record.get("duration_seconds"),
-                record.get("text_preview", ""),
-                record.get("engine", "unknown"),
-                record.get("model_type"),
-                record.get("model_size"),
-                record.get("lang", "zh"),
-                record.get("persona_name"),
-                record.get("output_format", "wav"),
-                record.get("temperature", 0.9),
-                record.get("seed", 42),
-                record.get("speed", 1.0),
-                1 if record.get("is_success", True) else 0,
-                record.get("error_msg"),
-                1 if record.get("is_degraded", False) else 0,
-                record.get("tags", ""),
-                1 if record.get("hidden", False) else 0,
-                record.get("created_timestamp", time.time()),
-            ))
+            """,
+                (
+                    record.get("filename", ""),
+                    record.get("filepath", ""),
+                    record.get("created_at", ""),
+                    record.get("file_size_bytes", 0),
+                    record.get("duration_seconds"),
+                    record.get("text_preview", ""),
+                    record.get("engine", "unknown"),
+                    record.get("model_type"),
+                    record.get("model_size"),
+                    record.get("lang", "zh"),
+                    record.get("persona_name"),
+                    record.get("output_format", "wav"),
+                    record.get("temperature", 0.9),
+                    record.get("seed", 42),
+                    record.get("speed", 1.0),
+                    1 if record.get("is_success", True) else 0,
+                    record.get("error_msg"),
+                    1 if record.get("is_degraded", False) else 0,
+                    record.get("tags", ""),
+                    1 if record.get("hidden", False) else 0,
+                    record.get("created_timestamp", time.time()),
+                ),
+            )
             return cursor.lastrowid
 
-    def insert_batch(self, records: List[Dict[str, Any]]) -> int:
+    def insert_batch(self, records: list[dict[str, Any]]) -> int:
         """Insert multiple records in a single transaction. Returns count inserted."""
         if not records:
             return 0
         now = time.time()
         with self._transaction() as conn:
-            conn.executemany("""
-                INSERT OR REPLACE INTO generation_history 
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO generation_history
                 (filename, filepath, created_at, file_size_bytes, duration_seconds,
                  text_preview, engine, model_type, model_size, lang, persona_name,
                  output_format, temperature, seed, speed, is_success, error_msg, is_degraded, tags,
                  hidden, created_timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, [
-                (
-                    r.get("filename", ""),
-                    r.get("filepath", ""),
-                    r.get("created_at", ""),
-                    r.get("file_size_bytes", 0),
-                    r.get("duration_seconds"),
-                    r.get("text_preview", ""),
-                    r.get("engine", "unknown"),
-                    r.get("model_type"),
-                    r.get("model_size"),
-                    r.get("lang", "zh"),
-                    r.get("persona_name"),
-                    r.get("output_format", "wav"),
-                    r.get("temperature", 0.9),
-                    r.get("seed", 42),
-                    r.get("speed", 1.0),
-                    1 if r.get("is_success", True) else 0,
-                    r.get("error_msg"),
-                    1 if r.get("is_degraded", False) else 0,
-                    r.get("tags", ""),
-                    1 if r.get("hidden", False) else 0,
-                    r.get("created_timestamp", now),
-                )
-                for r in records
-            ])
+            """,
+                [
+                    (
+                        r.get("filename", ""),
+                        r.get("filepath", ""),
+                        r.get("created_at", ""),
+                        r.get("file_size_bytes", 0),
+                        r.get("duration_seconds"),
+                        r.get("text_preview", ""),
+                        r.get("engine", "unknown"),
+                        r.get("model_type"),
+                        r.get("model_size"),
+                        r.get("lang", "zh"),
+                        r.get("persona_name"),
+                        r.get("output_format", "wav"),
+                        r.get("temperature", 0.9),
+                        r.get("seed", 42),
+                        r.get("speed", 1.0),
+                        1 if r.get("is_success", True) else 0,
+                        r.get("error_msg"),
+                        1 if r.get("is_degraded", False) else 0,
+                        r.get("tags", ""),
+                        1 if r.get("hidden", False) else 0,
+                        r.get("created_timestamp", now),
+                    )
+                    for r in records
+                ],
+            )
             return len(records)
 
-    def get_paginated_records(self, limit: int = 20, offset: int = 0,
-                              search_keyword: str = "", time_filter: str = "all",
-                              include_hidden: bool = False,
-                              include_missing: bool = False) -> Dict[str, Any]:
+    def get_paginated_records(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        search_keyword: str = "",
+        time_filter: str = "all",
+        duration_filter: str = "all",
+        include_hidden: bool = False,
+        include_missing: bool = False,
+    ) -> dict[str, Any]:
         """Get paginated history records with search and time filter.
-        
+
         Returns dict with keys: items, total, loaded, hasMore
         where items is a list of dicts with keys: filename, created_at, file_size_bytes,
         duration_seconds, text_preview, engine, persona_name, hidden, created_timestamp
@@ -348,21 +365,30 @@ class HistoryDatabase:
             conditions.append("created_timestamp > ?")
             params.append(now - 2592000)
 
+        # Duration filter based on duration_seconds
+        if duration_filter == "lt5":
+            conditions.append("duration_seconds < 5")
+        elif duration_filter == "5to10":
+            conditions.append("duration_seconds >= 5 AND duration_seconds < 10")
+        elif duration_filter == "gt10":
+            conditions.append("duration_seconds >= 10")
+
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
 
         # Get total count
-        cursor = self._execute(
-            f"SELECT COUNT(*) as count FROM generation_history {where_clause}", params
-        )
+        cursor = self._execute(f"SELECT COUNT(*) as count FROM generation_history {where_clause}", params)
         total = cursor.fetchone()["count"]
 
         # Get paginated records
-        cursor = self._execute(f"""
+        cursor = self._execute(
+            f"""
             SELECT * FROM generation_history
             {where_clause}
             ORDER BY created_timestamp DESC
             LIMIT ? OFFSET ?
-        """, (*params, limit, offset))
+        """,
+            (*params, limit, offset),
+        )
 
         items = [dict(row) for row in cursor.fetchall()]
         loaded = offset + len(items)
@@ -375,76 +401,71 @@ class HistoryDatabase:
             "hasMore": has_more,
         }
 
-    def delete_multiple_records(self, filenames: List[str], delete_files: bool = False) -> int:
+    def delete_multiple_records(self, filenames: list[str], delete_files: bool = False) -> int:
         """Delete multiple records by filename. Optionally delete actual files."""
         if not filenames:
             return 0
+        filenames = list(dict.fromkeys(filenames))
+        placeholders = ",".join("?" * len(filenames))
         count = 0
         with self._transaction() as conn:
-            for filename in filenames:
-                # Get filepath for file deletion
-                if delete_files:
-                    cursor = conn.execute(
-                        "SELECT filepath FROM generation_history WHERE filename = ?",
-                        (filename,)
-                    )
-                    row = cursor.fetchone()
-                    if row and os.path.exists(row["filepath"]):
+            if delete_files:
+                cursor = conn.execute(
+                    f"SELECT filepath FROM generation_history WHERE filename IN ({placeholders})",
+                    filenames,
+                )
+                for row in cursor.fetchall():
+                    if row["filepath"] and os.path.exists(row["filepath"]):
                         try:
                             os.remove(row["filepath"])
-                            logger.debug(f"Deleted file: {row['filepath']}")
+                            logger.debug(f"已删除文件: {row['filepath']}")
                         except Exception as e:
-                            logger.error(f"Failed to delete file {row['filepath']}: {e}")
+                            logger.error(f"删除文件失败 {row['filepath']}: {e}")
 
-                cursor = conn.execute(
-                    "DELETE FROM generation_history WHERE filename = ?", (filename,)
-                )
-                count += cursor.rowcount
+            cursor = conn.execute(
+                f"DELETE FROM generation_history WHERE filename IN ({placeholders})",
+                filenames,
+            )
+            count = cursor.rowcount
         return count
 
-    def hide_multiple_records(self, filenames: List[str]) -> int:
+    def hide_multiple_records(self, filenames: list[str]) -> int:
         """Hide multiple records by filename."""
         if not filenames:
             return 0
-        count = 0
+        filenames = list(dict.fromkeys(filenames))
+        placeholders = ",".join("?" * len(filenames))
         with self._transaction() as conn:
-            for filename in filenames:
-                cursor = conn.execute(
-                    "UPDATE generation_history SET hidden = 1 WHERE filename = ? AND hidden = 0",
-                    (filename,)
-                )
-                count += cursor.rowcount
-        return count
+            cursor = conn.execute(
+                f"UPDATE generation_history SET hidden = 1 WHERE filename IN ({placeholders}) AND hidden = 0",
+                filenames,
+            )
+            return cursor.rowcount
 
-    def show_multiple_records(self, filenames: List[str]) -> int:
+    def show_multiple_records(self, filenames: list[str]) -> int:
         """Show (unhide) multiple records by filename."""
         if not filenames:
             return 0
-        count = 0
+        filenames = list(dict.fromkeys(filenames))
+        placeholders = ",".join("?" * len(filenames))
         with self._transaction() as conn:
-            for filename in filenames:
-                cursor = conn.execute(
-                    "UPDATE generation_history SET hidden = 0 WHERE filename = ? AND hidden = 1",
-                    (filename,)
-                )
-                count += cursor.rowcount
-        return count
+            cursor = conn.execute(
+                f"UPDATE generation_history SET hidden = 0 WHERE filename IN ({placeholders}) AND hidden = 1",
+                filenames,
+            )
+            return cursor.rowcount
 
     def show_all_records(self) -> int:
         """Show all hidden records."""
         with self._transaction() as conn:
-            cursor = conn.execute(
-                "UPDATE generation_history SET hidden = 0 WHERE hidden = 1"
-            )
+            cursor = conn.execute("UPDATE generation_history SET hidden = 0 WHERE hidden = 1")
             return cursor.rowcount
 
     def clear_all_records(self, hide_only: bool = True) -> int:
         """Clear all records. If hide_only=True, hide them; otherwise delete them."""
         if hide_only:
             with self._transaction() as conn:
-                cursor = conn.execute(
-                    "UPDATE generation_history SET hidden = 1 WHERE hidden = 0"
-                )
+                cursor = conn.execute("UPDATE generation_history SET hidden = 1 WHERE hidden = 0")
                 return cursor.rowcount
         else:
             with self._transaction() as conn:
@@ -461,17 +482,28 @@ class HistoryDatabase:
             cursor = self._execute("SELECT COUNT(*) as count FROM generation_history WHERE hidden = 0")
         return cursor.fetchone()["count"]
 
-    def query(self, limit: int = 50, offset: int = 0, engine: str = None,
-              persona_name: str = None, search_text: str = None,
-              order_by: str = "created_at DESC") -> List[Dict[str, Any]]:
+    def query(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        engine: str = None,
+        persona_name: str = None,
+        search_text: str = None,
+        order_by: str = "created_at DESC",
+    ) -> list[dict[str, Any]]:
         """Query generation history with filters and pagination."""
         # Validate order_by against whitelist to prevent SQL injection
         _allowed_order_by = {
-            "created_at DESC", "created_at ASC",
-            "file_size_bytes DESC", "file_size_bytes ASC",
-            "duration_seconds DESC", "duration_seconds ASC",
-            "engine ASC", "engine DESC",
-            "created_timestamp DESC", "created_timestamp ASC",
+            "created_at DESC",
+            "created_at ASC",
+            "file_size_bytes DESC",
+            "file_size_bytes ASC",
+            "duration_seconds DESC",
+            "duration_seconds ASC",
+            "engine ASC",
+            "engine DESC",
+            "created_timestamp DESC",
+            "created_timestamp ASC",
         }
         if order_by not in _allowed_order_by:
             order_by = "created_at DESC"
@@ -490,18 +522,20 @@ class HistoryDatabase:
             params.append(f"%{search_text}%")
 
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-        
-        cursor = self._execute(f"""
+
+        cursor = self._execute(
+            f"""
             SELECT * FROM generation_history
             {where_clause}
             ORDER BY {order_by}
             LIMIT ? OFFSET ?
-        """, (*params, limit, offset))
-        
+        """,
+            (*params, limit, offset),
+        )
+
         return [dict(row) for row in cursor.fetchall()]
 
-    def count(self, engine: str = None, persona_name: str = None,
-              search_text: str = None) -> int:
+    def count(self, engine: str = None, persona_name: str = None, search_text: str = None) -> int:
         """Count records matching the given filters."""
         conditions = []
         params: list = []
@@ -517,24 +551,29 @@ class HistoryDatabase:
             params.append(f"%{search_text}%")
 
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-        
-        cursor = self._execute(f"""
+
+        cursor = self._execute(
+            f"""
             SELECT COUNT(*) as count FROM generation_history {where_clause}
-        """, params)
+        """,
+            params,
+        )
         return cursor.fetchone()["count"]
 
-    def sync_from_filesystem(self, output_dir: str = None):
+    def sync_from_filesystem(self, output_dir: str = None, since_mtime: float = 0.0):
         """Scan filesystem and sync missing records into the database.
-        
-        This is a one-time migration operation to populate the database
-        from existing audio files.
-        
+
+        Only files with mtime > since_mtime are processed. Updates and returns
+        the latest mtime seen during this sync (the high-water mark).
+
         Optimizations:
         - Uses batch insert instead of per-file transactions
         - Pre-computes existing paths set for O(1) lookups
+        - Respects mtime waterline for incremental sync
         """
         import glob
         from datetime import datetime
+
         from .config import SAVE_DIR
 
         if output_dir is None:
@@ -548,6 +587,7 @@ class HistoryDatabase:
 
         audio_extensions = {".wav", ".mp3", ".ogg", ".flac"}
         records_to_insert: list = []
+        max_mtime = since_mtime
 
         for ext in audio_extensions:
             pattern = os.path.join(output_dir, f"*{ext}")
@@ -558,17 +598,17 @@ class HistoryDatabase:
                 try:
                     filename = os.path.basename(filepath)
                     stat = os.stat(filepath)
-                    
+                    if stat.st_mtime <= since_mtime:
+                        continue
+
                     # Extract info from filename pattern: engine_type_text_timestamp.wav
                     # This is a best-effort extraction
                     text_preview = filename.rsplit(".", 1)[0][:100]
-                    
+
                     record = {
                         "filename": filename,
                         "filepath": filepath,
-                        "created_at": datetime.fromtimestamp(stat.st_mtime).strftime(
-                            "%Y-%m-%d %H:%M:%S"
-                        ),
+                        "created_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
                         "file_size_bytes": stat.st_size,
                         "text_preview": text_preview,
                         "engine": "unknown",
@@ -579,23 +619,26 @@ class HistoryDatabase:
                         "created_timestamp": stat.st_mtime,
                     }
                     records_to_insert.append(record)
+                    if stat.st_mtime > max_mtime:
+                        max_mtime = stat.st_mtime
                 except Exception as e:
-                    logger.debug(f"Failed to sync file {filepath}: {e}")
+                    logger.debug(f"同步文件失败 {filepath}: {e}")
 
         # Batch insert all records in a single transaction
         if records_to_insert:
             self.insert_batch(records_to_insert)
-            logger.info(
-                f"Synced {len(records_to_insert)} files from filesystem to history database"
-            )
-        return len(records_to_insert)
+            logger.info(f"已从文件系统同步 {len(records_to_insert)} 个文件到历史记录数据库")
+
+        if max_mtime > self.last_sync_mtime:
+            self.last_sync_mtime = max_mtime
+        return self.last_sync_mtime
 
     def cleanup_orphan_records(self, output_dir: str = None) -> int:
         """Mark records whose files no longer exist on disk as file_missing=1.
-        
+
         Args:
             output_dir: Optional output directory (unused, kept for API compatibility).
-            
+
         Returns:
             Count of orphaned records marked as file_missing.
         """
@@ -607,19 +650,18 @@ class HistoryDatabase:
         for row in rows:
             if not os.path.exists(row["filepath"]):
                 orphan_ids.append(row["id"])
-        
+
         if orphan_ids:
             with self._transaction() as conn:
                 conn.executemany(
-                    "UPDATE generation_history SET file_missing = 1 WHERE id = ?",
-                    [(id_,) for id_ in orphan_ids]
+                    "UPDATE generation_history SET file_missing = 1 WHERE id = ?", [(id_,) for id_ in orphan_ids]
                 )
-            logger.info(f"Marked {len(orphan_ids)} orphaned records as file_missing")
+            logger.info(f"已标记 {len(orphan_ids)} 条孤立记录为 file_missing")
         return len(orphan_ids)
 
     def validate_integrity(self) -> tuple:
         """Run PRAGMA integrity_check on the database.
-        
+
         Returns:
             Tuple of (is_ok: bool, message: str).
         """
@@ -632,10 +674,10 @@ class HistoryDatabase:
         except sqlite3.DatabaseError as e:
             return (False, str(e))
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get aggregate statistics about the history."""
         cursor = self._execute("""
-            SELECT 
+            SELECT
                 COUNT(*) as total,
                 COUNT(DISTINCT engine) as engine_count,
                 COUNT(DISTINCT persona_name) as persona_count,
@@ -654,11 +696,12 @@ class HistoryDatabase:
 
     def _migrate_from_json(self):
         """Migrate records from the old JSON-based HistoryManager storage.
-        
+
         Reads data/history_records.json and inserts all records into SQLite,
         then renames the JSON file to .migrated.
         """
         from .config import PROJECT_ROOT
+
         json_path = os.path.join(PROJECT_ROOT, "data", "history_records.json")
         migrated_path = json_path + ".migrated"
 
@@ -670,46 +713,48 @@ class HistoryDatabase:
             return
 
         try:
-            with open(json_path, "r", encoding="utf-8") as f:
+            with open(json_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             if not data:
                 # Empty JSON file, just rename
                 os.rename(json_path, migrated_path)
-                logger.info("Empty history_records.json found, renamed to .migrated")
+                logger.info("空的 history_records.json 文件，已重命名为 .migrated")
                 return
 
             records = []
             for filename, record_data in data.items():
-                records.append({
-                    "filename": record_data.get("filename", filename),
-                    "filepath": record_data.get("filepath", ""),
-                    "created_at": record_data.get("created_at", ""),
-                    "file_size_bytes": record_data.get("file_size", 0),
-                    "duration_seconds": record_data.get("duration_seconds", 0),
-                    "text_preview": record_data.get("text_preview", ""),
-                    "engine": record_data.get("engine", "unknown"),
-                    "persona_name": record_data.get("persona_name"),
-                    "hidden": record_data.get("hidden", False),
-                    "created_timestamp": record_data.get("created_timestamp", 0),
-                    "is_success": True,
-                    "is_degraded": False,
-                    "tags": "",
-                })
+                records.append(
+                    {
+                        "filename": record_data.get("filename", filename),
+                        "filepath": record_data.get("filepath", ""),
+                        "created_at": record_data.get("created_at", ""),
+                        "file_size_bytes": record_data.get("file_size", 0),
+                        "duration_seconds": record_data.get("duration_seconds", 0),
+                        "text_preview": record_data.get("text_preview", ""),
+                        "engine": record_data.get("engine", "unknown"),
+                        "persona_name": record_data.get("persona_name"),
+                        "hidden": record_data.get("hidden", False),
+                        "created_timestamp": record_data.get("created_timestamp", 0),
+                        "is_success": True,
+                        "is_degraded": False,
+                        "tags": "",
+                    }
+                )
 
             count = self.insert_batch(records)
-            logger.info(f"Migrated {count} records from history_records.json to SQLite")
+            logger.info(f"已从 history_records.json 迁移 {count} 条记录到 SQLite")
 
             # Rename the JSON file to mark migration complete
             os.rename(json_path, migrated_path)
-            logger.info(f"Renamed {json_path} to {migrated_path}")
+            logger.info(f"已将 {json_path} 重命名为 {migrated_path}")
 
         except Exception as e:
-            logger.error(f"Failed to migrate from JSON: {e}")
+            logger.error(f"从 JSON 迁移失败: {e}")
 
 
 # Global singleton instance
-_history_db: Optional[HistoryDatabase] = None
+_history_db: HistoryDatabase | None = None
 
 
 def get_history_db() -> HistoryDatabase:
@@ -717,6 +762,7 @@ def get_history_db() -> HistoryDatabase:
     global _history_db
     if _history_db is None:
         from .config import SAVE_DIR
+
         db_dir = os.path.dirname(SAVE_DIR)
         db_path = os.path.join(db_dir, "data", "history.db")
         os.makedirs(os.path.dirname(db_path), exist_ok=True)

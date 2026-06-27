@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 import time
 
 import numpy as np
@@ -16,6 +15,24 @@ from ...utils import cleanup_temp_files
 logger = logging.getLogger("tts_multimodel")
 
 _DEFAULT_ADVANCED = AdvancedParamsConfig()
+
+__all__ = [
+    "SAVE_DIR",
+    "EngineSwitchError",
+    "GenerationError",
+    "_advanced_kwargs",
+    "_gen_tracker",
+    "_progress_mgr",
+    "_save_wav_compatible",
+    "build_advanced_params",
+    "cleanup_temp_files",
+    "generate_with_template",
+    "get_advanced_params",
+    "get_persona_map",
+    "logger",
+    "split_text_for_tts",
+    "tts_error_handler",
+]
 
 
 def get_advanced_params() -> dict:
@@ -33,7 +50,6 @@ def _advanced_kwargs(advanced: AdvancedParamsConfig | None = None) -> dict:
         advanced = _DEFAULT_ADVANCED
     return dict(
         max_len=advanced.max_len,
-        split_max_chars=advanced.split_max_chars,
         retry_badcase=advanced.retry_badcase,
         retry_badcase_max_times=advanced.retry_badcase_max_times,
         retry_badcase_ratio_threshold=advanced.retry_badcase_ratio_threshold,
@@ -95,7 +111,7 @@ def generate_with_template(
 
     if total == 1:
         _progress_mgr.advance_segment("推理生成中...")
-        mode_str = 'reference_wav' if ref_audio_path else '默认音色'
+        mode_str = "reference_wav" if ref_audio_path else "默认音色"
         logger.info(f"[{phase_name}] 第 1/1 段，使用 {mode_str} 模式...")
         built_text = _build_text(segments[0])
         kwargs = gen_kwargs_builder(built_text, ref_audio_path, prompt_cache)
@@ -107,10 +123,7 @@ def generate_with_template(
         filename = os.path.basename(out_path)
         _progress_mgr.complete()
         logger.info(f"[{phase_name}] 音频已保存: {out_path}，时长 {duration_sec:.1f}s")
-        if message_builder:
-            msg = message_builder(duration_sec, total)
-        else:
-            msg = f"生成成功！音频时长 {duration_sec:.1f} 秒。"
+        msg = message_builder(duration_sec, total) if message_builder else f"生成成功！音频时长 {duration_sec:.1f} 秒。"
         return (sample_rate, wav, filename), msg
 
     audio_segments = []
@@ -122,12 +135,12 @@ def generate_with_template(
         if not seg:
             continue
 
-        _progress_mgr.advance_segment(f"第 {idx+1}/{total} 段推理中...")
+        _progress_mgr.advance_segment(f"第 {idx + 1}/{total} 段推理中...")
         elapsed = time.time() - start_time
         if idx > 0:
             avg = elapsed / idx
             remaining = avg * (total - idx)
-            logger.info(f"[{phase_name}] 第 {idx+1}/{total} 段，已耗时 {elapsed:.1f}s，预计剩余 {remaining:.1f}s")
+            logger.info(f"[{phase_name}] 第 {idx + 1}/{total} 段，已耗时 {elapsed:.1f}s，预计剩余 {remaining:.1f}s")
         else:
             logger.info(f"[{phase_name}] 第 1/{total} 段...")
 
@@ -148,8 +161,9 @@ def generate_with_template(
 
     duration_sec = len(merged) / sample_rate
     logger.info(f"[{phase_name}] 音频已保存: {out_path}，时长 {duration_sec:.1f}s，分段: {total}")
-    if message_builder:
-        msg = message_builder(duration_sec, total)
-    else:
-        msg = f"生成成功！音频时长 {duration_sec:.1f} 秒，分段: {total}。"
+    msg = (
+        message_builder(duration_sec, total)
+        if message_builder
+        else f"生成成功！音频时长 {duration_sec:.1f} 秒，分段: {total}。"
+    )
     return (sample_rate, merged, filename), msg

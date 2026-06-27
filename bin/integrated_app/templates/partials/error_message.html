@@ -1,7 +1,9 @@
-<div class="tts-error-block">
-  <div class="error-title">{{ "gen_failed"|t(lang) }}</div>
+<div class="tts-error-block" data-error-type="{{ error_type|default('general') }}">
+  <div class="error-title">{{ "gen_failed"|t(lang|default('zh-CN')) }}</div>
   <div class="error-message">{{ error_message }}</div>
-  <div style="margin-top:12px;display:flex;gap:8px;">
-    <button type="button" onclick="this.closest('.tts-error-block').querySelector('.retry-btn')?.click(); if(window._retryLastGeneration) window._retryLastGeneration();" style="padding:6px 16px;border-radius:6px;border:none;background:#10B981;color:#fff;cursor:pointer;font-size:13px;">{{ "retry"|t(lang) }}</button>
+  <div class="tts-error-actions">
+    <button type="button" class="tts-btn tts-btn-retry" onclick="this.closest('.tts-error-block').querySelector('.retry-btn')?.click(); if(window._retryLastGeneration) window._retryLastGeneration();">
+      {{ "retry"|t(lang|default('zh-CN')) }}
+    </button>
   </div>
 </div>

@@ -1,8 +1,17 @@
-from typing import Dict, List
+from typing import Protocol
 
 import torch
 import torch.nn as nn
 from einops import rearrange
+
+
+class _AudioVAE(Protocol):
+    """Protocol for the AudioVAE object used by AudioFeatureProcessingPacker."""
+
+    hop_length: int
+    sample_rate: int
+
+    def encode(self, wav: torch.Tensor, sample_rate: int) -> torch.Tensor: ...
 
 
 class AudioFeatureProcessingPacker:
@@ -11,7 +20,7 @@ class AudioFeatureProcessingPacker:
     audio tokens into the packed multimodal representation required by VoxCPM.
     """
 
-    def __init__(self, dataset_cnt: int, max_len: int, patch_size: int, feat_dim: int, audio_vae: nn.Module):
+    def __init__(self, dataset_cnt: int, max_len: int, patch_size: int, feat_dim: int, audio_vae: _AudioVAE):
         self.audio_start_id = 101
         self.audio_end_id = 102
         # unused now
@@ -77,8 +86,8 @@ class AudioFeatureProcessingPacker:
         text_tokens: torch.Tensor,
         task_ids: torch.Tensor,
         dataset_ids: torch.Tensor,
-        is_prompts: List[bool],
-    ) -> Dict[str, torch.Tensor]:
+        is_prompts: list[bool],
+    ) -> dict[str, torch.Tensor]:
         """
         Padding-based batching: each sample in the input batch is processed
         independently and then padded to a common length (capped by ``max_len``).
@@ -88,15 +97,15 @@ class AudioFeatureProcessingPacker:
         max_dataset_id = int(dataset_ids.max().item()) if dataset_ids.numel() > 0 else -1
         dataset_cnt = max(self.dataset_cnt, max_dataset_id + 1)
 
-        text_tokens_list: List[torch.Tensor] = []
-        audio_feats_list: List[torch.Tensor] = []
-        text_mask_list: List[torch.Tensor] = []
-        audio_mask_list: List[torch.Tensor] = []
-        loss_mask_list: List[torch.Tensor] = []
-        labels_list: List[torch.Tensor] = []
-        audio_task_ids_list: List[torch.Tensor] = []
-        audio_dataset_ids_list: List[torch.Tensor] = []
-        lengths: List[int] = []
+        text_tokens_list: list[torch.Tensor] = []
+        audio_feats_list: list[torch.Tensor] = []
+        text_mask_list: list[torch.Tensor] = []
+        audio_mask_list: list[torch.Tensor] = []
+        loss_mask_list: list[torch.Tensor] = []
+        labels_list: list[torch.Tensor] = []
+        audio_task_ids_list: list[torch.Tensor] = []
+        audio_dataset_ids_list: list[torch.Tensor] = []
+        lengths: list[int] = []
 
         audio_duration_consumed = torch.zeros(dataset_cnt, dtype=torch.float32, device=device)
         text_token_consumed = torch.zeros(dataset_cnt, dtype=torch.float32, device=device)
@@ -139,10 +148,7 @@ class AudioFeatureProcessingPacker:
             lengths.append(packed_text.shape[0])
 
         # Determine padded length per batch (cap by self.max_len)
-        if lengths:
-            max_len = min(self.max_len, max(lengths))
-        else:
-            max_len = self.max_len
+        max_len = min(self.max_len, max(lengths)) if lengths else self.max_len
 
         def pad_1d(x: torch.Tensor, pad_value: int = 0) -> torch.Tensor:
             if x.size(0) >= max_len:

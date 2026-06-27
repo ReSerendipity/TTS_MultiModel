@@ -14,8 +14,8 @@ Sub-modules:
     - cache: LRUCache, AdaptiveLRUCache
     - progress: ProgressManager
     - tracker: GenerationTracker
-    - gpu_utils: is_oom_error, free_gpu_memory, get_nvidia_gpu_device,
-      get_nvidia_gpu_memory_info, GPUMemoryMonitor
+    - gpu_utils: is_oom_error, free_gpu_memory, get_gpu_device,
+      get_gpu_memory_info, GPUMemoryMonitor
     - prompt_cache: Persistent prompt cache for voice cloning
 """
 
@@ -25,16 +25,15 @@ import os
 import threading
 import time
 from collections.abc import Generator
-
-import torch
+from typing import Any
 
 from .cache import AdaptiveLRUCache, LRUCache
 from .config import (
+    INDEXTTS2_MODEL_PATH,
     ROOT_DIR,
     VOXCPM2_ASR_PATH,
     VOXCPM2_DENOISER_PATH,
     VOXCPM2_MODEL_PATH,
-    INDEXTTS2_MODEL_PATH,
 )
 from .estimator import GenerationTimeEstimator
 from .exceptions import (
@@ -46,9 +45,6 @@ from .gpu_utils import (
     GPUMemoryMonitor,
     free_gpu_memory,
     get_gpu_device,
-    get_gpu_memory_info,
-    get_nvidia_gpu_device,
-    get_nvidia_gpu_memory_info,
     is_oom_error,
 )
 from .model_registry import registry
@@ -58,12 +54,13 @@ from .tracker import GenerationTracker
 
 # Re-export for backward compatibility — allows `from ..model_manager import xxx`
 __all__ = [
-    "LRUCache", "AdaptiveLRUCache",
+    "LRUCache",
+    "AdaptiveLRUCache",
     "ProgressManager",
     "GenerationTracker",
     "GPUMemoryMonitor",
-    "get_nvidia_gpu_device", "get_nvidia_gpu_memory_info",
-    "is_oom_error", "free_gpu_memory",
+    "is_oom_error",
+    "free_gpu_memory",
 ]
 
 logger = logging.getLogger("tts_multimodel")
@@ -73,12 +70,11 @@ _TORCH_COMPILE_CACHE_DIR = os.path.join(ROOT_DIR, "torch_compile_cache")
 try:
     os.makedirs(_TORCH_COMPILE_CACHE_DIR, exist_ok=True)
     import torch._dynamo as dynamo
-    dynamo.config.cache_dir = _TORCH_COMPILE_CACHE_DIR
+
+    dynamo.config.cache_dir = _TORCH_COMPILE_CACHE_DIR  # type: ignore[attr-defined]
     logger.info(f"[torch.compile] 编译缓存目录: {_TORCH_COMPILE_CACHE_DIR}")
 except Exception as e:
     logger.debug(f"[torch.compile] 缓存配置失败 (可忽略): {e}")
-
-
 
 
 # --- Global dynamic estimator ---
@@ -102,8 +98,7 @@ _preload_lock = threading.Lock()
 # --- Progress Manager --- (imported from .progress)
 
 # --- GPU detection functions --- (imported from .gpu_utils)
-# get_nvidia_gpu_device, get_nvidia_gpu_memory_info, GPUMemoryMonitor
-# are now in .gpu_utils and re-exported at the top of this module.
+# GPUMemoryMonitor is now in .gpu_utils and re-exported at the top of this module.
 
 
 # 音色缓存：存储 (wav_path, ref_text)，由官方 API 在每次生成时计算嵌入
@@ -138,6 +133,7 @@ def warmup_persona_cache() -> None:
 
     def _do_warmup():
         from .middleware.request_id import set_request_id
+
         set_request_id(f"bg-{threading.current_thread().name}")
         try:
             from .config import PERSONA_DIR
@@ -154,23 +150,21 @@ def warmup_persona_cache() -> None:
             persona_files.sort(key=lambda x: x[1], reverse=True)
             top_personas = [name for name, _ in persona_files[:5]]
             if not top_personas:
-                logger.info("[PersonaCacheWarmup] No personas found to warm up")
+                logger.info("[PersonaCacheWarmup] 未找到音色，跳过预热")
                 return
 
-            logger.info(f"[PersonaCacheWarmup] Starting warmup for {len(top_personas)} personas: {top_personas}")
+            logger.info(f"[PersonaCacheWarmup] 开始预热 {len(top_personas)} 个音色: {top_personas}")
             for name in top_personas:
                 try:
                     load_persona_embedding(name)
-                    logger.debug(f"[PersonaCacheWarmup] Warmed up persona: {name}")
+                    logger.debug(f"[PersonaCacheWarmup] 已预热音色: {name}")
                 except Exception as e:
-                    logger.warning(f"[PersonaCacheWarmup] Failed to warmup persona '{name}': {e}")
+                    logger.warning(f"[PersonaCacheWarmup] 音色 '{name}' 预热失败: {e}")
 
             stats = _persona_embedding_cache.get_stats()
-            logger.info(
-                f"[PersonaCacheWarmup] Warmup complete. Cache size: {stats['size']}/{stats['maxsize']}"
-            )
+            logger.info(f"[PersonaCacheWarmup] 预热完成。缓存大小: {stats['size']}/{stats['maxsize']}")
         except Exception as e:
-            logger.error(f"[PersonaCacheWarmup] Warmup failed: {e}")
+            logger.error(f"[PersonaCacheWarmup] 预热失败: {e}")
 
     t = threading.Thread(target=_do_warmup, daemon=True, name="persona-cache-warmup")
     t.start()
@@ -219,7 +213,7 @@ def unload_model() -> None:
             try:
                 old_engine.unload()
             except Exception as e:
-                logger.warning(f"IndexTTS2 unload failed: {e}")
+                logger.warning(f"IndexTTS2 卸载失败: {e}")
 
         _persona_embedding_cache.clear()
 
@@ -227,7 +221,8 @@ def unload_model() -> None:
         free_gpu_memory()
 
         # Log post-cleanup VRAM status
-        from .gpu_backend import GPUBackendManager, GPUBackend
+        from .gpu_backend import GPUBackend, GPUBackendManager
+
         backend = GPUBackendManager.detect_backend()
         if backend != GPUBackend.CPU:
             device = get_gpu_device()
@@ -264,41 +259,41 @@ def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Ge
     """
     import voxcpm
     from funasr import AutoModel
-    from .gpu_backend import GPUBackendManager, GPUBackend
+
+    from .gpu_backend import GPUBackend, GPUBackendManager
 
     # Determine device string
-    if gpu_device is not None:
-        device_string = GPUBackendManager.format_device_string(gpu_device)
-    else:
-        device_string = "cpu"
+    device_string = GPUBackendManager.format_device_string(gpu_device) if gpu_device is not None else "cpu"
 
     # Step 1: Load VoxCPM2 model
     status_text = "正在加载 VoxCPM2 模型..."
     yield status_text, None, None, None
 
     try:
-        kwargs = dict(
+        kwargs: dict[str, Any] = dict(
             optimize=True,
             local_files_only=True,
         )
         if include_denoiser:
             kwargs["zipenhancer_model_id"] = VOXCPM2_DENOISER_PATH
+        else:
+            kwargs["load_denoiser"] = False
 
         new_model = voxcpm.VoxCPM.from_pretrained(VOXCPM2_MODEL_PATH, **kwargs)
 
         # Move sub-components to GPU
         if backend != GPUBackend.CPU and gpu_device is not None:
-            for attr in ('tts_model', 'model', 'codecs', 'vocoder'):
+            for attr in ("tts_model", "model", "codecs", "vocoder"):
                 sub = getattr(new_model, attr, None)
-                if sub is not None and hasattr(sub, 'to'):
+                if sub is not None and hasattr(sub, "to"):
                     sub.to(device_string)
                     logger.info(f"  VoxCPM2.{attr} -> {device_string}")
             # Ensure cache sync
             GPUBackendManager.synchronize()
-            allocated_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
+            allocated_mb = GPUBackendManager.memory_allocated() / (1024**2)
             logger.info(f"  VoxCPM2 加载完成，GPU 显存已分配: {allocated_mb:.0f} MB")
         else:
-            logger.info(f"  VoxCPM2 使用 CPU 后端运行")
+            logger.info("  VoxCPM2 使用 CPU 后端运行")
 
         # Store model in registry early so error handler can clean it up
         registry.voxcpm_model = new_model
@@ -318,11 +313,11 @@ def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Ge
         try:
             monitor = get_health_monitor()
             if backend != GPUBackend.CPU:
-                vram_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
+                vram_mb = GPUBackendManager.memory_allocated() / (1024**2)
                 monitor.record_vram_usage(vram_mb)
                 monitor.set_model_status("ready")
         except Exception as e:
-            logger.debug(f"VRAM recording after VoxCPM2 load failed: {e}")
+            logger.debug(f"VoxCPM2 加载后 VRAM 记录失败: {e}")
 
         status_text = "VoxCPM2 引擎就绪"
         yield status_text, None, None, None
@@ -338,6 +333,7 @@ def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Ge
             del failed_asr
         gc.collect()
         from .gpu_backend import GPUBackendManager
+
         GPUBackendManager.empty_cache()
         raise
 
@@ -368,7 +364,8 @@ def load_voxcpm2() -> Generator:
         if old_asr is not None:
             del old_asr
         gc.collect()
-        from .gpu_backend import GPUBackendManager, GPUBackend
+        from .gpu_backend import GPUBackend, GPUBackendManager
+
         backend = GPUBackendManager.detect_backend()
         if backend != GPUBackend.CPU:
             GPUBackendManager.empty_cache()
@@ -380,6 +377,7 @@ def load_voxcpm2() -> Generator:
             yield from _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False)
         except Exception as e:
             status_text = f"VoxCPM2 加载失败: {e}"
+            logger.error(f"[模型加载] {status_text}")
             yield status_text, None, None, None
 
 
@@ -392,7 +390,7 @@ def load_indextts2() -> Generator:
     with _model_lock:
         try:
             from .engines.indextts2_engine import IndexTTS2Engine
-            from .gpu_backend import GPUBackendManager, GPUBackend
+            from .gpu_backend import GPUBackend, GPUBackendManager
 
             backend = GPUBackendManager.detect_backend()
 
@@ -405,13 +403,14 @@ def load_indextts2() -> Generator:
 
             # Step 1: VRAM/RAM check
             from .model_registry import ENGINE_VRAM_REQUIREMENTS
+
             needed_vram_gb = ENGINE_VRAM_REQUIREMENTS.get("indextts2", 6.0)
             status_text = "正在检查系统资源..."
             yield status_text, None, None, None
 
             if backend != GPUBackend.CPU:
                 mem_info = GPUBackendManager.get_memory_info()
-                free_gb = mem_info[3] / (1024 ** 3)
+                free_gb = mem_info[3] / (1024**3)
                 logger.info(f"[IndexTTS2] VRAM 检查: 需要 {needed_vram_gb}GB, 可用 {free_gb:.2f}GB")
 
                 if free_gb < needed_vram_gb:
@@ -421,7 +420,7 @@ def load_indextts2() -> Generator:
             status_text = "正在加载 IndexTTS 2.0 引擎..."
             yield status_text, None, None, None
 
-            logger.info(f"[IndexTTS2] 开始加载 IndexTTS 2.0 引擎...")
+            logger.info("[IndexTTS2] 开始加载 IndexTTS 2.0 引擎...")
             start_time = time.time()
 
             new_engine = IndexTTS2Engine(
@@ -443,18 +442,20 @@ def load_indextts2() -> Generator:
             try:
                 monitor = get_health_monitor()
                 if backend != GPUBackend.CPU:
-                    vram_mb = GPUBackendManager.memory_allocated() / (1024 ** 2)
+                    vram_mb = GPUBackendManager.memory_allocated() / (1024**2)
                     monitor.record_vram_usage(vram_mb)
                     monitor.set_model_status("ready")
             except Exception as e:
-                logger.debug(f"[IndexTTS2] VRAM recording failed: {e}")
+                logger.debug(f"[IndexTTS2] VRAM 记录失败: {e}")
 
         except Exception as e:
             import traceback
+
             tb = traceback.format_exc()
             logger.error(f"[IndexTTS2] IndexTTS 2.0 加载失败: {type(e).__name__}: {e}\n详细错误:\n{tb}")
             gc.collect()
             from .gpu_backend import GPUBackendManager
+
             GPUBackendManager.empty_cache()
             status_text = f"IndexTTS 2.0 加载失败: {type(e).__name__}"
             yield status_text, None, None, None
@@ -487,6 +488,7 @@ def preload_model(engine="voxcpm2", size="voxcpm2") -> None:
 
     def _do_preload():
         from .middleware.request_id import set_request_id
+
         set_request_id(f"bg-{threading.current_thread().name}")
         try:
             if engine == "voxcpm2":
@@ -544,14 +546,14 @@ def _read_files_to_cache(directory_path):
         return
     total_bytes = 0
     for root, dirs, files in os.walk(directory_path):
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__pycache__"]
         for fname in sorted(files):
-            if fname.startswith('.'):
+            if fname.startswith("."):
                 continue
             fpath = os.path.join(root, fname)
             total_bytes += _read_single_file(fpath)
     if total_bytes > 0:
-        logger.info(f"[预加载] 已预读 {total_bytes / (1024*1024):.1f}MB 到系统缓存")
+        logger.info(f"[预加载] 已预读 {total_bytes / (1024 * 1024):.1f}MB 到系统缓存")
 
 
 def _read_single_file(filepath):
@@ -571,7 +573,7 @@ def _read_single_file(filepath):
         if size == 0:
             return 0
         read_size = min(size, 1024 * 1024)
-        with open(filepath, 'rb') as f:
+        with open(filepath, "rb") as f:
             f.read(read_size)
         return read_size
     except OSError as e:
@@ -613,7 +615,7 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
         InsufficientVRAMError: If free VRAM is below the required threshold.
         EngineSwitchError: If the switch fails and rollback is attempted.
     """
-    from .gpu_backend import GPUBackendManager, GPUBackend
+    from .gpu_backend import GPUBackend, GPUBackendManager
 
     engine_name = engine_name.strip()
     logger.info(f"[引擎切换] 目标: {engine_name}")
@@ -637,11 +639,12 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
         logger.info(f"[引擎切换] 使用设备 {gpu_device if gpu_device is not None else 'CPU'} 进行显存检查")
 
         from .model_registry import ENGINE_VRAM_REQUIREMENTS
+
         needed_gb = ENGINE_VRAM_REQUIREMENTS.get(engine_name, 6.0)
 
         if backend != GPUBackend.CPU and gpu_device is not None:
             props = GPUBackendManager.get_device_properties(gpu_device)
-            total = props.get('total_memory', 0)
+            total = props.get("total_memory", 0)
             allocated = GPUBackendManager.memory_allocated(gpu_device)
             free = total - allocated
             free_gb = free / 1024**3
@@ -674,7 +677,7 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
                 time.sleep(poll_interval)
                 try:
                     props = GPUBackendManager.get_device_properties(gpu_device)
-                    total = props.get('total_memory', 0)
+                    total = props.get("total_memory", 0)
                     allocated = GPUBackendManager.memory_allocated(gpu_device)
                     free = total - allocated
                     if free > 500 * 1024 * 1024:  # > 500 MB free
@@ -703,6 +706,7 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
         raise
     except Exception as e:
         import traceback
+
         tb = traceback.format_exc()
         error_msg = f"引擎切换失败: {type(e).__name__}: {e}\n\n详细错误:\n{tb}"
         logger.error(f"[引擎切换] {error_msg}")
@@ -723,6 +727,7 @@ def switch_engine(engine_name="voxcpm2") -> Generator:
 
         gc.collect()
         from .gpu_backend import GPUBackendManager
+
         GPUBackendManager.empty_cache()
 
         raise EngineSwitchError(error_msg) from e

@@ -1,18 +1,15 @@
-# -*- coding: utf-8 -*-
 """Generation time estimator: uses linear regression on historical data to predict generation duration."""
 
-import math
-import os
 import json
 import logging
-from typing import Optional, List, Dict
+import os
 
 logger = logging.getLogger("tts_multimodel")
 
 
 class GenerationTimeEstimator:
     """Tracks generation times and uses simple linear regression to predict future durations.
-    
+
     Model: duration = a * char_count + b
     Updated incrementally using Welford's online algorithm.
     """
@@ -20,7 +17,7 @@ class GenerationTimeEstimator:
     def __init__(self, data_file: str = "generation_times.json", max_entries: int = 200):
         self._data_file = data_file
         self._max_entries = max_entries
-        self._samples: List[Dict] = []
+        self._samples: list[dict] = []
         # Linear regression coefficients: duration = slope * chars + intercept
         self._slope: float = 0.1  # default: ~100ms per char
         self._intercept: float = 2.0  # default: 2s base overhead
@@ -30,7 +27,7 @@ class GenerationTimeEstimator:
     def _load(self):
         if os.path.exists(self._data_file):
             try:
-                with open(self._data_file, "r", encoding="utf-8") as f:
+                with open(self._data_file, encoding="utf-8") as f:
                     data = json.load(f)
                     self._samples = data.get("samples", [])
                     self._count = data.get("count", 0)
@@ -56,17 +53,19 @@ class GenerationTimeEstimator:
 
     def record(self, char_count: int, duration: float, engine: str = "unknown", segment_count: int = 1):
         """Record a completed generation."""
-        self._samples.append({
-            "char_count": char_count,
-            "duration": round(duration, 3),
-            "engine": engine,
-            "segments": segment_count,
-        })
+        self._samples.append(
+            {
+                "char_count": char_count,
+                "duration": round(duration, 3),
+                "engine": engine,
+                "segments": segment_count,
+            }
+        )
         self._count += 1
 
         # Trim oldest entries if exceeding max
         if len(self._samples) > self._max_entries:
-            self._samples = self._samples[-self._max_entries:]
+            self._samples = self._samples[-self._max_entries :]
 
         self._recompute_coefficients()
         self._save()
@@ -102,7 +101,7 @@ class GenerationTimeEstimator:
 
     def estimate(self, char_count: int, segment_count: int = 1) -> float:
         """Estimate generation duration for the given character count.
-        
+
         Returns estimated duration in seconds.
         """
         if char_count <= 0:
@@ -119,7 +118,7 @@ class GenerationTimeEstimator:
 
     def estimate_with_confidence(self, char_count: int) -> tuple:
         """Estimate duration and return confidence level (0-1).
-        
+
         Returns (estimated_seconds, confidence)
         """
         estimate = self.estimate(char_count)

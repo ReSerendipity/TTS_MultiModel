@@ -1,18 +1,15 @@
-# -*- coding: utf-8 -*-
 """Request ID middleware for distributed tracing and log correlation."""
 
 import contextvars
+import logging
 import threading
 import uuid
-import logging
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-_request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "request_id", default=""
-)
+_request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
 
 _request_id_local = threading.local()
 
@@ -56,6 +53,6 @@ class RequestIDLogFilter(logging.Filter):
     """Logging filter that injects the current request_id into log records."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if not hasattr(record, 'request_id'):
-            record.request_id = getattr(_request_id_local, 'request_id', '-')
+        if not hasattr(record, "request_id"):
+            record.request_id = getattr(_request_id_local, "request_id", "-")
         return True

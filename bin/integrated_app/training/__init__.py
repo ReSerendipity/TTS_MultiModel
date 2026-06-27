@@ -7,14 +7,14 @@ the HuggingFace ``datasets`` library.
 """
 
 from .accelerator import Accelerator
-from .tracker import TrainingTracker
 from .data import (
-    load_audio_text_datasets,
+    BatchProcessor,
     HFVoxCPMDataset,
     build_dataloader,
-    BatchProcessor,
+    load_audio_text_datasets,
 )
 from .state import TrainingState
+from .tracker import TrainingTracker
 
 __all__ = [
     "Accelerator",

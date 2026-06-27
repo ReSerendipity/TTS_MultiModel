@@ -1,40 +1,37 @@
 {% from 'partials/advanced_params.html' import advanced_params %}
 <div class="card">
-    <style>
-        /* sc-auto-resize replaced by shared tts-auto-resize in tabs.css */
-    </style>
     <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
         <h3 class="card-header-title">{{ "script_workshop"|t(lang) }}</h3>
         <span class="card-header-badge">{{ "multi_dialogue"|t(lang) }}</span>
     </div>
     <div class="tts-card-desc">{{ "script_desc"|t(lang) }}</div>
-    <form id="script-form" hx-post="/api/generate/voxcpm_script" hx-target="#script-result" hx-swap="innerHTML" hx-indicator="#script-spinner">
-        <label>{{ "script_content"|t(lang) }}</label>
-        <div class="tts-textarea-wrapper" style="margin:12px 0;">
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:8px 12px;background:rgba(139,92,246,0.1);border-radius:6px;border:1px solid rgba(139,92,246,0.2);">
-                <strong>{{ "format_desc"|t(lang) }}：</strong>{{ "script_example"|t(lang) }}<br>
-                <code style="color:var(--accent-secondary);">[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}</code><br>
-                <code style="color:var(--accent-secondary);">[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}</code>
-            </div>
-            <textarea name="text" id="script-text" class="tts-input-textarea tts-auto-resize" rows="8" placeholder="[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}&#10;[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}&#10;[{{ 'narrator'|t(lang) }}]{{ 'example_line3'|t(lang) }}" style="font-family:monospace;font-size:14px;min-height:200px;" oninput="CharCounter.update({textareaId:'script-text',counterId:'sc-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},counterClass:'sc-char-counter'}); AutoResize.resize(this)"></textarea>
-            <div id="sc-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
+    <form id="script-form" hx-post="/api/generate/voxcpm_script" hx-target="#sc-result" hx-swap="innerHTML" hx-indicator="#sc-spinner">
+        <div class="format-hint">
+            <strong>{{ "format_desc"|t(lang) }}：</strong>{{ "script_example"|t(lang) }}
+            <ul>
+                <li>[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}</li>
+                <li>[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}</li>
+            </ul>
         </div>
+        {% with prefix='sc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=8, textarea_style='style="min-height:200px; font-family:monospace; font-size:14px;"' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
 
-        <div style="margin:16px 0;">
-            <label>{{ "control_instruction"|t(lang) }}（{{ 'optional'|t(lang) }}）</label>
-            <input type="text" name="instruction" class="tts-input-text" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
+        <div class="tts-form-group">
+            <label class="tts-form-label">{{ "control_instruction"|t(lang) }}（{{ 'optional'|t(lang) }}）</label>
+            <input type="text" name="instruction" class="tts-input-text tts-full-width" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
         </div>
 
         {{ advanced_params(prefix='sc', lang=lang) }}
 
-        <button type="submit" id="script-submit-btn" class="primary-btn generate-btn" style="width:100%;">{{ "generate_dialogue"|t(lang) }}</button>
+        <button type="submit" id="script-submit-btn" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "generate_dialogue"|t(lang) }}</span></button>
     </form>
 </div>
-{% with prefix='script', title_key='result_audio' %}
+{% with prefix='sc', title_key='result_audio' %}
 {% include 'partials/result_card.html' %}
 {% endwith %}
-{% with prefix='script' %}
+{% with prefix='sc' %}
 {% include 'partials/post_processing.html' %}
 {% endwith %}
 <script>
@@ -42,74 +39,39 @@
     // Initialize shared TTS form utilities
     TTSForm.init({
         formId: 'script-form',
-        statusId: 'script-status',
-        resultId: 'script-result',
-        textareaId: 'script-text',
+        statusId: 'sc-status',
+        resultId: 'sc-result',
+        textareaId: 'sc-text',
         counterId: 'sc-char-counter',
         maxChars: {{ engine_max_total_chars }},
         segmentMaxChars: {{ gen_split_max_chars }},
         counterClass: 'sc-char-counter'
     });
 
-    // Script specific: submit button state management
-    document.getElementById('script-form').addEventListener('submit', function(e) {
-        var textarea = this.querySelector('textarea[name="text"]');
-        if (textarea && !textarea.value.trim()) {
-            e.preventDefault();
-            var statusEl = document.getElementById('script-status');
-            if (statusEl) {
-                statusEl.className = 'status-message error';
-                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
-            }
-            return false;
-        }
-        var submitBtn = document.getElementById('script-submit-btn');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.dataset.originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<span class="tts-loading-spinner" style="display:inline-block;width:16px;height:16px;border-width:2px;vertical-align:middle;margin-right:6px;"></span>{{ "generating"|t(lang) }}';
-        }
-    });
-
+    // Show post-processing section when audio is available
     document.getElementById('script-form').addEventListener('htmx:afterSettle', function(e){
-        // Restore submit button state
-        var submitBtn = document.getElementById('script-submit-btn');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = submitBtn.dataset.originalText || '{{ "generate_dialogue"|t(lang) }}';
-        }
         if (e.detail.successful) {
-            // Show post-processing section when audio is available
-            var wrapper = document.querySelector('#script-result [data-audio-filename]');
-            var ppSection = document.getElementById('script-pp-section');
+            var wrapper = document.querySelector('#sc-result [data-audio-filename]');
+            var ppSection = document.getElementById('sc-pp-section');
             if (wrapper && ppSection) {
                 ppSection.style.display = '';
             }
         }
     });
 
-    // Random seed toggle
-    var randomSeedCheckbox = document.getElementById('sc-random-seed');
-    var seedInput = document.getElementById('sc-seed-input');
-    if (randomSeedCheckbox && seedInput) {
-        randomSeedCheckbox.addEventListener('change', function(){
-            seedInput.style.display = this.checked ? 'none' : '';
-        });
-    }
-
     // Post-processing reprocess using Reprocess factory
-    window.scriptReprocess = function() {
-        var resultEl = document.getElementById('script-result');
+    window.scReprocess = function() {
+        var resultEl = document.getElementById('sc-result');
         if (!resultEl) return;
         var wrapper = resultEl.querySelector('[data-audio-filename]');
         if (!wrapper) return;
         var audioPath = wrapper.getAttribute('data-audio-filename');
-        var tempo = document.getElementById('script-pp-tempo').value;
-        var enhance = document.getElementById('script-pp-enhance').checked ? 'true' : 'false';
+        var tempo = document.getElementById('sc-pp-tempo').value;
+        var enhance = document.getElementById('sc-pp-enhance').checked ? 'true' : 'false';
         Reprocess.execute({
-            resultId: 'script-result',
-            statusId: 'script-status',
-            audioElementId: 'script-audio',
+            resultId: 'sc-result',
+            statusId: 'sc-status',
+            audioElementId: 'sc-audio',
             audioPath: audioPath,
             params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
         });

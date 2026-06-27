@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import os
 import random
-import typing
+from typing import cast
 
 import numpy as np
 import torch
@@ -19,14 +19,15 @@ class Accelerator:
     ``torchrun`` is used and exposes helpers for AMP, gradient scaling and
     preparing models/dataloaders for DDP.
 
-    Supports multiple GPU backends: CUDA, ROCM, XPU, MPS, CPU.
+    Supports NVIDIA CUDA, Apple MPS, and CPU backends.
     """
 
     def __init__(self, amp: bool = False, seed: int = 42):
         self.world_size = int(os.getenv("WORLD_SIZE", "1"))
 
         if self.world_size > 1 and not dist.is_initialized():
-            from ..gpu_backend import GPUBackendManager, GPUBackend
+            from ..gpu_backend import GPUBackend, GPUBackendManager
+
             backend = GPUBackendManager.detect_backend()
             process_backend = GPUBackendManager.get_process_group_backend()
             dist.init_process_group(process_backend, init_method="env://")
@@ -52,7 +53,8 @@ class Accelerator:
                 pass
 
         # Get gradient scaler based on backend
-        from ..gpu_backend import GPUBackendManager, GPUBackend
+        from ..gpu_backend import GPUBackend, GPUBackendManager
+
         backend = GPUBackendManager.detect_backend()
         if amp and backend != GPUBackend.CPU:
             grad_scaler = GPUBackendManager.get_grad_scaler(enabled=True)
@@ -62,10 +64,14 @@ class Accelerator:
 
         # Get device context based on backend
         if backend != GPUBackend.CPU:
-            self.device_ctx = torch.cuda.device(self.local_rank) if (backend == GPUBackend.CUDA or backend == GPUBackend.ROCM) else None
+            self.device_ctx = (
+                torch.cuda.device(self.local_rank)
+                if backend == GPUBackend.CUDA
+                else None
+            )
         else:
             self.device_ctx = None
-        self._ddp_model = None  # For no_sync support
+        self._ddp_model: DistributedDataParallel | None = None  # For no_sync support
 
     def _set_seed(self, seed: int):
         """Set random seed to ensure model initialization consistency across multiple GPUs"""
@@ -122,13 +128,12 @@ class Accelerator:
 
     @property
     def device(self):
-        from ..gpu_backend import GPUBackendManager, GPUBackend
+        from ..gpu_backend import GPUBackend, GPUBackendManager
+
         backend = GPUBackendManager.detect_backend()
-        
-        if backend == GPUBackend.CUDA or backend == GPUBackend.ROCM:
+
+        if backend == GPUBackend.CUDA:
             return torch.device("cuda", self.local_rank)
-        elif backend == GPUBackend.XPU:
-            return torch.device("xpu", self.local_rank)
         elif backend == GPUBackend.MPS:
             return torch.device("mps")
         return torch.device("cpu")
@@ -138,8 +143,9 @@ class Accelerator:
     # ------------------------------------------------------------------ #
     def autocast(self, *args, **kwargs):
         from ..gpu_backend import GPUBackendManager
+
         device_type = GPUBackendManager.get_autocast_device_type()
-        return torch.amp.autocast(device_type, enabled=self.amp, *args, **kwargs)
+        return torch.amp.autocast(device_type, *args, enabled=self.amp, **kwargs)
 
     def backward(self, loss: torch.Tensor):
         self.scaler.scale(loss).backward()
@@ -155,7 +161,7 @@ class Accelerator:
     # ------------------------------------------------------------------ #
     def prepare_dataloader(
         self,
-        dataset: typing.Iterable,
+        dataset: torch.utils.data.Dataset,
         *,
         batch_size: int,
         num_workers: int = 0,
@@ -163,13 +169,12 @@ class Accelerator:
         collate_fn=None,
         drop_last: bool = False,
     ) -> torch.utils.data.DataLoader:
+        sampler: torch.utils.data.distributed.DistributedSampler | None = None
         if self.world_size > 1:
             sampler = torch.utils.data.distributed.DistributedSampler(
                 dataset, num_replicas=self.world_size, rank=self.rank, shuffle=shuffle
             )
             shuffle = False
-        else:
-            sampler = None
 
         return torch.utils.data.DataLoader(
             dataset,
@@ -184,4 +189,4 @@ class Accelerator:
 
     @staticmethod
     def unwrap(model: torch.nn.Module) -> torch.nn.Module:
-        return model.module if hasattr(model, "module") else model
+        return cast(torch.nn.Module, model.module) if hasattr(model, "module") else model

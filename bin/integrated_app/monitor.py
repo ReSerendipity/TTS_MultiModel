@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """Enhanced health monitoring: GPU leak detection, model self-check, metrics."""
 
-import time
 import logging
-from typing import Dict, Any, Optional, List
+import time
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -11,13 +10,14 @@ logger = logging.getLogger("tts_multimodel")
 def _get_gpu_device():
     """Get the GPU device index using unified backend manager."""
     from .gpu_backend import GPUBackendManager
-    
+
     if not GPUBackendManager.is_available():
         return 0
-    
+
     try:
         device = GPUBackendManager.get_device()
         import torch
+
         if isinstance(device, torch.device):
             return device.index if device.index is not None else 0
         return device
@@ -29,7 +29,7 @@ class HealthMonitor:
     """Monitors application health, GPU memory trends, and model status."""
 
     def __init__(self):
-        self._vram_samples: List[float] = []
+        self._vram_samples: list[float] = []
         self._max_samples = 100
         self._leak_threshold_mb = 200  # MB increase over window to flag as leak
         self._model_last_check: float = 0.0
@@ -43,11 +43,11 @@ class HealthMonitor:
         """Record a GPU memory sample for leak detection."""
         self._vram_samples.append(used_mb)
         if len(self._vram_samples) > self._max_samples:
-            self._vram_samples = self._vram_samples[-self._max_samples:]
+            self._vram_samples = self._vram_samples[-self._max_samples :]
 
-    def check_memory_leak(self) -> Optional[str]:
+    def check_memory_leak(self) -> str | None:
         """Check for potential GPU memory leak.
-        
+
         Returns warning message if leak detected, None otherwise.
         """
         if len(self._vram_samples) < 10:
@@ -68,7 +68,7 @@ class HealthMonitor:
             return warning
         return None
 
-    def get_vram_trend(self) -> Dict[str, Any]:
+    def get_vram_trend(self) -> dict[str, Any]:
         """Get GPU memory usage trend."""
         if not self._vram_samples:
             return {"status": "no_data"}
@@ -102,12 +102,11 @@ class HealthMonitor:
         self._model_status = status
         self._model_last_check = time.time()
 
-    def get_health_report(self) -> Dict[str, Any]:
+    def get_health_report(self) -> dict[str, Any]:
         """Get comprehensive health report."""
-        import torch
-        from .gpu_backend import GPUBackendManager, GPUBackend
+        from .gpu_backend import GPUBackend, GPUBackendManager
 
-        report: Dict[str, Any] = {
+        report: dict[str, Any] = {
             "uptime_seconds": round(time.time() - self._start_time, 1),
             "total_generations": self._total_generations,
             "total_errors": self._total_errors,
@@ -119,9 +118,9 @@ class HealthMonitor:
         backend = GPUBackendManager.detect_backend()
         if backend != GPUBackend.CPU:
             device = _get_gpu_device()
-            vram_used = GPUBackendManager.memory_allocated(device) / (1024 ** 2)
+            vram_used = GPUBackendManager.memory_allocated(device) / (1024**2)
             props = GPUBackendManager.get_device_properties(device)
-            vram_total = props.get('total_memory', 0) / (1024 ** 2)
+            vram_total = props.get("total_memory", 0) / (1024**2)
             report["gpu"] = {
                 "name": GPUBackendManager.get_device_name(device),
                 "vram_used_mb": round(vram_used, 1),
@@ -135,10 +134,7 @@ class HealthMonitor:
 
         success_rate = 0.0
         if self._total_generations > 0:
-            success_rate = (
-                (self._total_generations - self._total_errors)
-                / self._total_generations * 100
-            )
+            success_rate = (self._total_generations - self._total_errors) / self._total_generations * 100
         report["success_rate"] = round(success_rate, 1)
 
         return report

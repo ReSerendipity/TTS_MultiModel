@@ -46,6 +46,15 @@ class ProgressManager:
         self._is_cancelled = False
         self._total_chars_processed = 0
 
+    def _notify_sse(self):
+        """通知 SSE 事件总线状态已变化。"""
+        try:
+            from .routes.sse import event_bus
+
+            event_bus.notify()
+        except Exception:
+            pass
+
     def start(self, total_segments=1, phase="准备中"):
         """Initialize progress tracking for a new generation task.
 
@@ -64,6 +73,7 @@ class ProgressManager:
             self._is_complete = False
             self._is_cancelled = False
             self._total_chars_processed = 0
+        self._notify_sse()
 
     def update_phase(self, phase):
         """Update the current phase label.
@@ -73,6 +83,7 @@ class ProgressManager:
         """
         with self._lock:
             self._phase = phase
+        self._notify_sse()
 
     def advance_segment(self, phase="推理中", segment_bytes=0):
         """Mark a segment as completed and record timing data.
@@ -93,6 +104,7 @@ class ProgressManager:
                 self._last_segment_bytes = segment_bytes
             self._current_segment += 1
             self._phase = phase
+        self._notify_sse()
 
     def set_total_bytes(self, total_bytes):
         """Override the total bytes processed counter.
@@ -112,33 +124,35 @@ class ProgressManager:
         """
         with self._lock:
             if self._is_complete:
-                return ('<div class="tts-progress-bar">'
-                        '<div class="tts-progress-fill tts-progress-complete" style="width:100%"></div>'
-                        '</div>'
-                        '<div class="tts-progress-info tts-progress-complete-info">'
-                        '<span class="tts-progress-phase">生成完成</span>'
-                        '<span class="tts-progress-percentage">100%</span>'
-                        '</div>')
+                return (
+                    '<div class="tts-progress-bar">'
+                    '<div class="tts-progress-fill tts-progress-complete" style="width:100%"></div>'
+                    "</div>"
+                    '<div class="tts-progress-info tts-progress-complete-info">'
+                    '<span class="tts-progress-phase">生成完成</span>'
+                    '<span class="tts-progress-percentage">100%</span>'
+                    "</div>"
+                )
             if self._total_segments <= 0:
                 return ""
             if self._total_segments == 1:
                 elapsed = time.time() - self._start_time if self._start_time > 0 else 0
-                if elapsed < 0.5:
-                    return ""
                 estimated_total = 20.0
                 raw_progress = elapsed / estimated_total
                 pct = max(5, min(95, int(5 + raw_progress * 90)))
                 remaining = max(0, estimated_total - elapsed)
                 speed_items = self._get_speed_info(elapsed)
                 phase_display = self._phase
-                return (f'<div class="tts-progress-bar">'
-                        f'<div class="tts-progress-fill" style="width:{pct}%"></div>'
-                        f'</div>'
-                        f'<div class="tts-progress-info">'
-                        f'<span class="tts-progress-phase">{phase_display}</span>'
-                        f'<span class="tts-progress-percentage">{pct}%</span>'
-                        f'<span class="tts-progress-speed">{speed_items}</span>'
-                        f'</div>')
+                return (
+                    f'<div class="tts-progress-bar">'
+                    f'<div class="tts-progress-fill" style="width:{pct}%"></div>'
+                    f"</div>"
+                    f'<div class="tts-progress-info">'
+                    f'<span class="tts-progress-phase">{phase_display}</span>'
+                    f'<span class="tts-progress-percentage">{pct}%</span>'
+                    f'<span class="tts-progress-speed">{speed_items}</span>'
+                    f"</div>"
+                )
             progress = self._current_segment / self._total_segments
             pct = int(progress * 100)
             elapsed = time.time() - self._start_time if self._start_time > 0 else 0
@@ -147,16 +161,18 @@ class ProgressManager:
             phase_display = self._phase
             segment_info = f"第 {self._current_segment}/{self._total_segments} 段"
             remaining_text = f"预计剩余 {self._format_duration(remaining)}" if remaining > 0 else ""
-            return (f'<div class="tts-progress-bar">'
-                    f'<div class="tts-progress-fill" style="width:{pct}%"></div>'
-                    f'</div>'
-                    f'<div class="tts-progress-info">'
-                    f'<span class="tts-progress-phase">{phase_display}</span>'
-                    f'<span class="tts-progress-segment">{segment_info}</span>'
-                    f'<span class="tts-progress-percentage">{pct}%</span>'
-                    f'<span class="tts-progress-speed">{speed_items}</span>'
-                    f'<span class="tts-progress-remaining">{remaining_text}</span>'
-                    f'</div>')
+            return (
+                f'<div class="tts-progress-bar">'
+                f'<div class="tts-progress-fill" style="width:{pct}%"></div>'
+                f"</div>"
+                f'<div class="tts-progress-info">'
+                f'<span class="tts-progress-phase">{phase_display}</span>'
+                f'<span class="tts-progress-segment">{segment_info}</span>'
+                f'<span class="tts-progress-percentage">{pct}%</span>'
+                f'<span class="tts-progress-speed">{speed_items}</span>'
+                f'<span class="tts-progress-remaining">{remaining_text}</span>'
+                f"</div>"
+            )
 
     def _get_speed_info(self, elapsed):
         """Calculate throughput metrics for display.
@@ -179,7 +195,7 @@ class ProgressManager:
             avg_bytes = self._total_bytes_processed / self._current_segment
             remaining_bytes = avg_bytes * remaining_segments
             if remaining_bytes > 1024 * 1024:
-                speed_text += f" | ~{remaining_bytes / (1024*1024):.1f}MB 待处理"
+                speed_text += f" | ~{remaining_bytes / (1024 * 1024):.1f}MB 待处理"
         return speed_text
 
     def _format_duration(self, seconds):
@@ -231,11 +247,13 @@ class ProgressManager:
             self._is_complete = False
             self._is_cancelled = False
             self._total_chars_processed = 0
+        self._notify_sse()
 
     def cancel(self):
         """Mark the current operation as cancelled."""
         with self._lock:
             self._is_cancelled = True
+        self._notify_sse()
 
     def is_cancelled(self):
         """Check if the current operation has been cancelled.
@@ -285,6 +303,7 @@ class ProgressManager:
             self._current_segment = self._total_segments
             self._phase = "完成"
             self._is_complete = True
+        self._notify_sse()
 
     def schedule_reset(self, delay_seconds=3):
         """Schedule a delayed reset of progress state on a background thread.
@@ -292,9 +311,11 @@ class ProgressManager:
         Args:
             delay_seconds: Seconds to wait before resetting (default: 3).
         """
+
         def _delayed_reset():
             time.sleep(delay_seconds)
             self.reset()
+
         t = threading.Thread(target=_delayed_reset, daemon=True)
         t.start()
 

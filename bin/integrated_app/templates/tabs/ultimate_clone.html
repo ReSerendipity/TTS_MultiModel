@@ -1,15 +1,15 @@
 {% from 'partials/advanced_params.html' import advanced_params %}
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></span>
         <h3 class="card-header-title">{{ "tab_ultimate_clone"|t(lang) }}</h3>
         <span class="card-header-badge">{{ "advanced_params"|t(lang) }}</span>
     </div>
     <div class="tts-card-desc">{{ "ultimate_clone_desc"|t(lang) }}</div>
     <form id="uc-form" hx-post="/api/generate/voxcpm_ultimate" hx-target="#uc-result" hx-swap="innerHTML" hx-indicator="#uc-spinner" hx-encoding="multipart/form-data">
-        <label>{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="uc-text" class="tts-input-textarea tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" oninput="CharCounter.update({textareaId:'uc-text',counterId:'uc-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},counterClass:'uc-char-counter'}); AutoResize.resize(this)"></textarea>
-        <div id="uc-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
+        {% with prefix='uc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
         {% with prefix='uc' %}
         {% include 'partials/language_selector.html' %}
         {% endwith %}
@@ -31,7 +31,7 @@
                         {% endfor %}
                     </select>
                     <div style="display:flex;gap:8px;">
-                        <button type="button" class="secondary-btn" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML" style="flex:1;">{{ "refresh_list"|t(lang) }}</button>
+                        <button type="button" class="tts-btn tts-btn-secondary" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML" style="flex:1;">{{ "refresh_list"|t(lang) }}</button>
                     </div>
                 </div>
                 <div id="uc-tab-upload" class="inner-tab-panel" style="display:none;">
@@ -47,7 +47,7 @@
             <input type="text" name="instruction" class="tts-input-textbox" placeholder="{{ 'instruction_placeholder'|t(lang) }}" style="width:100%;">
         </div>
 
-        <button type="submit" id="uc-submit-btn" class="primary-btn generate-btn" style="width:100%;">{{ "generate_ultimate"|t(lang) }}</button>
+        <button type="submit" id="uc-submit-btn" class="tts-btn tts-btn-primary generate-btn" style="width:100%;"><span class="btn-text">{{ "generate_ultimate"|t(lang) }}</span></button>
     </form>
 </div>
 <style>
@@ -69,13 +69,13 @@
     // Initialize shared TTS form utilities
     TTSForm.init({
         formId: 'uc-form',
-        statusId: 'uc-status',
         resultId: 'uc-result',
+        statusId: 'uc-status',
         textareaId: 'uc-text',
         counterId: 'uc-char-counter',
         maxChars: {{ engine_max_total_chars }},
         segmentMaxChars: {{ gen_split_max_chars }},
-        counterClass: 'uc-char-counter'
+        counterClass: 'tts-char-counter'
     });
 
     // Initialize inner tab switching for reference audio tabs
@@ -97,7 +97,8 @@
 
     // Ultimate Clone specific: segment confirmation on submit
     var ucSubmitConfirmed = false;
-    document.getElementById('uc-form').addEventListener('submit', function(e) {
+    var ucForm = document.getElementById('uc-form');
+    ucForm.addEventListener('submit', function(e) {
         var textarea = this.querySelector('textarea[name="text"]');
         if (textarea && !textarea.value.trim()) {
             e.preventDefault();
@@ -118,33 +119,15 @@
                 '{{ "confirm_continue"|t(lang) }}';
             ConfirmDialog.show(message, function() {
                 ucSubmitConfirmed = true;
-                var submitBtn = document.getElementById('uc-submit-btn');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.dataset.originalText = submitBtn.innerHTML;
-                    submitBtn.innerHTML = '<span class="tts-loading-spinner" style="display:inline-block;width:16px;height:16px;border-width:2px;vertical-align:middle;margin-right:6px;"></span>{{ "generating"|t(lang) }}';
-                }
-                document.getElementById('uc-form').querySelector('button[type="submit"]').click();
+                ucForm.requestSubmit();
             });
             return false;
         }
 
         ucSubmitConfirmed = false;
-        var submitBtn = document.getElementById('uc-submit-btn');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.dataset.originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<span class="tts-loading-spinner" style="display:inline-block;width:16px;height:16px;border-width:2px;vertical-align:middle;margin-right:6px;"></span>{{ "generating"|t(lang) }}';
-        }
     });
 
     document.getElementById('uc-form').addEventListener('htmx:afterSettle', function(e){
-        // Restore submit button state
-        var submitBtn = document.getElementById('uc-submit-btn');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = submitBtn.dataset.originalText || '{{ "generate_ultimate"|t(lang) }}';
-        }
         if (e.detail.successful) {
             // Show post-processing section when audio is available
             var wrapper = document.querySelector('#uc-result [data-audio-filename]');
@@ -154,15 +137,6 @@
             }
         }
     });
-
-    // Random seed toggle
-    var randomSeedCheckbox = document.getElementById('uc-random-seed');
-    var seedInput = document.getElementById('uc-seed-input');
-    if (randomSeedCheckbox && seedInput) {
-        randomSeedCheckbox.addEventListener('change', function(){
-            seedInput.style.display = this.checked ? 'none' : '';
-        });
-    }
 
     // Post-processing reprocess using Reprocess factory
     window.ucReprocess = function() {

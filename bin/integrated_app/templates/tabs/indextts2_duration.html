@@ -1,57 +1,41 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
         <h3 class="card-header-title">{{ "tab_indextts2_duration"|t(lang) }}</h3>
     </div>
     <div class="tts-card-desc">{{ "indextts2_duration_desc"|t(lang) }}</div>
-    <style>
-        #it2d-form { width: 100% !important; max-width: none !important; display: block !important; }
-        /* it2d-auto-resize specific overrides for tts-auto-resize */
-        .it2d-auto-resize.tts-auto-resize { min-height: 80px; padding: 12px 14px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
-        .it2d-file-name { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
-        .it2d-audio-preview { margin-top: 10px; display: none; }
-        .it2d-audio-preview audio { width: 100%; }
-        .it2d-mode-options { margin: 12px 0; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-secondary); }
-        .it2d-speed-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-        .it2d-speed-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s ease; }
-        .it2d-speed-btn:hover { border-color: var(--primary); color: var(--primary); }
-        .it2d-speed-btn.active { background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; border-color: transparent; box-shadow: 0 2px 8px rgba(139,92,246,0.3); }
-        .it2d-custom-input { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-        .it2d-custom-input input { width: 80px; padding: 6px 10px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 13px; text-align: center; }
-        .it2d-custom-input span { font-size: 13px; color: var(--text-secondary); }
-    </style>
     <form id="it2d-form" hx-post="/api/generate/indextts2/duration" hx-target="#it2d-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
         <input type="hidden" name="mode" value="duration">
         <label>{{ "ref_audio"|t(lang) }}</label>
         <div class="tts-file-upload" onclick="document.getElementById('it2d-ref-audio-input').click()">
             <input type="file" id="it2d-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2dFileName(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div style="font-size:13px;color:var(--text-secondary);">{{ "upload_duration_ref"|t(lang) }}</div>
+            <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="tts-upload-text">{{ "upload_duration_ref"|t(lang) }}</div>
             <div id="it2d-ref-audio-name" class="it2d-file-name">{{ "supported_formats"|t(lang) }}</div>
         </div>
         <div class="it2d-audio-preview" id="it2d-audio-preview">
             <audio id="it2d-preview-audio" controls></audio>
         </div>
-        <label for="it2d-text">{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="it2d-text" class="tts-full-width tts-auto-resize" rows="4" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="CharCounter.update({textareaId:'it2d-text',counterId:'it2d-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},qualityBadgeId:'it2d-quality-badge',counterClass:'it2d-char-counter'})"></textarea>
-        <div id="it2d-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
-        <span id="it2d-quality-badge" class="tts-quality-badge" style="display:none;"></span>
+        {% with prefix='it2d', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
         {% with prefix='it2d' %}
         {% include 'partials/language_selector.html' %}
         {% endwith %}
-        <label>{{ "duration_control_mode"|t(lang) }}</label>
-        <div class="it2d-mode-options">
-            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;">
-                <input type="radio" name="duration_mode" value="free" checked onchange="toggleIt2dMode('free')">
-                <span style="font-size:13px;font-weight:500;">{{ "duration_free"|t(lang) }}</span>
-            </label>
-            <div style="font-size:12px;color:var(--text-muted);margin-left:24px;margin-bottom:12px;">{{ "duration_free_desc"|t(lang) }}</div>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                <input type="radio" name="duration_mode" value="fixed" onchange="toggleIt2dMode('fixed')">
-                <span style="font-size:13px;font-weight:500;">{{ "duration_specified"|t(lang) }}</span>
-            </label>
-            <div style="font-size:12px;color:var(--text-muted);margin-left:24px;margin-bottom:8px;">{{ "duration_fixed_desc"|t(lang) }}</div>
-            <div id="it2d-speed-options" style="display:none;">
+        <div class="tts-form-group">
+            <label class="tts-form-label">{{ "duration_control_mode"|t(lang) }}</label>
+            <div class="it2d-mode-options">
+                <label class="tts-checkbox-label">
+                    <input type="radio" name="duration_mode" value="free" checked onchange="toggleIt2dMode('free')">
+                    {{ "duration_free"|t(lang) }}
+                </label>
+                <div class="tts-radio-desc">{{ "duration_free_desc"|t(lang) }}</div>
+                <label class="tts-checkbox-label">
+                    <input type="radio" name="duration_mode" value="fixed" onchange="toggleIt2dMode('fixed')">
+                    {{ "duration_specified"|t(lang) }}
+                </label>
+                <div class="tts-radio-desc">{{ "duration_fixed_desc"|t(lang) }}</div>
+                <div id="it2d-speed-options" style="display:none;">
                 <div class="it2d-speed-selector">
                     <button type="button" class="it2d-speed-btn" data-speed="0.5" onclick="selectIt2dSpeed(this)">0.5x</button>
                     <button type="button" class="it2d-speed-btn" data-speed="0.75" onclick="selectIt2dSpeed(this)">0.75x</button>
@@ -67,7 +51,7 @@
                 <input type="hidden" name="duration_scale" id="it2d-duration-scale" value="1.0">
             </div>
         </div>
-        <button type="submit" class="primary-btn generate-btn tts-full-width-btn">{{ "indextts2_generate"|t(lang) }}</button>
+        <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "indextts2_generate"|t(lang) }}</span></button>
     </form>
 </div>
 {% with prefix='it2d', title_key='result_audio' %}
@@ -75,6 +59,18 @@
 {% endwith %}
 <script>
 (function(){
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'it2d-form',
+        resultId: 'it2d-result',
+        statusId: 'it2d-status',
+        textareaId: 'it2d-text',
+        counterId: 'it2d-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'tts-char-counter'
+    });
+
     window.updateIt2dFileName = function(input) {
         var nameEl = document.getElementById('it2d-ref-audio-name');
         var previewEl = document.getElementById('it2d-audio-preview');
@@ -104,43 +100,5 @@
             b.classList.toggle('active', b.dataset.speed === input.value);
         });
     };
-    var form = document.getElementById('it2d-form');
-    var submitBtn = form.querySelector('button[type="submit"]');
-    var originalText = submitBtn.innerHTML;
-    form.addEventListener('submit', function(e) {
-        if (!form.querySelector('textarea[name="text"]').value.trim()) {
-            e.preventDefault();
-            var status = document.getElementById('it2d-status');
-            if (status) { status.className = 'status-message error'; status.textContent = '{{ "enter_text"|t(lang) }}'; }
-            return false;
-        }
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '{{ "generating"|t(lang) }}...';
-    });
-    document.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.target && evt.detail.target.id === 'it2d-result') {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }
-    });
-    form.addEventListener('htmx:afterSettle', function(e) {
-        if (e.detail.successful) {
-            try {
-                var resultEl = document.getElementById('it2d-result');
-                var audioSrc = resultEl.querySelector('audio');
-                if (audioSrc && window.globalAudioPlayer) {
-                    window.globalAudioPlayer.play(audioSrc.src, 'IndexTTS2 Duration');
-                }
-            } catch(ex) {}
-        }
-    });
-    CharCounter.init({
-        textareaId: 'it2d-text',
-        counterId: 'it2d-char-counter',
-        maxChars: {{ engine_max_total_chars }},
-        segmentMaxChars: {{ gen_split_max_chars }},
-        qualityBadgeId: 'it2d-quality-badge',
-        counterClass: 'it2d-char-counter'
-    });
 })();
 </script>

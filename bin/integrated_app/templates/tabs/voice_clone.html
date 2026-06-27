@@ -1,57 +1,16 @@
 {% from 'partials/advanced_params.html' import advanced_params %}
-<style>
-    /* Voice Clone Tab Styles */
-    .vc-persona-desc {
-        margin-top: 8px;
-        font-size: var(--text-sm);
-        color: var(--text-secondary);
-    }
-    .vc-spacer-top-sm { margin-top: 8px; }
-    .vc-spacer-top-md { margin-top: 12px; }
-    .vc-hidden { display: none; }
-
-    .vc-file-input {
-        width: 100%;
-        margin-bottom: 8px;
-    }
-
-    .vc-submit-btn {
-        width: 100%;
-    }
-
-    /* Save Row */
-    .vc-save-row {
-        display: flex;
-        gap: 8px;
-        margin-top: 8px;
-    }
-    .vc-save-input {
-        flex: 3;
-    }
-    .vc-save-btn {
-        flex: 1;
-    }
-
-    /* Mobile responsive */
-    @media (max-width: 640px) {
-        .advanced-params-body {
-            grid-template-columns: 1fr !important;
-        }
-    }
-</style>
 
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
         <h3 class="card-header-title">{{ "tab_voice_clone"|t(lang) }}</h3>
     </div>
     <div class="tts-card-desc">{{ "voice_clone_desc"|t(lang) }}</div>
     <form id="vc-form" hx-post="/api/generate/voxcpm_clone" hx-target="#vc-result" hx-swap="innerHTML" hx-indicator="#vc-spinner" hx-encoding="multipart/form-data">
         <input type="hidden" name="mode" value="voxcpm_clone">
-        <label>{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="vc-text" class="tts-input-textarea tts-auto-resize" rows="3" placeholder="{{ 'default_clone_text'|t(lang) }}" oninput="CharCounter.update({textareaId:'vc-text',counterId:'vc-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},qualityBadgeId:'vc-quality-badge',counterClass:'vc-char-counter'}); AutoResize.resize(this)"></textarea>
-        <div id="vc-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
-        <span id="vc-quality-badge" class="tts-quality-badge" style="display:none;"></span>
+        {% with prefix='vc', label='synthesis_text'|t(lang), placeholder='default_clone_text'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=3, textarea_style='' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
         {% with prefix='vc' %}
         {% include 'partials/language_selector.html' %}
         {% endwith %}
@@ -72,27 +31,27 @@
                 </select>
                 <div id="vc-persona-desc" class="vc-persona-desc"></div>
                 <div class="vc-spacer-top-sm">
-                    <button type="button" class="secondary-btn" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
+                    <button type="button" class="tts-btn tts-btn-secondary" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
                 </div>
             </div>
             <div id="vc-tab-upload" class="inner-tab-panel vc-hidden">
                 <label>{{ "ref_audio"|t(lang) }}</label>
                 <input type="file" name="ref_audio_path" accept=".wav,.mp3,.flac,.ogg,.m4a,audio/*" class="vc-file-input">
-                <div class="file-upload-info" style="margin-top:8px;font-size:12px;color:var(--text-muted);">
+                <div class="file-upload-info vc-file-upload-info">
                     <span id="selected-filename">{{ "no_file_selected"|t(lang) }}</span>
-                    <span style="margin-left:12px;">{{ "supported_formats"|t(lang) }}</span>
+                    <span class="vc-file-formats">{{ "supported_formats"|t(lang) }}</span>
                 </div>
                 <label>{{ "ref_text"|t(lang) }}</label>
                 <textarea name="ref_text" class="tts-input-textarea" rows="2" placeholder="{{ 'ref_text_placeholder'|t(lang) }}"></textarea>
-                <label style="margin-top:8px;">{{ "control_instruction"|t(lang) }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">({{ 'optional'|t(lang) }})</span></label>
-                <input type="text" name="instruction" class="tts-input-textbox" placeholder="{{ 'instruction_placeholder'|t(lang) }}" style="width:100%;">
+                <label class="vc-instruction-label">{{ "control_instruction"|t(lang) }} <span class="vc-instruction-optional">({{ 'optional'|t(lang) }})</span></label>
+                <input type="text" name="instruction" class="tts-input-textbox vc-instruction-input" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
             </div>
         </div>
-        <button type="submit" class="primary-btn generate-btn vc-submit-btn">{{ "clone_btn"|t(lang) }}</button>
+        <button type="submit" class="tts-btn tts-btn-primary generate-btn vc-submit-btn"><span class="btn-text">{{ "clone_btn"|t(lang) }}</span></button>
         {{ advanced_params(prefix='vc', lang=lang, show_seed=false) }}
         <div class="vc-save-row">
-            <input type="text" name="save_name" placeholder="{{ 'save_voice_name'|t(lang) }}" class="vc-save-input">
-            <button type="button" class="secondary-btn icon-btn vc-save-btn" hx-post="/api/persona/save" hx-target="#vc-status" hx-swap="innerHTML">{{ "save_persona"|t(lang) }}</button>
+            <input type="text" id="vc-save-name" name="save_name" aria-label="{{ 'save_voice_name'|t(lang) }}" placeholder="{{ 'save_voice_name'|t(lang) }}" class="vc-save-input">
+            <button type="button" class="tts-btn tts-btn-secondary icon-btn vc-save-btn" hx-post="/api/persona/save" hx-target="#vc-status" hx-swap="innerHTML">{{ "save_persona"|t(lang) }}</button>
         </div>
     </form>
 </div>
@@ -113,7 +72,6 @@
         counterId: 'vc-char-counter',
         maxChars: {{ engine_max_total_chars }},
         segmentMaxChars: {{ gen_split_max_chars }},
-        qualityBadgeId: 'vc-quality-badge',
         counterClass: 'vc-char-counter'
     });
 
@@ -207,7 +165,7 @@
                 var sizeMB = (file.size / 1024 / 1024).toFixed(2);
                 if (file.size > MAX_SIZE) {
                     filenameSpan.textContent = '{{ "file_too_large"|t(lang) }}' + sizeMB + 'MB ({{ "max_size"|t(lang) }})';
-                    filenameSpan.style.color = '#ef4444';
+                    filenameSpan.style.color = 'var(--color-error)';
                     this.value = '';
                 } else {
                     filenameSpan.textContent = file.name + ' (' + sizeMB + 'MB)';

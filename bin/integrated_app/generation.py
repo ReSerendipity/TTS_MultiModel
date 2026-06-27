@@ -1,28 +1,28 @@
-# -*- coding: utf-8 -*-
 """生成辅助函数：保存、文本分割、音频合并、预处理等"""
+
 from __future__ import annotations
 
-import os
-import time
 import logging
+import os
 from datetime import datetime
-from typing import List, Tuple
 
 import numpy as np
 import soundfile as sf
 
-from .config import SAVE_DIR, GEN_SPLIT_MAX_CHARS
+from .config import SAVE_DIR
 
 logger = logging.getLogger("tts_multimodel")
 
 
-def save_audio(wav: np.ndarray, sr: int, prefix: str = "audio", format: str = "wav") -> Tuple[str, str]:
+def save_audio(wav: np.ndarray, sr: int, prefix: str = "audio", format: str = "wav") -> tuple[str, str]:
     """保存音频文件到输出目录"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if format == "mp3":
         try:
-            from pydub import AudioSegment
             import io
+
+            from pydub import AudioSegment
+
             buf = io.BytesIO()
             sf.write(buf, wav, sr, format="WAV")
             buf.seek(0)
@@ -37,7 +37,7 @@ def save_audio(wav: np.ndarray, sr: int, prefix: str = "audio", format: str = "w
     return file_path, os.path.basename(file_path)
 
 
-def split_text_for_tts(text: str, max_chars: int = None) -> List[str]:
+def split_text_for_tts(text: str, max_chars: int = None) -> list[str]:
     """将长文本按语义边界分割成适合 TTS 处理的短段落
 
     分割策略：优先在自然断句处（句号、逗号、分号等）切分，
@@ -52,10 +52,11 @@ def split_text_for_tts(text: str, max_chars: int = None) -> List[str]:
     """
     if max_chars is None:
         try:
-            from .config_models import AdvancedParamsConfig
-            max_chars = AdvancedParamsConfig().split_max_chars
+            from .config import get_config
+
+            max_chars = get_config().generation_defaults.split_max_chars
         except Exception:
-            max_chars = GEN_SPLIT_MAX_CHARS
+            max_chars = 200
     if len(text) <= max_chars:
         return [text]
 
@@ -74,8 +75,8 @@ def split_text_for_tts(text: str, max_chars: int = None) -> List[str]:
 
             if split_idx > max_chars // 3:
                 # 找到合理的自然断句点
-                segments.append(joined[:split_idx + 1])
-                remaining = joined[split_idx + 1:]
+                segments.append(joined[: split_idx + 1])
+                remaining = joined[split_idx + 1 :]
                 current = list(remaining)
                 current_len = len(current)
             else:
@@ -93,7 +94,7 @@ def split_text_for_tts(text: str, max_chars: int = None) -> List[str]:
 
 def _is_decimal_point(text: str, idx: int) -> bool:
     """判断 text[idx] 处的 '.' 是否为数字小数点（前后均为数字）"""
-    if idx < 0 or idx >= len(text) or text[idx] != '.':
+    if idx < 0 or idx >= len(text) or text[idx] != ".":
         return False
     has_digit_before = idx > 0 and text[idx - 1].isdigit()
     has_digit_after = idx + 1 < len(text) and text[idx + 1].isdigit()
@@ -107,26 +108,32 @@ def _is_abbreviation(text: str, idx: int) -> bool:
     1. 单个大写字母 + 句点，如 U.S.A. 中的每个句点
     2. 已知缩写词尾部的句点，如 Dr. Mr. vs. 等
     """
-    if idx < 0 or idx >= len(text) or text[idx] != '.':
+    if idx < 0 or idx >= len(text) or text[idx] != ".":
         return False
 
     # 模式 1：单个大写字母 + 句点（如 U.S.A.）
-    if idx > 0 and text[idx - 1].isupper() and text[idx - 1].isalpha():
-        # 确保大写字母前面是句点或字符串开头，即连续的 大写字母. 模式
-        if idx - 1 == 0 or text[idx - 2] == '.':
-            return True
+    if idx > 0 and text[idx - 1].isupper() and text[idx - 1].isalpha() and (idx - 1 == 0 or text[idx - 2] == "."):
+        return True
 
     # 模式 2：已知缩写词列表
     _ABBREVIATIONS = (
-        "Dr", "Mr", "Mrs", "Ms", "vs", "etc", "Inc", "Ltd",
-        "Prof", "Sr", "Jr", "No",
+        "Dr",
+        "Mr",
+        "Mrs",
+        "Ms",
+        "vs",
+        "etc",
+        "Inc",
+        "Ltd",
+        "Prof",
+        "Sr",
+        "Jr",
+        "No",
     )
     for abbr in _ABBREVIATIONS:
         start = idx - len(abbr)
-        if start >= 0 and text[start:idx].lower() == abbr.lower():
-            # 确保缩写词前面是空格/行首，避免误匹配
-            if start == 0 or not text[start - 1].isalpha():
-                return True
+        if start >= 0 and text[start:idx].lower() == abbr.lower() and (start == 0 or not text[start - 1].isalpha()):
+            return True
 
     return False
 
@@ -138,8 +145,8 @@ def _is_inside_quotes(text: str, idx: int) -> bool:
     """
     # 构建引号配对映射
     quote_pairs = [
-        ('\u201c', '\u201d'),  # 中文 ""
-        ('"', '"'),            # 英文 ""
+        ("\u201c", "\u201d"),  # 中文 ""
+        ('"', '"'),  # 英文 ""
     ]
 
     for open_q, close_q in quote_pairs:
@@ -147,9 +154,8 @@ def _is_inside_quotes(text: str, idx: int) -> bool:
         for i in range(idx):
             if text[i] == open_q:
                 open_count += 1
-            elif text[i] == close_q:
-                if open_count > 0:
-                    open_count -= 1
+            elif text[i] == close_q and open_count > 0:
+                open_count -= 1
         # 如果到 idx 位置时还有未闭合的引号，则 idx 在引号内部
         if open_count > 0:
             return True
@@ -169,12 +175,11 @@ def _build_excluded_positions(text: str) -> set:
 
     # 排除小数点和缩写句点
     for i, ch in enumerate(text):
-        if ch == '.':
-            if _is_decimal_point(text, i) or _is_abbreviation(text, i):
-                excluded.add(i)
+        if ch == "." and (_is_decimal_point(text, i) or _is_abbreviation(text, i)):
+            excluded.add(i)
 
     # 排除引号内部的标点位置
-    punctuation_chars = set('。！？，、.;!?：；')
+    punctuation_chars = set("。！？，、.;!?：；")
     for i, ch in enumerate(text):
         if ch in punctuation_chars and _is_inside_quotes(text, i):
             excluded.add(i)
@@ -195,7 +200,6 @@ def _find_best_split_point(text: str) -> int:
 
     def _find_rightmost(candidates, excluded_set):
         """在候选字符中找到最靠右且未被排除的位置"""
-        best = -1
         for ch in candidates:
             idx = len(text) - 1
             while idx >= 0:
@@ -237,7 +241,9 @@ def _find_best_split_point(text: str) -> int:
     return 0
 
 
-def merge_audio_segments(audio_segments: List[np.ndarray], sr: int, silence_duration: float = 0.3) -> Tuple[np.ndarray | None, int]:
+def merge_audio_segments(
+    audio_segments: list[np.ndarray], sr: int, silence_duration: float = 0.3
+) -> tuple[np.ndarray | None, int]:
     """合并音频段，使用内存缓冲区操作，段间添加静音
 
     优化说明：
@@ -291,7 +297,7 @@ def merge_audio_segments(audio_segments: List[np.ndarray], sr: int, silence_dura
     pos = 0
     for i, seg in enumerate(normalized_segments):
         seg_len = len(seg)
-        result[pos:pos + seg_len] = seg.astype(np.float32)
+        result[pos : pos + seg_len] = seg.astype(np.float32)
         pos += seg_len
 
         # 在段之间添加静音（最后一段不需要静音）
@@ -301,7 +307,9 @@ def merge_audio_segments(audio_segments: List[np.ndarray], sr: int, silence_dura
     return result, sr
 
 
-def preprocess_and_save_temp(audio_input: str | Tuple[int, np.ndarray], filename: str = "temp_ref.wav") -> Tuple[str, int, np.ndarray]:
+def preprocess_and_save_temp(
+    audio_input: str | tuple[int, np.ndarray], filename: str = "temp_ref.wav"
+) -> tuple[str, int, np.ndarray]:
     """预处理并保存临时音频文件"""
     if isinstance(audio_input, str):
         wav, sr = sf.read(audio_input)
@@ -325,6 +333,5 @@ def _save_wav_compatible(wav_data: np.ndarray, out_path: str, sample_rate: int =
     if wav_data.max() > 1.0 or wav_data.min() < -1.0:
         wav_data = wav_data / max(abs(wav_data.max()), abs(wav_data.min()))
     wav_int16 = (wav_data * 32767).astype(np.int16)
-    sf.write(out_path, wav_int16, sample_rate, subtype='PCM_16')
+    sf.write(out_path, wav_int16, sample_rate, subtype="PCM_16")
     return out_path
-

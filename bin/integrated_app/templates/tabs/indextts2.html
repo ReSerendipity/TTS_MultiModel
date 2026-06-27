@@ -1,306 +1,14 @@
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
         <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
     </div>
     <div class="tts-card-desc">{{ "indextts2_desc"|t(lang) }}</div>
-    <style>
-        /* ===== IndexTTS2 Tab Styles ===== */
-
-        /* Override any width constraints on the form */
-        #it2-form {
-            width: 100% !important;
-            max-width: none !important;
-            display: block !important;
-        }
-        #it2-form > div {
-            width: 100% !important;
-            max-width: none !important;
-        }
-        /* Ensure textarea fills full available width */
-        .it2-auto-resize {
-            width: 100% !important;
-            max-width: none !important;
-            box-sizing: border-box !important;
-            display: block !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-        }
-
-        /* Textarea auto-resize */
-        .it2-auto-resize {
-            resize: vertical;
-            overflow-y: auto;
-            min-height: 60px;
-            max-height: 400px;
-            line-height: 1.6;
-            width: 100% !important;
-            box-sizing: border-box !important;
-            max-width: none !important;
-            display: block !important;
-            padding: 12px 14px !important;
-            word-wrap: break-word !important;
-            overflow-wrap: break-word !important;
-        }
-
-        /* Character counter */
-        .it2-char-counter {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 6px;
-            margin-bottom: 2px;
-            padding: 4px 8px;
-            background: rgba(139, 92, 246, 0.05);
-            border-radius: 4px;
-            white-space: nowrap;
-        }
-        .it2-char-counter.warning { color: #f59e0b; font-weight: 600; }
-        .it2-char-counter .counter-main {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .it2-char-counter .counter-segments {
-            color: var(--accent-primary);
-            font-weight: 600;
-        }
-        .it2-char-counter .counter-detail {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-    /* Micro counter styles - 字符计数器状态样式 */
-    .it2-char-counter.micro-counter-ok {
-        background: rgba(16, 185, 129, 0.1);
-        color: #10B981;
-        border: 1px solid rgba(16, 185, 129, 0.2);
-    }
-    .it2-char-counter.micro-counter-warn {
-        background: rgba(245, 158, 11, 0.1);
-        color: #F59E0B;
-        border: 1px solid rgba(245, 158, 11, 0.2);
-    }
-    .it2-char-counter.micro-counter-danger {
-        background: rgba(239, 68, 68, 0.1);
-        color: #EF4444;
-        border: 1px solid rgba(239, 68, 68, 0.2);
-    }
-    .it2-char-counter.micro-counter-empty {
-        background: rgba(139, 92, 246, 0.08);
-        color: var(--text-secondary);
-        border: 1px solid rgba(139, 92, 246, 0.15);
-    }
-    .micro-counter-check {
-        display: inline-flex;
-        align-items: center;
-        margin-left: 4px;
-    }
-    .micro-counter-check svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    /* Micro quality badge - 质量指示器样式 */
-    .micro-quality-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 500;
-        margin-top: 4px;
-    }
-    .micro-quality-badge svg {
-        width: 14px;
-        height: 14px;
-    }
-    .micro-quality-high {
-        background: rgba(16, 185, 129, 0.15);
-        color: #10B981;
-        border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-    .micro-quality-medium {
-        background: rgba(245, 158, 11, 0.15);
-        color: #F59E0B;
-        border: 1px solid rgba(245, 158, 11, 0.3);
-    }
-    .micro-quality-low {
-        background: rgba(239, 68, 68, 0.15);
-        color: #EF4444;
-        border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-
-        /* Emotion control panel */
-        .it2-emotion-panel {
-            margin: 12px 0;
-            padding: 12px;
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            background: var(--bg-secondary);
-        }
-        .it2-emotion-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-top: 10px;
-        }
-        .it2-emotion-item {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .it2-emotion-label {
-            font-size: 12px;
-            color: var(--text-secondary);
-            display: flex;
-            justify-content: space-between;
-        }
-        .it2-emotion-value {
-            font-weight: 600;
-            color: var(--accent-primary);
-        }
-
-        /* Emotion preset tags container */
-        .it2-emotion-presets {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 10px;
-        }
-
-        /* Emotion text input */
-        .it2-emo-text-input {
-            width: 100%;
-            margin-top: 10px;
-            box-sizing: border-box;
-        }
-
-        /* Emotion alpha slider */
-        .it2-emotion-alpha {
-            margin-top: 10px;
-        }
-
-        /* Target duration */
-        .it2-target-duration {
-            margin-top: 10px;
-        }
-
-        /* Voice preset tags */
-        .it2-voice-preset {
-            display: inline-block;
-            padding: 5px 14px;
-            margin: 3px 4px;
-            border-radius: 999px;
-            font-size: 13px;
-            cursor: pointer;
-            border: 1.5px solid transparent;
-            background-clip: padding-box;
-            position: relative;
-            color: var(--text-secondary);
-            background-color: var(--bg-secondary, #f3f4f6);
-            transition: all 0.2s ease;
-            user-select: none;
-        }
-        .it2-voice-preset::before {
-            content: '';
-            position: absolute;
-            inset: -1.5px;
-            border-radius: 999px;
-            background: linear-gradient(135deg, #c084fc, #818cf8, #38bdf8);
-            z-index: -1;
-            opacity: 0.5;
-            transition: opacity 0.2s ease;
-        }
-        .it2-voice-preset:hover {
-            color: var(--text-primary);
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
-        }
-        .it2-voice-preset:hover::before {
-            opacity: 1;
-        }
-        .it2-voice-preset.it2-voice-active {
-            color: #fff;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            border-color: transparent;
-            box-shadow: 0 2px 12px rgba(139, 92, 246, 0.35);
-        }
-        .it2-voice-preset.it2-voice-active::before {
-            opacity: 1;
-            background: linear-gradient(135deg, #a78bfa, #818cf8, #6366f1);
-        }
-
-        /* Inner tab panels */
-        .inner-tab-panel {
-            padding-top: 12px;
-        }
-        .sub-tab-btn.active {
-            color: var(--accent-primary);
-            border-bottom: 2px solid var(--accent-primary);
-        }
-
-        .it2-file-name {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 6px;
-        }
-
-        /* Centered spinner */
-        .it2-spinner-centered {
-            margin: 0 auto 8px;
-        }
-
-        /* Hidden audio player */
-        .it2-audio-hidden {
-            width: 100%;
-            display: none;
-        }
-
-        /* Emotion mode tabs */
-        .it2-emo-mode-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-        .it2-emo-mode-tab {
-            flex: 1;
-            padding: 6px 12px;
-            text-align: center;
-            font-size: 12px;
-            cursor: pointer;
-            border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            transition: all 0.2s ease;
-        }
-        .it2-emo-mode-tab:hover {
-            border-color: var(--accent-primary);
-        }
-        .it2-emo-mode-tab.it2-emo-mode-active {
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            color: #fff;
-            border-color: transparent;
-        }
-
-        /* Grid 2 columns */
-        .it2-grid-2col {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        @media (max-width: 640px) {
-            .it2-emotion-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-    </style>
     <form id="it2-form" hx-post="/api/generate/indextts2" hx-target="#it2-result" hx-swap="innerHTML" hx-indicator="#it2-spinner">
         <input type="hidden" name="mode" value="indextts2">
-        <label for="it2-text">{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="it2-text" class="tts-input-textbox tts-full-width it2-auto-resize" rows="3" placeholder="{{ 'indextts2_default_text'|t(lang) }}" required oninput="updateIt2CharCounter(this); autoResizeTextarea(this)"></textarea>
-        <div id="it2-char-counter" class="it2-char-counter">0/{{ engine_max_total_chars }}</div>
-        <span id="it2-quality-badge" class="micro-quality-badge" style="display:none;"></span>
+        {% with prefix='it2', label='synthesis_text'|t(lang), placeholder='indextts2_default_text'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='it2-auto-resize', textarea_rows=3 %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
 
         {% with prefix='it2' %}
         {% include 'partials/language_selector.html' %}
@@ -315,37 +23,39 @@
                 <label for="it2-ref-audio">{{ "ref_audio"|t(lang) }}</label>
                 <div class="tts-file-upload" onclick="document.getElementById('it2-ref-audio-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
                     <input type="file" id="it2-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-name')" aria-label="{{ "ref_audio"|t(lang) }}">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 8px; display: block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    <div style="font-size: 13px; color: var(--text-secondary);">{{ "upload_ref"|t(lang) }}</div>
-                    <div id="it2-ref-audio-name" class="it2-file-name">{{ "supported_formats"|t(lang) }}</div>
+                    <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div class="tts-upload-text">{{ "upload_ref"|t(lang) }}</div>
+                    <div id="it2-ref-audio-name" class="tts-file-name">{{ "supported_formats"|t(lang) }}</div>
                 </div>
 
-                <label for="it2-ref-text">{{ "ref_text"|t(lang) }} <span style="color: var(--text-muted);">{{ "optional"|t(lang) }}</span></label>
-                <input type="text" name="ref_text" id="it2-ref-text" placeholder="{{ 'ref_text_placeholder'|t(lang) }}" class="tts-input-textbox tts-full-width" style="margin-bottom: 12px;">
+                <div class="tts-form-group">
+                    <label class="tts-form-label" for="it2-ref-text">{{ "ref_text"|t(lang) }} <span class="tts-text-muted">{{ "optional"|t(lang) }}</span></label>
+                    <input type="text" name="ref_text" id="it2-ref-text" placeholder="{{ 'ref_text_placeholder'|t(lang) }}" class="tts-input-textbox tts-full-width">
+                </div>
 
-                <div style="margin-bottom: 12px;">
-                    <label for="it2-seed">{{ "random_seed"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="number" name="seed" id="it2-seed" min="0" value="0" placeholder="{{ 'seed_placeholder'|t(lang) }}" style="flex: 1; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary);">
-                        <label style="font-size: 12px; color: var(--text-secondary); cursor: pointer;">
+                <div class="tts-form-group">
+                    <label class="tts-form-label" for="it2-seed">{{ "random_seed"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                    <div class="it2-seed-row">
+                        <input type="number" name="seed" id="it2-seed" min="0" value="0" placeholder="{{ 'seed_placeholder'|t(lang) }}" class="tts-input it2-seed-input">
+                        <label class="tts-checkbox-label">
                             <input type="checkbox" id="it2-use-random-seed" checked onchange="toggleIt2SeedInput(this)"> {{ "use_random_seed"|t(lang) }}
                         </label>
                     </div>
                 </div>
 
-                <button type="submit" class="primary-btn generate-btn tts-full-width-btn" aria-label="{{ "indextts2_generate"|t(lang) }}">{{ "indextts2_generate"|t(lang) }}</button>
+                <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn" aria-label="{{ "indextts2_generate"|t(lang) }}"><span class="btn-text">{{ "indextts2_generate"|t(lang) }}</span></button>
             </div>
             <div id="it2-tab-emotion" class="inner-tab-panel" style="display:none;">
                 <label for="it2-ref-audio-emo">{{ "ref_audio"|t(lang) }}</label>
                 <div class="tts-file-upload" onclick="document.getElementById('it2-ref-audio-emo-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
                     <input type="file" id="it2-ref-audio-emo-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-emo-name')" aria-label="{{ "ref_audio"|t(lang) }}" disabled>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 8px; display: block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    <div style="font-size: 13px; color: var(--text-secondary);">{{ "upload_ref"|t(lang) }}</div>
-                    <div id="it2-ref-audio-emo-name" class="it2-file-name">{{ "supported_formats"|t(lang) }}</div>
+                    <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div class="tts-upload-text">{{ "upload_ref"|t(lang) }}</div>
+                    <div id="it2-ref-audio-emo-name" class="tts-file-name">{{ "supported_formats"|t(lang) }}</div>
                 </div>
 
                 <div class="it2-emotion-panel">
-                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">{{ "emotion_control"|t(lang) }}</div>
+                    <div class="tts-panel-title">{{ "emotion_control"|t(lang) }}</div>
 
                     <!-- Emotion mode tabs -->
                     <div class="it2-emo-mode-tabs">
@@ -407,10 +117,10 @@
 
                         <!-- Emotion alpha -->
                         <div class="it2-emotion-alpha">
-                            <label style="font-size: 12px; color: var(--text-secondary);">{{ "emotion_alpha"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <input type="range" id="it2-emo-alpha" min="0" max="1" step="0.1" value="0.8" style="flex: 1;" oninput="document.getElementById('it2-emo-alpha-val').textContent = this.value">
-                                <span id="it2-emo-alpha-val" style="font-size: 12px; font-weight: 600; color: var(--accent-primary); min-width: 28px; text-align: right;">0.8</span>
+                            <label class="tts-form-label">{{ "emotion_alpha"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                            <div class="tts-range-row">
+                                <input type="range" id="it2-emo-alpha" class="tts-range-input" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('it2-emo-alpha-val').textContent = this.value">
+                                <span id="it2-emo-alpha-val" class="tts-range-value">0.8</span>
                             </div>
                         </div>
                     </div>
@@ -420,10 +130,10 @@
                         <label for="it2-emo-text">{{ "emotion_text_desc"|t(lang) }}</label>
                         <input type="text" name="emo_text" id="it2-emo-text" class="it2-emo-text-input tts-input-textbox" placeholder="{{ 'emotion_text_placeholder'|t(lang) }}">
                         <div class="it2-emotion-alpha">
-                            <label style="font-size: 12px; color: var(--text-secondary);">{{ "emotion_alpha"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <input type="range" id="it2-emo-alpha-text" min="0" max="1" step="0.1" value="0.8" style="flex: 1;" oninput="document.getElementById('it2-emo-alpha-text-val').textContent = this.value">
-                                <span id="it2-emo-alpha-text-val" style="font-size: 12px; font-weight: 600; color: var(--accent-primary); min-width: 28px; text-align: right;">0.8</span>
+                            <label class="tts-form-label">{{ "emotion_alpha"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                            <div class="tts-range-row">
+                                <input type="range" id="it2-emo-alpha-text" class="tts-range-input" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('it2-emo-alpha-text-val').textContent = this.value">
+                                <span id="it2-emo-alpha-text-val" class="tts-range-value">0.8</span>
                             </div>
                         </div>
                     </div>
@@ -433,15 +143,15 @@
                         <label for="it2-emo-audio-input">{{ "emotion_audio_prompt"|t(lang) }}</label>
                         <div class="tts-file-upload" onclick="document.getElementById('it2-emo-audio-input').click()">
                             <input type="file" id="it2-emo-audio-input" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-emo-audio-name')">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 8px; display: block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            <div style="font-size: 13px; color: var(--text-secondary);">{{ "upload_emotion_audio"|t(lang) }}</div>
-                            <div id="it2-emo-audio-name" class="it2-file-name">{{ "supported_formats"|t(lang) }}</div>
+                            <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <div class="tts-upload-text">{{ "upload_emotion_audio"|t(lang) }}</div>
+                            <div id="it2-emo-audio-name" class="tts-file-name">{{ "supported_formats"|t(lang) }}</div>
                         </div>
                         <div class="it2-emotion-alpha">
-                            <label style="font-size: 12px; color: var(--text-secondary);">{{ "emotion_alpha"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <input type="range" id="it2-emo-alpha-audio" min="0" max="1" step="0.1" value="0.8" style="flex: 1;" oninput="document.getElementById('it2-emo-alpha-audio-val').textContent = this.value">
-                                <span id="it2-emo-alpha-audio-val" style="font-size: 12px; font-weight: 600; color: var(--accent-primary); min-width: 28px; text-align: right;">0.8</span>
+                            <label class="tts-form-label">{{ "emotion_alpha"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                            <div class="tts-range-row">
+                                <input type="range" id="it2-emo-alpha-audio" class="tts-range-input" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('it2-emo-alpha-audio-val').textContent = this.value">
+                                <span id="it2-emo-alpha-audio-val" class="tts-range-value">0.8</span>
                             </div>
                         </div>
                     </div>
@@ -449,14 +159,14 @@
 
                 <!-- Target duration -->
                 <div class="it2-target-duration">
-                    <label for="it2-target-duration">{{ "target_duration"|t(lang) }} <span style="cursor:help;color:var(--text-muted);">&#9432;</span></label>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <input type="number" name="target_duration" id="it2-target-duration" min="0" step="0.5" value="0" placeholder="{{ 'target_duration_placeholder'|t(lang) }}" style="flex: 1; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary);">
-                        <span style="font-size: 12px; color: var(--text-muted);">{{ "seconds"|t(lang) }}</span>
-                    </div>
-                </div>
+                    <label class="tts-form-label" for="it2-target-duration">{{ "target_duration"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                            <div class="tts-range-row">
+                                <input type="number" name="target_duration" id="it2-target-duration" class="tts-input it2-target-duration-input" min="0" step="0.5" value="0" placeholder="{{ 'target_duration_placeholder'|t(lang) }}">
+                                <span class="tts-text-muted">{{ "seconds"|t(lang) }}</span>
+                            </div>
+                        </div>
 
-                <button type="submit" class="primary-btn generate-btn tts-full-width-btn" style="margin-top: 16px;" aria-label="{{ "indextts2_generate"|t(lang) }}">{{ "indextts2_generate"|t(lang) }}</button>
+                        <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn" aria-label="{{ "indextts2_generate"|t(lang) }}"><span class="btn-text">{{ "indextts2_generate"|t(lang) }}</span></button>
             </div>
         </div>
     </form>
@@ -540,66 +250,6 @@
         }
     };
 
-    // Character counter
-    window.updateIt2CharCounter = function(textarea) {
-        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
-        var ENGINE_MAX_CHARS = {{ engine_max_total_chars }};
-        var counter = document.getElementById('it2-char-counter');
-        var submitBtn = document.querySelector('#it2-form button[type="submit"]');
-        var qualityBadge = document.getElementById('it2-quality-badge');
-        if (counter) {
-            var len = textarea.value.length;
-            var segments = len > 0 ? Math.ceil(len / SPLIT_MAX_CHARS) : 0;
-
-            var counterMain = '<span class="counter-main">' + len + '/' + ENGINE_MAX_CHARS + '</span>';
-            var counterDetail = '';
-            counter.classList.remove('warning', 'micro-counter-ok', 'micro-counter-warn', 'micro-counter-danger', 'micro-counter-empty');
-
-            if (len > ENGINE_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments" style="color:#ef4444;">{{ "text_too_long"|t(lang) }}</span>';
-                counter.classList.add('micro-counter-danger');
-            } else if (len > SPLIT_MAX_CHARS) {
-                counterDetail = '<span class="counter-segments">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
-                counter.classList.add('micro-counter-warn');
-            } else if (len > 0) {
-                counterDetail = '<span class="counter-detail">{{ "will_split"|t(lang) }}' + segments + '{{ "segments"|t(lang) }}</span>';
-                counter.classList.add('micro-counter-ok');
-                counterDetail += '<span class="micro-counter-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>';
-            } else {
-                // Empty state: show neutral styling
-                counter.classList.add('micro-counter-empty');
-            }
-
-            counter.innerHTML = counterMain + (counterDetail ? ' ' + counterDetail : '');
-            if (len >= ENGINE_MAX_CHARS) counter.classList.add('warning');
-            if (submitBtn) submitBtn.disabled = false;
-
-            if (qualityBadge) {
-                if (len === 0) {
-                    qualityBadge.style.display = 'none';
-                } else if (len <= SPLIT_MAX_CHARS) {
-                    qualityBadge.style.display = 'inline-flex';
-                    qualityBadge.className = 'micro-quality-badge micro-quality-high';
-                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "quality_high"|t(lang) }}';
-                } else if (len <= SPLIT_MAX_CHARS * 3) {
-                    qualityBadge.style.display = 'inline-flex';
-                    qualityBadge.className = 'micro-quality-badge micro-quality-medium';
-                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ' + '{{ "quality_split"|t(lang) }}';
-                } else {
-                    qualityBadge.style.display = 'inline-flex';
-                    qualityBadge.className = 'micro-quality-badge micro-quality-low';
-                    qualityBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ' + '{{ "quality_low"|t(lang) }}';
-                }
-            }
-        }
-    };
-
-    // Textarea auto-resize
-    window.autoResizeTextarea = function(textarea) {
-        textarea.style.height = 'auto';
-        textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
-    };
-
     // Toggle seed input
     window.toggleIt2SeedInput = function(checkbox) {
         var seedInput = document.getElementById('it2-seed');
@@ -611,47 +261,30 @@
         }
     };
 
-    // Form submission validation
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'it2-form',
+        resultId: 'it2-result',
+        statusId: 'it2-status',
+        textareaId: 'it2-text',
+        counterId: 'it2-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'tts-char-counter',
+        validate: function(form) {
+            var refAudioInput = document.getElementById('it2-ref-audio-input');
+            if (refAudioInput && refAudioInput.files.length === 0) {
+                var emoAudioInput = document.getElementById('it2-emo-audio-input');
+                if (emoAudioInput && emoAudioInput.files.length === 0) {
+                    console.warn('[IndexTTS2] No reference audio uploaded, will use default if available');
+                }
+            }
+            return true;
+        }
+    });
+
+    // Add success badge after HTMX settle (auto-play is handled by TTSForm)
     var form = document.getElementById('it2-form');
-    var submitBtn = form.querySelector('button[type="submit"]');
-    var originalText = submitBtn.innerHTML;
-
-    form.addEventListener('submit', function(e) {
-        var textarea = form.querySelector('textarea[name="text"]');
-        if (textarea && !textarea.value.trim()) {
-            e.preventDefault();
-            var statusEl = document.getElementById('it2-status');
-            if (statusEl) {
-                statusEl.className = 'status-message error';
-                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
-            }
-            return false;
-        }
-
-        // Check if ref audio is uploaded (hidden field for FormData)
-        var refAudioInput = document.getElementById('it2-ref-audio-input');
-        if (refAudioInput && refAudioInput.files.length === 0) {
-            // Try emotion audio if clone tab doesn't have it
-            var emoAudioInput = document.getElementById('it2-emo-audio-input');
-            if (emoAudioInput && emoAudioInput.files.length === 0) {
-                // Both empty - show warning
-                console.warn('[IndexTTS2] No reference audio uploaded, will use default if available');
-            }
-        }
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle;"></span>{{ "generating"|t(lang) }}';
-    });
-
-    // Reset when HTMX request completes
-    document.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.target && evt.detail.target.id === 'it2-result') {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }
-    });
-
-    // Use htmx:afterSettle to setup audio player
     form.addEventListener('htmx:afterSettle', function(e) {
         if (e.detail.successful) {
             try {
@@ -661,25 +294,14 @@
                 if (audioSrc) {
                     var successBadge = document.createElement('div');
                     successBadge.className = 'micro-success-badge';
-                    successBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "gen_success"|t(lang) }}';
+                    successBadge.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "gen_success"|t(lang) }}';
                     resultEl.insertBefore(successBadge, resultEl.firstChild);
                 }
-                if (audioSrc && window.globalAudioPlayer) {
-                    var filename = audioSrc.src.split('/').pop().split('?')[0];
-                    window.globalAudioPlayer.play(audioSrc.src, filename);
-                }
             } catch(ex) {
-                console.warn('Audio playback setup failed:', ex);
+                console.warn('Result badge setup failed:', ex);
             }
         }
     });
-
-    // Initialize character counter on page load
-    var textarea = document.querySelector('#it2-form textarea[name=text]');
-    if (textarea) {
-        updateIt2CharCounter(textarea);
-        autoResizeTextarea(textarea);
-    }
 
     // Initialize seed input
     toggleIt2SeedInput(document.getElementById('it2-use-random-seed'));

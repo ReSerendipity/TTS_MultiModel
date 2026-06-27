@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-"""Path configuration, constants, model path mapping, official speaker info, language list, etc.
+"""Path configuration, constants, model path mapping, language list, etc.
 Multi-engine configuration (VoxCPM2 + IndexTTS 2.0).
 
 Configuration is managed through the AppConfig class, accessible via get_config().
@@ -8,28 +7,26 @@ Module-level variables are kept for backward compatibility but are deprecated.
 
 import os
 import re
-import warnings
-from typing import Tuple, List, Optional
 
 from .config_models import (
-    AppConfig as _PydanticAppConfig,
-    GenerationDefaultsConfig,
-    SpeakerConfig as _SpeakerConfigModel,
-    SpeakerInfo,
     ApiAuthConfig,
+    GenerationDefaultsConfig,
     load_config_dict,
 )
-
+from .config_models import (
+    AppConfig as _PydanticAppConfig,
+)
 
 # ---------------------------------------------------------------------------
 # Environment setup
 # ---------------------------------------------------------------------------
 
+
 def _set_env():
     """Set default offline environment variables."""
-    os.environ['TRANSFORMERS_OFFLINE'] = '1'
-    os.environ['HF_HUB_OFFLINE'] = '1'
-    os.environ['MODELSCOPE_OFFLINE'] = '1'
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    os.environ["MODELSCOPE_OFFLINE"] = "1"
 
 
 def _setup_environment(yaml_config: dict):
@@ -45,12 +42,13 @@ def _setup_environment(yaml_config: dict):
 # Path configuration (computed from project root, not from YAML)
 # ---------------------------------------------------------------------------
 
+
 def get_project_root():
     current_path = os.path.dirname(os.path.abspath(__file__))
     parent = os.path.dirname(current_path)
-    if os.path.basename(parent).lower() == 'bin':
+    if os.path.basename(parent).lower() == "bin":
         return os.path.dirname(parent)
-    if os.path.basename(current_path).lower() == 'bin':
+    if os.path.basename(current_path).lower() == "bin":
         return os.path.dirname(current_path)
     return parent
 
@@ -84,6 +82,7 @@ def _ensure_dirs():
 # Config parsing helpers (split from the old monolithic _load_config)
 # ---------------------------------------------------------------------------
 
+
 def _load_yaml_config() -> dict:
     """Load config.yaml and return parsed dict, or empty dict on failure."""
     config_path = os.path.join(ROOT_DIR, "config.yaml")
@@ -91,10 +90,12 @@ def _load_yaml_config() -> dict:
         return {}
     try:
         import yaml
-        with open(config_path, "r", encoding="utf-8") as f:
+
+        with open(config_path, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except Exception as e:
         import logging
+
         logging.getLogger("tts_multimodel").warning(f"Config load failed: {e}")
         return {}
 
@@ -123,58 +124,9 @@ def _parse_generation_defaults(yaml_config: dict) -> GenerationDefaultsConfig:
             return GenerationDefaultsConfig(**filtered)
     except Exception as e:
         import logging
+
         logging.getLogger("tts_multimodel").warning(f"Generation defaults parse failed: {e}")
     return defaults
-
-
-# Default speakers (used when YAML has no speakers section)
-_DEFAULT_SPEAKERS = [
-    SpeakerInfo(id="Vivian", name_zh="薇薇安", type="少女音", traits="年轻活泼，语速轻快",
-                description="甜美少女音，活泼热情，适合年轻女性角色配音。擅长日常对话和情感表达。"),
-    SpeakerInfo(id="阿知", name_zh="阿知", type="少年音", traits="干净明亮，少年感十足",
-                description="干净明亮的少年音色，充满活力，适合年轻角色和动漫配音。"),
-    SpeakerInfo(id="若彤", name_zh="若彤", type="萝莉音", traits="软萌可爱，充满童真",
-                description="软萌可爱的萝莉音色，充满童真和活力，适合动漫角色和少女角色配音。"),
-    SpeakerInfo(id="成杰", name_zh="成杰", type="青年男音", traits="沉稳有力，磁性十足",
-                description="沉稳有力的青年男声，具有磁性，适合广播、广告和角色配音。"),
-    SpeakerInfo(id="沐晴", name_zh="沐晴", type="少御音", traits="知性优雅，富有感染力",
-                description="知性优雅的少御音色，温柔而有力量，适合知性女性角色和旁白。"),
-    SpeakerInfo(id="御姐", name_zh="御姐", type="御姐音", traits="成熟性感，气场强大",
-                description="成熟性感的御姐音色，气场强大，适合成熟女性角色和高冷角色配音。"),
-    SpeakerInfo(id="旁白", name_zh="旁白", type="播音腔", traits="标准大气，庄重正式",
-                description="标准大气的播音腔，庄重正式，适合新闻播报、旁白和纪录片配音。"),
-    SpeakerInfo(id="老伯", name_zh="老伯", type="老年男音", traits="沧桑厚重，充满岁月感",
-                description="沧桑厚重的老年男声，充满岁月感，适合长者角色和历史题材配音。"),
-    SpeakerInfo(id="少女", name_zh="少女", type="少女音", traits="甜美可爱，青春活力",
-                description="甜美可爱的少女音色，青春洋溢，适合动漫少女角色和青春题材。"),
-]
-
-
-def _parse_speaker_config(yaml_config: dict) -> _SpeakerConfigModel:
-    """Parse speaker configuration from config.yaml speakers section."""
-    if not yaml_config:
-        return _SpeakerConfigModel(official=_DEFAULT_SPEAKERS)
-    try:
-        official_list = yaml_config.get("speakers", {}).get("official")
-        if official_list and isinstance(official_list, list):
-            speakers = []
-            for sp in official_list:
-                sid = sp.get("id")
-                if not sid:
-                    continue
-                speakers.append(SpeakerInfo(
-                    id=sid,
-                    name_zh=sp.get("name_zh", sid),
-                    description=sp.get("description", ""),
-                    type=sp.get("type", ""),
-                    traits=sp.get("traits", ""),
-                ))
-            if speakers:
-                return _SpeakerConfigModel(official=speakers)
-    except Exception as e:
-        import logging
-        logging.getLogger("tts_multimodel").warning(f"Speaker config parse failed: {e}")
-    return _SpeakerConfigModel(official=_DEFAULT_SPEAKERS)
 
 
 def _parse_api_auth(yaml_config: dict) -> ApiAuthConfig:
@@ -196,6 +148,7 @@ def _parse_api_auth(yaml_config: dict) -> ApiAuthConfig:
 # ---------------------------------------------------------------------------
 # Centralized AppConfig
 # ---------------------------------------------------------------------------
+
 
 class AppConfig:
     """Centralized application configuration.
@@ -220,7 +173,6 @@ class AppConfig:
         # Parse all configuration sections
         self._version = _parse_version(self._yaml_config)
         self._generation_defaults = _parse_generation_defaults(self._yaml_config)
-        self._speaker_config = _parse_speaker_config(self._yaml_config)
         self._api_auth = _parse_api_auth(self._yaml_config)
 
         # Build validated Pydantic config
@@ -237,10 +189,6 @@ class AppConfig:
         return self._generation_defaults
 
     @property
-    def speaker_config(self) -> _SpeakerConfigModel:
-        return self._speaker_config
-
-    @property
     def api_auth(self) -> ApiAuthConfig:
         return self._api_auth
 
@@ -249,24 +197,6 @@ class AppConfig:
         return self._pydantic_config
 
     # -- Computed properties (backward compat with old module-level vars) -----
-
-    @property
-    def official_speakers(self) -> set:
-        """Set of official speaker IDs."""
-        return {s.id for s in self._speaker_config.official}
-
-    @property
-    def official_speaker_info(self) -> dict:
-        """Dict mapping speaker ID -> (name_zh, description, type, traits) tuple."""
-        return {
-            s.id: (s.name_zh, s.description, s.type, s.traits)
-            for s in self._speaker_config.official
-        }
-
-    @property
-    def official_speakers_ordered(self) -> list:
-        """Ordered list of official speaker IDs."""
-        return [s.id for s in self._speaker_config.official]
 
     @property
     def gen_defaults_dict(self) -> dict:
@@ -283,7 +213,7 @@ class AppConfig:
 # Singleton accessor
 # ---------------------------------------------------------------------------
 
-_config_instance: Optional[AppConfig] = None
+_config_instance: AppConfig | None = None
 
 
 def get_config() -> AppConfig:
@@ -300,74 +230,92 @@ def get_config() -> AppConfig:
 # New code should use get_config() instead.
 # ---------------------------------------------------------------------------
 
-_cfg = get_config()
+# NOTE: Module-level deprecated variables have been removed.
+# Use get_config() to access configuration values instead.
+# Examples:
+#   get_config().version           (was VERSION)
+#   get_config().generation_defaults  (was GEN_DEFAULTS)
+#   get_config().api_auth_dict        (was API_AUTH)
 
-# DEPRECATED: Use config_models.AppConfig via get_config() instead
-VERSION = _cfg.version
 
-# DEPRECATED: Use config_models.AppConfig via get_config() instead
-GEN_DEFAULTS = _cfg.gen_defaults_dict
+def _has_model_weights(model_dir: str, min_size_mb: float = 10.0) -> bool:
+    """Check if a model directory contains at least one weight file >= min_size_mb.
 
-# DEPRECATED: Use config_models.AppConfig via get_config() instead
-OFFICIAL_SPEAKERS = _cfg.official_speakers
+    Scans for common weight file extensions (.safetensors, .bin, .pt, .pth)
+    and returns True if any file meets the minimum size threshold.
+    """
+    if not os.path.isdir(model_dir):
+        return False
+    weight_exts = {".safetensors", ".bin", ".pt", ".pth"}
+    min_bytes = int(min_size_mb * 1024 * 1024)
+    for fname in os.listdir(model_dir):
+        ext = os.path.splitext(fname)[1].lower()
+        if ext in weight_exts:
+            fpath = os.path.join(model_dir, fname)
+            try:
+                if os.path.isfile(fpath) and os.path.getsize(fpath) >= min_bytes:
+                    return True
+            except OSError:
+                pass
+    return False
 
-# DEPRECATED: Use config_models.AppConfig via get_config() instead
-OFFICIAL_SPEAKER_INFO = _cfg.official_speaker_info
 
-# DEPRECATED: Use config_models.AppConfig via get_config() instead
-_OFFICIAL_SPEAKERS_ORDERED = _cfg.official_speakers_ordered
+def check_models_available() -> tuple[bool, list[str]]:
+    """Check if model files are complete and ready for loading.
 
-# DEPRECATED: Use config_models.AppConfig via get_config() instead
-API_AUTH = _cfg.api_auth_dict
-
-# DEPRECATED: Use config_models.AppConfig via get_config() instead
-CFG_VALUE = _cfg.generation_defaults.cfg_value
-INFERENCE_TIMESTEPS = _cfg.generation_defaults.inference_timesteps
-NORMALIZE = _cfg.generation_defaults.normalize
-DENOISE = _cfg.generation_defaults.denoise
-RETRY_BADCASE = _cfg.generation_defaults.retry_badcase
-RETRY_BADCASE_MAX_TIMES = _cfg.generation_defaults.retry_badcase_max_times
-RETRY_BADCASE_RATIO_THRESHOLD = _cfg.generation_defaults.retry_badcase_ratio_threshold
-MIN_LEN = _cfg.generation_defaults.min_len
-MAX_LEN = _cfg.generation_defaults.max_len
-GEN_SPLIT_MAX_CHARS = _cfg.generation_defaults.split_max_chars
-
-warnings.warn(
-    "Module-level config variables (VERSION, HOST, PORT, etc.) are deprecated. "
-    "Use config_models.AppConfig via get_config() instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-
-def check_models_available() -> Tuple[bool, List[str]]:
+    Returns (all_ok, missing_list) where missing_list contains descriptive
+    strings for each engine whose model weights are missing or incomplete.
+    """
     missing = []
+
+    # VoxCPM2: directory must exist and contain weight files
     if not os.path.isdir(VOXCPM2_MODEL_PATH):
-        missing.append(VOXCPM2_MODEL_PATH)
+        missing.append(f"VoxCPM2 ({VOXCPM2_MODEL_PATH} 目录不存在)")
+    elif not _has_model_weights(VOXCPM2_MODEL_PATH):
+        missing.append(f"VoxCPM2 ({VOXCPM2_MODEL_PATH} 缺少模型权重文件)")
+
+    # IndexTTS2: directory must exist and contain weight files
     if not os.path.isdir(INDEXTTS2_MODEL_PATH):
-        missing.append(INDEXTTS2_MODEL_PATH)
+        missing.append(f"IndexTTS 2.0 ({INDEXTTS2_MODEL_PATH} 目录不存在)")
+    elif not _has_model_weights(INDEXTTS2_MODEL_PATH):
+        missing.append(f"IndexTTS 2.0 ({INDEXTTS2_MODEL_PATH} 缺少模型权重文件)")
+
     return len(missing) == 0, missing
 
 
 def get_download_hints() -> dict[str, str]:
     hints = {}
-    if not os.path.isdir(VOXCPM2_MODEL_PATH):
+    if not os.path.isdir(VOXCPM2_MODEL_PATH) or not _has_model_weights(VOXCPM2_MODEL_PATH):
         hints["voxcpm2"] = (
             "VoxCPM2 模型未找到。下载命令:\n"
-            "  pip install huggingface-hub\n"
-            "  huggingface-cli download openbmb/VoxCPM2 --local-dir pretrained_models/VoxCPM2\n"
-            "  或: python scripts/download_voxcpm2.py"
+            "  pip install modelscope\n"
+            "  python scripts/download_voxcpm2.py\n"
+            "  或: modelscope download OpenBMB/VoxCPM2 --local_dir pretrained_models/VoxCPM2"
         )
-    if not os.path.isdir(INDEXTTS2_MODEL_PATH):
+    if not os.path.isdir(INDEXTTS2_MODEL_PATH) or not _has_model_weights(INDEXTTS2_MODEL_PATH):
         hints["indextts2"] = (
             "IndexTTS 2.0 模型未找到。下载命令:\n"
-            "  pip install huggingface-hub\n"
-            "  huggingface-cli download IndexTeam/IndexTTS-2 --local-dir pretrained_models/IndexTTS2\n"
-            "  或: python scripts/download_indextts2.py"
+            "  pip install modelscope\n"
+            "  python scripts/download_indextts2.py\n"
+            "  或: modelscope download IndexTeam/IndexTTS-2 --local_dir pretrained_models/IndexTTS2"
         )
     return hints
 
+
 # --- Language list ---
-_LANGS = ["Chinese", "English", "Japanese", "Korean", "German", "French", "Russian", "Portuguese", "Spanish", "Italian", "Auto"]
+_LANGS = [
+    "Chinese",
+    "English",
+    "Japanese",
+    "Korean",
+    "German",
+    "French",
+    "Russian",
+    "Portuguese",
+    "Spanish",
+    "Italian",
+    "Auto",
+]
 
 # --- Dialect list (Chinese dialects supported by VoxCPM2) ---
 _DIALECTS = [
@@ -383,14 +331,14 @@ _DIALECTS = [
 ]
 
 # --- Audio extensions ---
-_AUDIO_EXTS = {'.wav', '.mp3', '.ogg', '.flac'}
+_AUDIO_EXTS = {".wav", ".mp3", ".ogg", ".flac"}
 
 # --- Input validation limits ---
 MAX_TEXT_LENGTH = 10000
 MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024  # 100MB
 
 # --- Persona name validation regex ---
-_PERSONA_NAME_RE = re.compile(r'^[a-zA-Z0-9_\-\u4e00-\u9fff]{1,50}$')
+_PERSONA_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-\u4e00-\u9fff]{1,50}$")
 
 # --- Role color mapping ---
 _ROLE_COLOR_MAP = {

@@ -1,199 +1,66 @@
 {% from 'partials/advanced_params.html' import advanced_params %}
 <div class="card">
     <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C6EF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
         <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
     </div>
     <div class="tts-card-desc">{{ "voice_design_desc"|t(lang) }}</div>
-    <style>
-        /* Voice Design Tab Styles */
-
-        /* Full-width form inputs - use ID selector for higher specificity */
-        #vd-form .tts-full-width {
-            width: 100%;
-            box-sizing: border-box;
-            max-width: none;
-            display: block;
-            margin-left: 0;
-            margin-right: 0;
-        }
-        /* Override any width constraints on the form */
-        #vd-form {
-            width: 100%;
-            max-width: none;
-            display: block;
-        }
-        #vd-form > div {
-            width: 100%;
-            max-width: none;
-        }
-
-        /* Voice Design specific textarea overrides */
-        #vd-form .vd-auto-resize.tts-auto-resize {
-            padding: 12px 14px;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-        }
-
-        /* Voice preset tags - pill-shaped chips with gradient borders */
-        .voice-preset-tag {
-            display: inline-block;
-            padding: 5px 14px;
-            margin: 3px 4px;
-            border-radius: 999px;
-            font-size: 13px;
-            cursor: pointer;
-            border: 1.5px solid transparent;
-            background-clip: padding-box;
-            position: relative;
-            color: var(--text-secondary);
-            background-color: var(--bg-secondary, #f3f4f6);
-            transition: all 0.2s ease;
-            user-select: none;
-            font-family: inherit;
-            line-height: inherit;
-        }
-        .voice-preset-tag::before {
-            content: '';
-            position: absolute;
-            inset: -1.5px;
-            border-radius: 999px;
-            background: linear-gradient(135deg, #c084fc, #818cf8, #38bdf8);
-            z-index: -1;
-            opacity: 0.5;
-            transition: opacity 0.2s ease;
-        }
-        .voice-preset-tag:hover {
-            color: var(--text-primary);
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
-        }
-        .voice-preset-tag:hover::before {
-            opacity: 1;
-        }
-        .voice-preset-tag.preset-tag-active {
-            color: #fff;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            border-color: transparent;
-            box-shadow: 0 2px 12px rgba(139, 92, 246, 0.35);
-        }
-        .voice-preset-tag.preset-tag-active::before {
-            opacity: 1;
-            background: linear-gradient(135deg, #a78bfa, #818cf8, #6366f1);
-        }
-
-        /* Instruct input */
-        .vd-instruct-input {
-            width: 100%;
-            margin-bottom: 8px;
-        }
-
-        /* Keyboard shortcut hint */
-        .vd-shortcut-hint {
-            text-align: center;
-            margin-top: -8px;
-            margin-bottom: 8px;
-        }
-
-        /* Flex row for save controls */
-        .vd-flex-row {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        /* Save name input */
-        .vd-save-name-input {
-            flex: 3;
-        }
-
-        /* Save button */
-        .vd-save-btn {
-            flex: 1;
-        }
-
-        /* Persona description text */
-        .vd-persona-desc {
-            margin-top: 8px;
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-        }
-
-        /* Stream generate button */
-        .stream-btn {
-            background: linear-gradient(135deg, #8b5cf6, #a855f7) !important;
-            border: none;
-            color: #fff;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 10px rgba(139, 92, 246, 0.3);
-        }
-        .stream-btn:hover {
-            background: linear-gradient(135deg, #7c3aed, #9333ea) !important;
-            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.45);
-            transform: translateY(-1px);
-        }
-    </style>
-    <form id="vd-form" hx-post="/api/generate/voxcpm_design" hx-target="#vd-result" hx-swap="innerHTML" hx-indicator="#vd-spinner">
+    <form id="vd-form" class="tts-full-width-form" hx-post="/api/generate/voxcpm_design" hx-target="#vd-result" hx-swap="innerHTML" hx-indicator="#vd-spinner">
         <input type="hidden" name="mode" value="voxcpm_design">
-        <label for="vd-text">{{ "synthesis_text"|t(lang) }}</label>
-        <textarea name="text" id="vd-text" class="tts-input-textbox tts-full-width tts-auto-resize" rows="3" placeholder="{{ 'enter_text_placeholder'|t(lang) }}" required oninput="CharCounter.update({textareaId:'vd-text',counterId:'vd-char-counter',maxChars:{{engine_max_total_chars}},segmentMaxChars:{{gen_split_max_chars}},qualityBadgeId:'vd-quality-badge',counterClass:'vd-char-counter'}); AutoResize.resize(this)">{{ "default_voice_design_text"|t(lang) }}</textarea>
-        <div id="vd-char-counter" class="tts-char-counter">0/{{ engine_max_total_chars }}</div>
-        <span id="vd-quality-badge" class="tts-quality-badge" style="display:none;"></span>
+        {% with prefix='vd', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='tts-full-width', textarea_rows=3 %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
         {% with prefix='vd' %}
         {% include 'partials/language_selector.html' %}
         {% endwith %}
-        <div class="inner-tabs">
+        <div class="inner-tabs" x-data="{ vdTab: 'create' }">
             <div class="sub-tab-nav">
-                <button type="button" class="sub-tab-btn active" onclick="switchVdInnerTab('create', this)">{{ "preset_create"|t(lang) }}</button>
-                <button type="button" class="sub-tab-btn" onclick="switchVdInnerTab('saved', this)">{{ "saved_voices"|t(lang) }}</button>
+                <button type="button" class="sub-tab-btn" :class="{ 'active': vdTab === 'create' }" @click="vdTab = 'create'">{{ "preset_create"|t(lang) }}</button>
+                <button type="button" class="sub-tab-btn" :class="{ 'active': vdTab === 'saved' }" @click="vdTab = 'saved'">{{ "saved_voices"|t(lang) }}</button>
             </div>
-            <div id="vd-tab-create" class="inner-tab-panel">
+            <div id="vd-tab-create" class="inner-tab-panel" x-show="vdTab === 'create'" x-transition>
                 <label for="vd-instruction">{{ "voice_description"|t(lang) }}</label>
-                <input type="text" name="instruction" id="vd-instruction" placeholder="{{ 'voice_desc_placeholder'|t(lang) }}" class="vd-instruct-input">
+                <input type="text" name="instruction" id="vd-instruction" placeholder="{{ 'voice_desc_placeholder'|t(lang) }}" class="tts-input tts-vd-instruct-input">
                 <div class="micro-format-hint">
-                    <div class="micro-hint-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> {{ "voice_desc_hint"|t(lang) }}</div>
+                    <div class="micro-hint-label"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> {{ "voice_desc_hint"|t(lang) }}</div>
                     <span>{{ "voice_desc_format"|t(lang) }}</span>
                     <span class="micro-hint-example">{{ "voice_desc_example"|t(lang) }}</span>
                 </div>
                 <div class="micro-tag-search">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <input type="text" id="vd-tag-search" placeholder="{{ 'search_voice_tag'|t(lang) }}" oninput="filterVdTags(this.value)">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="vd-tag-search" class="tts-input tts-vd-tag-search" placeholder="{{ 'search_voice_tag'|t(lang) }}" aria-label="{{ 'search_voice_tag'|t(lang) }}">
                 </div>
-                <div class="voice-preset-tags">
-                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'loli_voice'|t(lang) }}">{{ 'loli_voice'|t(lang) }}</button>
-                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'mature_voice'|t(lang) }}">{{ 'mature_voice'|t(lang) }}</button>
-                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'magnetic_male'|t(lang) }}">{{ 'magnetic_male'|t(lang) }}</button>
-                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'bass_voice'|t(lang) }}">{{ 'bass_voice'|t(lang) }}</button>
-                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'youth_voice'|t(lang) }}">{{ 'youth_voice'|t(lang) }}</button>
-                    <button type="button" class="preset-tag voice-preset-tag" onclick="fillVdInstruct(this)" aria-label="{{ 'japanese_sweet'|t(lang) }}">{{ 'japanese_sweet'|t(lang) }}</button>
+                <div class="tts-vd-preset-tags">
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="sweet" onclick="fillVdInstruct(this)" aria-label="{{ 'loli_voice'|t(lang) }}">{{ 'loli_voice'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="mature" onclick="fillVdInstruct(this)" aria-label="{{ 'mature_voice'|t(lang) }}">{{ 'mature_voice'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="magnetic" onclick="fillVdInstruct(this)" aria-label="{{ 'magnetic_male'|t(lang) }}">{{ 'magnetic_male'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="deep" onclick="fillVdInstruct(this)" aria-label="{{ 'bass_voice'|t(lang) }}">{{ 'bass_voice'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="energetic" onclick="fillVdInstruct(this)" aria-label="{{ 'youth_voice'|t(lang) }}">{{ 'youth_voice'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="japanese" onclick="fillVdInstruct(this)" aria-label="{{ 'japanese_sweet'|t(lang) }}">{{ 'japanese_sweet'|t(lang) }}</button>
                 </div>
                 {{ advanced_params(prefix='vd', lang=lang, show_seed=false) }}
-                <button type="submit" class="primary-btn generate-btn tts-full-width-btn">{{ "generate_btn"|t(lang) }}</button>
-                <div class="vd-shortcut-hint"><span class="kbd">Ctrl+Enter</span></div>
-                <div class="vd-flex-row">
-                    <input type="text" name="save_name" placeholder="{{ 'save_voice_name'|t(lang) }}" class="vd-save-name-input">
-                    <button type="button" class="secondary-btn icon-btn vd-save-btn" hx-post="/api/persona/save" hx-target="#vd-status" hx-swap="innerHTML" onclick="return checkVdSaveNameDuplicate(this);">{{ "save_persona"|t(lang) }}</button>
+                <button type="submit" class="tts-btn tts-btn-primary tts-full-width-btn"><span class="btn-text">{{ "generate_btn"|t(lang) }}</span></button>
+                <div class="tts-vd-shortcut-hint"><span class="kbd">Ctrl+Enter</span></div>
+                <div class="tts-vd-flex-row">
+                    <input type="text" id="vd-save-name" name="save_name" aria-label="{{ 'save_voice_name'|t(lang) }}" placeholder="{{ 'save_voice_name'|t(lang) }}" class="tts-input tts-vd-save-input">
+                    <button type="button" class="tts-btn tts-btn-secondary tts-vd-save-btn" hx-post="/api/persona/save" hx-target="#vd-status" hx-swap="innerHTML" onclick="return checkVdSaveNameDuplicate(this);">{{ "save_persona"|t(lang) }}</button>
                 </div>
             </div>
-            <div id="vd-tab-saved" class="inner-tab-panel" style="display:none;">
+            <div id="vd-tab-saved" class="inner-tab-panel" x-show="vdTab === 'saved'" x-transition>
                 <label for="vd-persona-name">{{ "select_voice"|t(lang) }}</label>
                 <select name="persona_name" id="vd-persona-name" class="tts-input-dropdown tts-full-width">
                     {% if not persona_list %}
-                    <option value="" disabled selected>{{ "no_saved_voices"|t(lang) }}</option>
+                    <option value="" disabled selected>{{ "no_saved_voice"|t(lang) }}</option>
                     {% endif %}
                     {% for p in persona_list %}
-                    {% if p.startswith('[官方]') %}
-                    <option value="{{ p.split('(')[-1].rstrip(')') }}" data-type="official">⭐ {{ p }}</option>
-                    {% else %}
-                    <option value="{{ p }}" data-type="custom">🎵 {{ p }}</option>
-                    {% endif %}
+                    <option value="{{ p }}">{{ p }}</option>
                     {% endfor %}
                 </select>
-                <div id="vd-persona-desc" class="vd-persona-desc"></div>
-                <div class="vd-flex-row">
-                    <button type="button" class="secondary-btn" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
-                    <button type="button" class="primary-btn" onclick="submitWithPersona()">{{ "use_selected_voice"|t(lang) }}</button>
-                    <button type="button" class="primary-btn stream-btn" onclick="submitStreaming()">{{ "stream_generate"|t(lang) }}</button>
+                <div id="vd-persona-desc" class="tts-vd-persona-desc"></div>
+                <div class="tts-vd-flex-row">
+                    <button type="button" class="tts-btn tts-btn-secondary" hx-get="/api/persona/options" hx-target="#vd-persona-name" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
+                    <button type="button" class="tts-btn tts-btn-primary" onclick="submitWithPersona()">{{ "use_selected_voice"|t(lang) }}</button>
+                    <button type="button" class="tts-btn tts-btn-primary stream-btn" onclick="submitStreaming()">{{ "stream_generate"|t(lang) }}</button>
                 </div>
             </div>
         </div>
@@ -207,6 +74,7 @@
 {% endwith %}
 <script>
 (function(){
+    function initVoiceDesign() {
     // Initialize shared TTS form utilities
     TTSForm.init({
         formId: 'vd-form',
@@ -216,23 +84,16 @@
         counterId: 'vd-char-counter',
         maxChars: {{ engine_max_total_chars }},
         segmentMaxChars: {{ gen_split_max_chars }},
-        qualityBadgeId: 'vd-quality-badge',
-        counterClass: 'vd-char-counter'
-    });
-
-    // Initialize inner tab switching
-    TTSTabSwitcher.init({
-        formId: 'vd-form',
-        prefix: 'vd'
+        counterClass: 'tts-char-counter'
     });
 
     // Check for duplicate persona name before saving
     window.checkVdSaveNameDuplicate = function(btn) {
-        var nameInput = btn.closest('.vd-flex-row').querySelector('input[name=save_name]');
+        var nameInput = btn.closest('.tts-vd-flex-row').querySelector('input[name=save_name]');
         if (!nameInput) return true;
         var name = nameInput.value.trim();
         if (!name) return true; // Let server handle empty name
-        var existingNames = Array.from(document.querySelectorAll('#vd-persona-name option')).map(function(opt) { return opt.textContent.trim().replace(/^[⭐🎵]\s*/, ''); });
+        var existingNames = Array.from(document.querySelectorAll('#vd-persona-name option')).map(function(opt) { return opt.textContent.trim(); });
         if (existingNames.includes(name)) {
             Toast.show((window.I18N && window.I18N['name_exists']) || '该名称已存在，请使用其他名称', 'error');
             return false;
@@ -241,46 +102,94 @@
     };
 
     window.filterVdTags = function(query) {
-        var tags = document.querySelectorAll('#vd-tab-create .voice-preset-tag');
+        var tags = document.querySelectorAll('#vd-tab-create .tts-preset-tag');
         var q = query.toLowerCase().trim();
         tags.forEach(function(tag) {
             if (!q || tag.textContent.toLowerCase().indexOf(q) !== -1) {
-                tag.style.display = '';
+                tag.classList.remove('tts-hidden');
             } else {
-                tag.style.display = 'none';
+                tag.classList.add('tts-hidden');
             }
         });
     };
 
     window.fillVdInstruct = function(el) {
-        var input = document.querySelector('#vd-form input[name=instruct]');
+        var input = document.getElementById('vd-instruction');
         if (input) { input.value = el.textContent; input.focus(); }
-        document.querySelectorAll('#vd-tab-create .preset-tag').forEach(function(t){ t.classList.remove('preset-tag-active'); });
-        el.classList.add('preset-tag-active');
+        document.querySelectorAll('#vd-tab-create .tts-preset-tag').forEach(function(t){ t.classList.remove('active'); });
+        el.classList.add('active');
     };
 
     window.setVdMode = function(mode) {
         var form = document.getElementById('vd-form');
         if (form) {
             form.querySelector('input[name=mode]').value = mode;
-            if (mode === 'voice_clone') {
-                form.setAttribute('hx-post', '/api/generate/voxcpm_clone');
-            } else {
-                form.setAttribute('hx-post', '/api/generate/voxcpm_design');
-            }
         }
     };
 
     // Submit form using selected persona for voice cloning
     window.submitWithPersona = function() {
         var form = document.getElementById('vd-form');
-        if (form) {
-            // Switch to clone mode
-            form.querySelector('input[name=mode]').value = 'voice_clone';
-            form.setAttribute('hx-post', '/api/generate/voxcpm_clone');
-            // Trigger HTMX submission
-            htmx.trigger(form, 'submit');
-        }
+        if (!form) return;
+
+        // Explicitly read each field to avoid FormData issues with hidden Alpine.js panels
+        var textarea = form.querySelector('textarea[name="text"]');
+        var text = textarea ? textarea.value : '';
+        var personaSelect = form.querySelector('select[name="persona_name"]');
+        var personaName = personaSelect ? personaSelect.value : '';
+        var lang = form.querySelector('select[name="lang"]');
+        var cfgInput = form.querySelector('input[name="cfg"]');
+        var stepsInput = form.querySelector('input[name="steps"]');
+        var denoiseInput = form.querySelector('select[name="denoise"]');
+        var normInput = form.querySelector('select[name="norm"]');
+
+        var formData = new FormData();
+        formData.append('text', text);
+        formData.append('persona_name', personaName);
+        formData.append('mode', 'voice_clone');
+        // Do NOT send instruction — when using a saved persona, the persona's
+        // reference audio should fully determine the voice. Sending a stale
+        // instruction from the "描述创建" tab would conflict with the persona.
+        if (lang) formData.append('lang', lang.value);
+        if (cfgInput) formData.append('cfg', cfgInput.value);
+        if (stepsInput) formData.append('steps', stepsInput.value);
+        if (denoiseInput) formData.append('denoise', denoiseInput.value);
+        if (normInput) formData.append('norm', normInput.value);
+
+        // Use native fetch to avoid HTMX FormData compatibility issues
+        var resultEl = document.getElementById('vd-result');
+        var spinnerEl = document.getElementById('vd-spinner');
+        if (spinnerEl) spinnerEl.style.display = 'block';
+        if (resultEl) resultEl.innerHTML = '';
+
+        var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
+        var headers = csrfToken ? {'X-CSRF-Token': csrfToken} : {};
+
+        fetch('/api/generate/voxcpm_clone', {
+            method: 'POST',
+            body: formData,
+            headers: headers
+        }).then(function(response) {
+            return response.text().then(function(html) {
+                if (spinnerEl) spinnerEl.style.display = 'none';
+                if (resultEl) {
+                    resultEl.innerHTML = html;
+                    // Trigger HTMX afterSettle event for auto-play
+                    var event = new CustomEvent('htmx:afterSettle', { detail: { successful: response.ok } });
+                    form.dispatchEvent(event);
+                }
+                if (!response.ok) {
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = html;
+                    var errMsg = tmp.querySelector('.error-message');
+                    if (window.Toast) Toast.show(errMsg ? errMsg.textContent : 'Generation failed', 'error');
+                }
+            });
+        }).catch(function(err) {
+            if (spinnerEl) spinnerEl.style.display = 'none';
+            if (resultEl) resultEl.innerHTML = '<div class="tts-error-block"><div class="error-title">Generation failed</div><div class="error-message">' + err.message + '</div></div>';
+            if (window.Toast) Toast.show(err.message, 'error');
+        });
     };
 
     // Streaming generation - generates audio chunks progressively via SSE
@@ -319,7 +228,7 @@
             if (fillEl) fillEl.style.width = pct + '%';
             if (percentEl) percentEl.textContent = Math.round(pct) + '%';
             if (logEl && msg) {
-                logEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + msg + '</div>';
+                logEl.innerHTML = '<div class="tts-vd-streaming-log-msg">' + msg + '</div>';
             }
         }
 
@@ -372,13 +281,20 @@
         }
 
         try {
+            var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
             const response = await fetch('/api/generate/streaming_sse', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: csrfToken ? {'X-CSRF-Token': csrfToken} : {}
             });
 
             if (!response.ok) {
-                statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">HTTP ' + response.status + '</div></div>';
+                var errMsg = 'HTTP ' + response.status;
+                if (response.status === 403) {
+                    errMsg = (window.I18N && window.I18N['csrf_error']) || '安全验证失败，请刷新页面后重试';
+                }
+                statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">' + errMsg + '</div></div>';
+                if (window.Toast) Toast.show(errMsg, 'error');
                 return;
             }
 
@@ -538,6 +454,14 @@
         }
     };
 
+    // Tag search filter (replaces inline oninput)
+    var tagSearchInput = document.getElementById('vd-tag-search');
+    if (tagSearchInput) {
+        tagSearchInput.addEventListener('input', function() {
+            filterVdTags(this.value);
+        });
+    }
+
     // ISSUE 1 FIX: Save/restore selected voice tone from sessionStorage
     var personaSelect = document.querySelector('#vd-tab-saved select[name=persona_name]');
     if (personaSelect) {
@@ -552,7 +476,7 @@
 
     // Voice Design specific: segment confirmation on submit
     var form = document.getElementById('vd-form');
-    var submitBtn = form.querySelector('button[type="submit"]');
+    var vdSubmitConfirmed = false;
 
     form.addEventListener('submit', function(e) {
         var textarea = form.querySelector('textarea[name="text"]');
@@ -567,17 +491,20 @@
         }
 
         var info = window.getCurrentSegmentInfo && window.getCurrentSegmentInfo();
-        if (info && info.segmentCount > 1) {
+        if (info && info.segmentCount > 1 && !vdSubmitConfirmed) {
             e.preventDefault();
             var msg = '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}<br>' +
                 '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}<br>' +
                 '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}<br><br>' +
                 '{{ "confirm_continue"|t(lang) }}';
             ConfirmDialog.show(msg, function() {
-                document.getElementById('vd-form').submit();
+                vdSubmitConfirmed = true;
+                form.requestSubmit();
             });
             return false;
         }
+
+        vdSubmitConfirmed = false;
     });
 
     // Use htmx:afterSettle to ensure DOM is fully updated
@@ -590,12 +517,12 @@
                 if (audioSrc) {
                     var successBadge = document.createElement('div');
                     successBadge.className = 'micro-success-badge';
-                    successBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "gen_success"|t(lang) }}';
+                    successBadge.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "gen_success"|t(lang) }}';
                     resultEl.insertBefore(successBadge, resultEl.firstChild);
 
                     var quickActions = document.createElement('div');
                     quickActions.className = 'micro-quick-actions';
-                    quickActions.innerHTML = '<button class="micro-quick-action-btn" onclick="vdReprocess()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ "reprocess"|t(lang) }}</button>';
+                    quickActions.innerHTML = '<button class="micro-quick-action-btn" onclick="vdReprocess()"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ "reprocess"|t(lang) }}</button>';
                     resultEl.insertBefore(quickActions, successBadge.nextSibling);
                 }
                 // Show post-processing section when audio is available
@@ -627,5 +554,12 @@
             params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
         });
     };
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initVoiceDesign);
+    } else {
+        initVoiceDesign();
+    }
 })();
 </script>

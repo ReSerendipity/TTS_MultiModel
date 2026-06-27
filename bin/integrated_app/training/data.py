@@ -1,5 +1,5 @@
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Any
 
 import argbind
 import torch
@@ -24,7 +24,7 @@ def load_audio_text_datasets(
     dataset_id_column: str = DEFAULT_ID_COLUMN,
     sample_rate: int = 16_000,
     num_proc: int = 1,
-) -> Tuple[Dataset, Optional[Dataset]]:
+) -> tuple[Dataset, Dataset | None]:
     data_files = {"train": train_manifest}
     if val_manifest:
         data_files["validation"] = val_manifest
@@ -58,7 +58,7 @@ def compute_sample_lengths(
     ds: Dataset,
     audio_vae_fps: int = 25,
     patch_size: int = 1,
-) -> List[int]:
+) -> list[int]:
     """
     预估每个样本经过 packer 之后的大致序列长度（text+audio），用于过滤超长样本。
 
@@ -120,7 +120,7 @@ class HFVoxCPMDataset(TorchDataset):
         }
 
     @staticmethod
-    def pad_sequences(seqs: List[torch.Tensor], pad_value: float):
+    def pad_sequences(seqs: list[torch.Tensor], pad_value: float):
         if not seqs:
             return torch.empty(0)
         max_len = max(seq.shape[0] for seq in seqs)
@@ -133,7 +133,7 @@ class HFVoxCPMDataset(TorchDataset):
         return torch.stack(padded)
 
     @classmethod
-    def collate_fn(cls, batch: List[Dict]):
+    def collate_fn(cls, batch: list[dict]):
         text_tensors = [torch.tensor(sample["text_ids"], dtype=torch.int32) for sample in batch]
         audio_tensors = [torch.tensor(sample["audio_array"], dtype=torch.float32) for sample in batch]
         dataset_ids = torch.tensor([sample["dataset_id"] for sample in batch], dtype=torch.int32)
@@ -178,7 +178,7 @@ class BatchProcessor:
             audio_vae=self.audio_vae,
         )
 
-    def __call__(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, batch: dict[str, Any]) -> dict[str, torch.Tensor]:
         audio_tokens = batch["audio_tokens"].to(self.device)
         text_tokens = batch["text_tokens"].to(self.device)
         task_ids = batch["task_ids"].to(self.device)

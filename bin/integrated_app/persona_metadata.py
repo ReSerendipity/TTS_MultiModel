@@ -1,13 +1,11 @@
-# -*- coding: utf-8 -*-
 """Persona metadata management: tags, categories, import/export."""
 
-import os
 import json
-import shutil
 import logging
+import os
 import zipfile
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -17,7 +15,7 @@ PERSONA_METADATA_VERSION = 1
 
 class PersonaMetadata:
     """Extended metadata for a persona/voice clone.
-    
+
     Enhances the basic .txt info file with structured metadata including
     tags, categories, usage stats, and creation info.
     """
@@ -26,7 +24,7 @@ class PersonaMetadata:
         self,
         name: str,
         description: str = "",
-        tags: List[str] = None,
+        tags: list[str] = None,
         category: str = "",
         voice_type: str = "",
         traits: str = "",
@@ -50,7 +48,7 @@ class PersonaMetadata:
         self.source_audio = source_audio
         self.language = language
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "version": PERSONA_METADATA_VERSION,
             "name": self.name,
@@ -68,7 +66,7 @@ class PersonaMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PersonaMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> "PersonaMetadata":
         return cls(
             name=data.get("name", ""),
             description=data.get("description", ""),
@@ -87,7 +85,7 @@ class PersonaMetadata:
     @classmethod
     def from_legacy_text(cls, name: str, text: str) -> "PersonaMetadata":
         """Parse legacy .txt info format into metadata.
-        
+
         Legacy format:
         Line 1: Voice type (e.g., 萝莉音)
         Line 2: Description
@@ -97,7 +95,7 @@ class PersonaMetadata:
         voice_type = lines[0].strip() if len(lines) > 0 else ""
         description = lines[1].strip() if len(lines) > 1 else ""
         traits = lines[2].strip() if len(lines) > 2 else ""
-        
+
         return cls(
             name=name,
             description=description,
@@ -123,12 +121,12 @@ VOICE_TAGS = {
 VOICE_CATEGORIES = ["预设音色", "自定义克隆", "声音设计", "剧本角色"]
 
 
-def get_all_tags() -> Dict[str, List[str]]:
+def get_all_tags() -> dict[str, list[str]]:
     """Get all available tag categories and their values."""
     return dict(VOICE_TAGS)
 
 
-def get_categories() -> List[str]:
+def get_categories() -> list[str]:
     """Get all available voice categories."""
     return list(VOICE_CATEGORIES)
 
@@ -139,23 +137,23 @@ class PersonaExporter:
     @staticmethod
     def export_persona(persona_dir: str, output_path: str) -> str:
         """Export a persona to a zip package.
-        
+
         Args:
             persona_dir: Directory containing persona files (.wav, .txt, .pt).
             output_path: Path for the output zip file.
-        
+
         Returns:
             Path to the created zip file.
         """
         persona_name = os.path.basename(persona_dir)
-        
-        with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+
+        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for filename in os.listdir(persona_dir):
                 filepath = os.path.join(persona_dir, filename)
                 if os.path.isfile(filepath):
                     arcname = os.path.join(persona_name, filename)
                     zf.write(filepath, arcname)
-            
+
             # Add metadata.json if it exists
             meta_path = os.path.join(persona_dir, "metadata.json")
             if not os.path.exists(meta_path):
@@ -163,67 +161,67 @@ class PersonaExporter:
                 meta = PersonaMetadata(name=persona_name)
                 txt_path = os.path.join(persona_dir, f"{persona_name}.txt")
                 if os.path.exists(txt_path):
-                    with open(txt_path, "r", encoding="utf-8") as f:
+                    with open(txt_path, encoding="utf-8") as f:
                         meta = PersonaMetadata.from_legacy_text(persona_name, f.read())
                 with open(meta_path, "w", encoding="utf-8") as f:
                     json.dump(meta.to_dict(), f, ensure_ascii=False, indent=2)
-            
+
             zf.write(meta_path, os.path.join(persona_name, "metadata.json"))
-        
+
         return output_path
 
     @staticmethod
     def import_persona(zip_path: str, persona_dir: str) -> str:
         """Import a persona from a zip package.
-        
+
         Args:
             zip_path: Path to the persona zip file.
             persona_dir: Directory to extract the persona into.
-        
+
         Returns:
             Name of the imported persona.
         """
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             for member in zf.namelist():
                 # Skip directory entries and absolute paths
-                if not member or member.startswith('/') or member.startswith('\\'):
+                if not member or member.startswith("/") or member.startswith("\\"):
                     continue
                 target_path = os.path.realpath(os.path.join(persona_dir, member))
                 if not target_path.startswith(os.path.realpath(persona_dir) + os.sep):
                     raise ValueError(f"Zip slip detected: {member}")
                 zf.extract(member, persona_dir)
-        
+
         # Find the persona name from the archive
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             names = zf.namelist()
             if names:
                 persona_name = names[0].split("/")[0]
                 return persona_name
-        
+
         return os.path.splitext(os.path.basename(zip_path))[0]
 
 
 def load_persona_metadata(persona_dir: str, persona_name: str) -> PersonaMetadata:
     """Load persona metadata, falling back to legacy .txt if no metadata.json exists."""
     meta_path = os.path.join(persona_dir, "metadata.json")
-    
+
     if os.path.exists(meta_path):
         try:
-            with open(meta_path, "r", encoding="utf-8") as f:
+            with open(meta_path, encoding="utf-8") as f:
                 data = json.load(f)
                 return PersonaMetadata.from_dict(data)
         except Exception as e:
-            logger.warning(f"Failed to load metadata.json for {persona_name}: {e}")
-    
+            logger.warning(f"加载 {persona_name} 的 metadata.json 失败: {e}")
+
     # Fallback to legacy .txt
     txt_path = os.path.join(persona_dir, f"{persona_name}.txt")
     if os.path.exists(txt_path):
         try:
-            with open(txt_path, "r", encoding="utf-8") as f:
+            with open(txt_path, encoding="utf-8") as f:
                 return PersonaMetadata.from_legacy_text(persona_name, f.read())
         except Exception:
             pass
-    
+
     return PersonaMetadata(name=persona_name)
 
 
@@ -232,7 +230,7 @@ def save_persona_metadata(persona_dir: str, persona_name: str, meta: PersonaMeta
     meta_path = os.path.join(persona_dir, "metadata.json")
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(meta.to_dict(), f, ensure_ascii=False, indent=2)
-    
+
     # Update legacy .txt for backward compatibility
     txt_path = os.path.join(persona_dir, f"{persona_name}.txt")
     with open(txt_path, "w", encoding="utf-8") as f:

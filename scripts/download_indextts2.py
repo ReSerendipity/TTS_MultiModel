@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 IndexTTS 2.0 Model Download Script
 
@@ -9,15 +8,11 @@ Usage:
     python scripts/download_indextts2.py
 """
 
-import os
-import sys
 import logging
+import sys
 from pathlib import Path
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -47,11 +42,7 @@ def download_indextts2_model():
 
     try:
         cache_dir = model_dir.parent / ".cache" / "indextts2"
-        downloaded_path = snapshot_download(
-            "IndexTeam/IndexTTS-2",
-            cache_dir=str(cache_dir),
-            local_dir=str(model_dir)
-        )
+        downloaded_path = snapshot_download("IndexTeam/IndexTTS-2", cache_dir=str(cache_dir), local_dir=str(model_dir))
 
         logger.info(f"下载完成: {downloaded_path}")
 
@@ -86,6 +77,7 @@ def download_indextts2_model():
     except Exception as e:
         logger.error(f"下载失败: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

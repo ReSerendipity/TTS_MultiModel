@@ -29,10 +29,12 @@ __all__ = [
     "fn_voxcpm_prompt_continue",
 ]
 
-from .indextts2_engine import IndexTTS2Engine
 from ..engine_interface import engine_registry
+from .indextts2_engine import IndexTTS2Engine
 
 engine_registry.register(
-    "indextts2", IndexTTS2Engine,
-    display_name="IndexTTS 2.0", vram_requirement=6.0,
+    "indextts2",
+    IndexTTS2Engine,
+    display_name="IndexTTS 2.0",
+    vram_requirement=6.0,
 )

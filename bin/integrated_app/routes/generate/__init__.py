@@ -1,6 +1,4 @@
+from . import indextts2, voxcpm2
 from .utils import router
 
-from . import voxcpm2
-from . import indextts2
-
-__all__ = ["router"]
+__all__ = ["router", "indextts2", "voxcpm2"]

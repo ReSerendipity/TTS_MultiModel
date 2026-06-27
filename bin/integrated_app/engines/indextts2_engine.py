@@ -1,20 +1,19 @@
-# -*- coding: utf-8 -*-
 """IndexTTS 2.0 Engine Adapter for TTS MultiModel.
 
 Provides a unified interface for IndexTTS 2.0 inference, supporting:
 - Zero-shot voice cloning
 - Emotion control (audio prompt, vector, text)
 - Duration control
-- Multi-backend GPU support (CUDA/ROCM/XPU/MPS/CPU)
+- Multi-backend GPU support (CUDA/MPS/CPU)
 """
 
-import os
 import gc
-import time
 import logging
+import os
 import tempfile
+import time
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -33,21 +32,21 @@ class IndexTTS2Engine:
 
     # 情感维度定义 (8维情感向量)
     EMOTION_DIMENSIONS = [
-        "happy",       # 开心
-        "angry",       # 愤怒
-        "sad",         # 悲伤
-        "afraid",      # 害怕
-        "disgusted",   # 厌恶
-        "melancholic", # 忧郁
-        "surprised",   # 惊讶
-        "calm",        # 平静
+        "happy",  # 开心
+        "angry",  # 愤怒
+        "sad",  # 悲伤
+        "afraid",  # 害怕
+        "disgusted",  # 厌恶
+        "melancholic",  # 忧郁
+        "surprised",  # 惊讶
+        "calm",  # 平静
     ]
 
     def __init__(
         self,
-        model_dir: Optional[str] = None,
+        model_dir: str | None = None,
         use_fp16: bool = True,
-        device: Optional[str] = None,
+        device: str | None = None,
         use_deepspeed: bool = False,
     ):
         """初始化 IndexTTS 2.0 引擎
@@ -55,10 +54,10 @@ class IndexTTS2Engine:
         Args:
             model_dir: 模型文件目录路径
             use_fp16: 是否使用 FP16 精度（降低显存占用约50%）
-            device: 指定运行设备 ("cuda", "xpu", "mps", "cpu")，None 则自动检测
+            device: 指定运行设备 ("cuda", "mps", "cpu")，None 则自动检测
             use_deepspeed: 是否启用 DeepSpeed 加速（需额外安装 DeepSpeed）
         """
-        from ..gpu_backend import GPUBackendManager, GPUBackend
+        from ..gpu_backend import GPUBackend, GPUBackendManager
 
         # 确定模型路径
         if model_dir is None:
@@ -73,12 +72,8 @@ class IndexTTS2Engine:
         if device:
             self.device = device
         else:
-            if self.backend == GPUBackend.CUDA or self.backend == GPUBackend.ROCM:
+            if self.backend == GPUBackend.CUDA:
                 self.device = "cuda"
-                # MPS 不支持 FP16，CPU 不需要 FP16
-                self.use_fp16 = use_fp16 and self.backend != GPUBackend.CPU
-            elif self.backend == GPUBackend.XPU:
-                self.device = "xpu"
                 self.use_fp16 = use_fp16
             elif self.backend == GPUBackend.MPS:
                 self.device = "mps"
@@ -120,8 +115,7 @@ class IndexTTS2Engine:
 
         if missing_files:
             raise FileNotFoundError(
-                f"IndexTTS 2.0 模型文件缺失: {missing_files}\n"
-                f"请运行: python scripts/download_indextts2.py 下载模型"
+                f"IndexTTS 2.0 模型文件缺失: {missing_files}\n请运行: python scripts/download_indextts2.py 下载模型"
             )
 
         logger.info(f"[IndexTTS2] 模型文件验证通过: {self.model_dir}")
@@ -132,9 +126,8 @@ class IndexTTS2Engine:
             from indextts.infer_v2 import IndexTTS2
         except ImportError:
             raise ImportError(
-                "indextts 未安装，请运行: pip install indextts\n"
-                "或参考: https://github.com/index-tts/index-tts"
-            )
+                "indextts 未安装，请运行: pip install indextts\n或参考: https://github.com/index-tts/index-tts"
+            ) from None
 
         config_path = os.path.join(self.model_dir, "config.yaml")
 
@@ -168,9 +161,9 @@ class IndexTTS2Engine:
         device_str = self.device
 
         components_moved = []
-        for attr in ['gpt', 's2mel', 'vocoder', 'codec']:
+        for attr in ["gpt", "s2mel", "vocoder", "codec"]:
             sub = getattr(self.tts, attr, None)
-            if sub is not None and hasattr(sub, 'to'):
+            if sub is not None and hasattr(sub, "to"):
                 try:
                     sub.to(device_str)
                     components_moved.append(attr)
@@ -187,13 +180,12 @@ class IndexTTS2Engine:
             from ..gpu_backend import GPUBackendManager
 
             mem_info = GPUBackendManager.get_memory_info()
-            total_gb = mem_info[0] / (1024 ** 3)
-            allocated_gb = mem_info[1] / (1024 ** 3)
-            free_gb = mem_info[3] / (1024 ** 3)
+            total_gb = mem_info[0] / (1024**3)
+            allocated_gb = mem_info[1] / (1024**3)
+            free_gb = mem_info[3] / (1024**3)
 
             logger.info(
-                f"[IndexTTS2] 显存状态: 总计 {total_gb:.2f}GB, "
-                f"已分配 {allocated_gb:.2f}GB, 可用 {free_gb:.2f}GB"
+                f"[IndexTTS2] 显存状态: 总计 {total_gb:.2f}GB, 已分配 {allocated_gb:.2f}GB, 可用 {free_gb:.2f}GB"
             )
         except Exception as e:
             logger.debug(f"[IndexTTS2] 获取显存信息失败: {e}")
@@ -202,15 +194,15 @@ class IndexTTS2Engine:
         self,
         text: str,
         spk_audio_prompt: str,
-        output_path: Optional[str] = None,
-        emo_audio_prompt: Optional[str] = None,
+        output_path: str | None = None,
+        emo_audio_prompt: str | None = None,
         emo_alpha: float = 0.8,
-        emo_vector: Optional[List[float]] = None,
-        emo_text: Optional[str] = None,
+        emo_vector: list[float] | None = None,
+        emo_text: str | None = None,
         use_emo_text: bool = False,
-        target_duration: Optional[float] = None,
-        seed: Optional[int] = None,
-        **kwargs
+        target_duration: float | None = None,
+        seed: int | None = None,
+        **kwargs,
     ) -> str:
         """执行语音合成
 
@@ -258,9 +250,7 @@ class IndexTTS2Engine:
                 infer_kwargs["emo_audio_prompt"] = emo_audio_prompt
             if emo_vector:
                 if len(emo_vector) != 8:
-                    logger.warning(
-                        f"[IndexTTS2] emo_vector 应为 8 维，当前为 {len(emo_vector)} 维"
-                    )
+                    logger.warning(f"[IndexTTS2] emo_vector 应为 8 维，当前为 {len(emo_vector)} 维")
                 else:
                     infer_kwargs["emo_vector"] = emo_vector
             if emo_text:
@@ -293,16 +283,17 @@ class IndexTTS2Engine:
         except Exception as e:
             logger.error(f"[IndexTTS2] 合成失败: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
             raise RuntimeError(f"IndexTTS 2.0 合成失败: {e}") from e
 
-    def get_memory_info(self) -> Dict[str, float]:
+    def get_memory_info(self) -> dict[str, Any]:
         """获取显存使用情况
 
         Returns:
             包含显存信息的字典 (单位: GB)
         """
-        from ..gpu_backend import GPUBackendManager, GPUBackend
+        from ..gpu_backend import GPUBackend, GPUBackendManager
 
         if self.backend == GPUBackend.CPU:
             return {
@@ -315,15 +306,15 @@ class IndexTTS2Engine:
 
         mem_info = GPUBackendManager.get_memory_info()
         return {
-            "total_gb": mem_info[0] / (1024 ** 3),
-            "allocated_gb": mem_info[1] / (1024 ** 3),
-            "reserved_gb": mem_info[2] / (1024 ** 3),
-            "free_gb": mem_info[3] / (1024 ** 3),
+            "total_gb": mem_info[0] / (1024**3),
+            "allocated_gb": mem_info[1] / (1024**3),
+            "reserved_gb": mem_info[2] / (1024**3),
+            "free_gb": mem_info[3] / (1024**3),
             "device": self.device,
         }
 
     def is_ready(self) -> bool:
-        return hasattr(self, 'tts') and self.tts is not None
+        return hasattr(self, "tts") and self.tts is not None
 
     def load(self) -> None:
         self._load_model()
@@ -332,19 +323,22 @@ class IndexTTS2Engine:
         """卸载模型释放显存/内存"""
         logger.info("[IndexTTS2] 开始卸载模型...")
 
-        if hasattr(self, 'tts'):
+        if hasattr(self, "tts") and self.tts is not None:
             # 删除所有模型组件引用
-            for attr in ['gpt', 's2mel', 'vocoder', 'codec']:
-                sub = getattr(self.tts, attr, None)
-                if sub is not None:
-                    del sub
+            for attr in ["gpt", "s2mel", "vocoder", "codec"]:
+                if hasattr(self.tts, attr):
+                    try:
+                        delattr(self.tts, attr)
+                    except Exception as e:
+                        logger.debug(f"[IndexTTS2] 删除属性 {attr} 失败: {e}")
             del self.tts
             self.tts = None
 
         gc.collect()
 
         # 清理 GPU 缓存
-        from ..gpu_backend import GPUBackendManager, GPUBackend
+        from ..gpu_backend import GPUBackend, GPUBackendManager
+
         if self.backend != GPUBackend.CPU:
             GPUBackendManager.synchronize()
             GPUBackendManager.empty_cache()
@@ -362,7 +356,7 @@ class IndexTTS2Engine:
         melancholic: float = 0.0,
         surprised: float = 0.0,
         calm: float = 0.0,
-    ) -> List[float]:
+    ) -> list[float]:
         """构建 8 维情感向量
 
         Args:
@@ -383,7 +377,7 @@ class IndexTTS2Engine:
         ]
 
     @staticmethod
-    def get_preset_emotions() -> Dict[str, List[float]]:
+    def get_preset_emotions() -> dict[str, list[float]]:
         """获取预设情感模板
 
         Returns:
@@ -431,7 +425,7 @@ class IndexTTS2Engine:
     def generate_voice_clone(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         instruction: str = "",
         normalize: bool = True,
         **kwargs,
@@ -456,7 +450,7 @@ class IndexTTS2Engine:
     def generate_streaming(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         **kwargs,
     ):
         raise NotImplementedError(

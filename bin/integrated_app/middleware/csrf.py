@@ -1,9 +1,11 @@
 """CSRF Protection Middleware"""
-import secrets
+
 import logging
+import secrets
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 
 logger = logging.getLogger("tts_multimodel")
 

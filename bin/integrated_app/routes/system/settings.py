@@ -1,21 +1,22 @@
-import os
 import json
-from typing import List, Dict, Any, Optional
+import logging
+import os
+from typing import Any
 
+import aiofiles
 from fastapi import APIRouter, Request
 
-import logging
 logger = logging.getLogger("tts_multimodel")
 
 router = APIRouter(tags=["system"])
 
-from .gpu import _get_gpu_device, _get_gpu_utilization
-from .logs import log_operation
-
+from .gpu import _get_gpu_device, _get_gpu_utilization  # noqa: E402
+from .logs import log_operation  # noqa: E402
 
 _ADVANCED_PARAMS_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "..", "advanced_params.json",
+    "..",
+    "advanced_params.json",
 )
 
 
@@ -25,7 +26,8 @@ def _resolve_advanced_params_path() -> str:
 
 _GENERAL_SETTINGS_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "..", "general_settings.json",
+    "..",
+    "general_settings.json",
 )
 
 
@@ -35,7 +37,8 @@ def _resolve_general_settings_path() -> str:
 
 _GENERATION_DEFAULTS_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "..", "generation_defaults.json",
+    "..",
+    "generation_defaults.json",
 )
 
 
@@ -61,43 +64,44 @@ _DEFAULT_GENERAL_SETTINGS = {
 }
 
 
-def _load_general_settings() -> dict:
+async def _load_general_settings() -> dict:
     config_path = _resolve_general_settings_path()
     try:
         if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            async with aiofiles.open(config_path, encoding="utf-8") as f:
+                content = await f.read()
+                data = json.loads(content)
                 merged = dict(_DEFAULT_GENERAL_SETTINGS)
                 merged.update(data)
                 return merged
     except Exception as e:
-        logger.warning(f"Failed to load general settings: {e}")
+        logger.warning(f"加载通用设置失败: {e}")
     return dict(_DEFAULT_GENERAL_SETTINGS)
 
 
-def _load_generation_defaults() -> dict:
+async def _load_generation_defaults() -> dict:
     config_path = _resolve_generation_defaults_path()
     try:
         if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            async with aiofiles.open(config_path, encoding="utf-8") as f:
+                content = await f.read()
+                data = json.loads(content)
                 merged = dict(_DEFAULT_GENERATION_DEFAULTS)
                 merged.update(data)
                 return merged
     except Exception as e:
-        logger.warning(f"Failed to load generation defaults: {e}")
+        logger.warning(f"加载默认生成参数失败: {e}")
     return dict(_DEFAULT_GENERATION_DEFAULTS)
 
 
 @router.get("/settings", summary="系统设置", description="获取当前系统配置")
-def get_settings():
+async def get_settings():
     try:
-        from ...config import PRETRAINED_DIR, LORA_DIR
-        from ...model_manager import get_persona_cache_stats
-        from ...model_registry import registry
+        from ...config import PRETRAINED_DIR
         from ...engines.voxcpm2_engine import fn_voxcpm_get_lora_state
+        from ...model_manager import get_persona_cache_stats
     except Exception as e:
-        logger.warning(f"Failed to import modules for settings: {e}")
+        logger.warning(f"导入设置模块失败: {e}")
         return {"status": "error", "message": str(e)}
 
     settings = {
@@ -124,8 +128,7 @@ def get_settings():
     }
 
     try:
-        import torch
-        from ...gpu_backend import GPUBackendManager, GPUBackend
+        from ...gpu_backend import GPUBackend, GPUBackendManager
 
         backend = GPUBackendManager.detect_backend()
         if backend != GPUBackend.CPU:
@@ -140,6 +143,7 @@ def get_settings():
     if settings["device"] == "CPU":
         try:
             import psutil
+
             cpu_mem = psutil.virtual_memory()
             used = cpu_mem.total - cpu_mem.available
             free = cpu_mem.available
@@ -149,17 +153,16 @@ def get_settings():
             settings["memory_percent"] = round(used / cpu_mem.total * 100, 1) if cpu_mem.total > 0 else 0
             settings["cpu_util"] = f"{round(psutil.cpu_percent(interval=0), 1)}%"
         except Exception as e:
-            logger.debug(f"CPU memory check failed: {e}")
+            logger.debug(f"CPU 内存检查失败: {e}")
 
     try:
-        import torch
-        from ...gpu_backend import GPUBackendManager, GPUBackend
+        from ...gpu_backend import GPUBackend, GPUBackendManager
 
         backend = GPUBackendManager.detect_backend()
         if backend != GPUBackend.CPU:
             device = _get_gpu_device()
             props = GPUBackendManager.get_device_properties(device)
-            total = props.get('total_memory', 0)
+            total = props.get("total_memory", 0)
             allocated = GPUBackendManager.memory_allocated(device)
             reserved = GPUBackendManager.memory_reserved(device)
             used = max(allocated, reserved)
@@ -175,12 +178,13 @@ def get_settings():
                 settings["gpu_util"] = f"{int(gpu_util)}%"
             except Exception as e:
                 settings["gpu_util"] = "N/A"
-                logger.warning(f"Settings GPU util check failed: {e}")
+                logger.warning(f"设置页面 GPU 利用率检查失败: {e}")
     except Exception as e:
-        logger.debug(f"Non-critical error: {e}")
+        logger.debug(f"非关键错误: {e}")
 
     try:
         from ...model_registry import registry as _reg
+
         if _reg.current_engine == "voxcpm2":
             lora_state = fn_voxcpm_get_lora_state()
             if lora_state.get("loaded"):
@@ -190,7 +194,7 @@ def get_settings():
         else:
             settings["current_lora"] = "不适用"
     except Exception as e:
-        logger.debug(f"Non-critical error: {e}")
+        logger.debug(f"非关键错误: {e}")
 
     try:
         cache_stats = get_persona_cache_stats()
@@ -200,15 +204,15 @@ def get_settings():
         settings["cache_entries"] = cache_stats.get("size", 0)
         settings["cache_size_mb"] = cache_stats.get("size", 0) * 2
     except Exception as e:
-        logger.debug(f"Non-critical error: {e}")
+        logger.debug(f"非关键错误: {e}")
 
     try:
-        settings["general_settings"] = _load_general_settings()
+        settings["general_settings"] = await _load_general_settings()
     except Exception:
         settings["general_settings"] = {}
 
     try:
-        settings["generation_defaults"] = _load_generation_defaults()
+        settings["generation_defaults"] = await _load_generation_defaults()
     except Exception:
         settings["generation_defaults"] = dict(_DEFAULT_GENERATION_DEFAULTS)
 
@@ -219,10 +223,11 @@ def get_settings():
 def get_advanced_params():
     try:
         from ...engines.voxcpm2_engine import get_advanced_params as _get_params
+
         params = _get_params()
         return {"status": "ok", "params": params}
     except Exception as e:
-        logger.warning(f"Failed to get advanced params: {e}")
+        logger.warning(f"获取高级参数失败: {e}")
         return {"status": "error", "message": str(e), "params": {}}
 
 
@@ -234,39 +239,39 @@ async def save_advanced_params(request: Request):
         payload = {}
 
     try:
-        from ...engines.voxcpm2_engine import build_advanced_params, get_advanced_params as _get_params
+        from ...engines.voxcpm2_engine import build_advanced_params
 
-        validated = {}
+        validated: dict[str, Any] = {}
         # max_len and split_max_chars are now fixed values, removed from UI
         if "retry_badcase" in payload:
             validated["retry_badcase"] = bool(payload["retry_badcase"])
         if "retry_badcase_max_times" in payload:
-            val = int(payload["retry_badcase_max_times"])
-            validated["retry_badcase_max_times"] = max(0, min(10, val))
+            retry_badcase_max_times = int(payload["retry_badcase_max_times"])
+            validated["retry_badcase_max_times"] = max(0, min(10, retry_badcase_max_times))
         if "retry_badcase_ratio_threshold" in payload:
-            val = float(payload["retry_badcase_ratio_threshold"])
-            validated["retry_badcase_ratio_threshold"] = max(1.0, min(20.0, val))
+            retry_badcase_ratio_threshold = float(payload["retry_badcase_ratio_threshold"])
+            validated["retry_badcase_ratio_threshold"] = max(1.0, min(20.0, retry_badcase_ratio_threshold))
         if "trim_silence_vad" in payload:
             validated["trim_silence_vad"] = bool(payload["trim_silence_vad"])
         if "target_lufs" in payload:
-            val = float(payload["target_lufs"])
-            validated["target_lufs"] = max(-30.0, min(0.0, val))
+            target_lufs = float(payload["target_lufs"])
+            validated["target_lufs"] = max(-30.0, min(0.0, target_lufs))
         if "idle_timeout" in payload:
-            val = int(payload["idle_timeout"])
-            validated["idle_timeout"] = max(60, min(3600, val))
+            idle_timeout = int(payload["idle_timeout"])
+            validated["idle_timeout"] = max(60, min(3600, idle_timeout))
 
         new_config = build_advanced_params(**validated)
 
         config_path = _resolve_advanced_params_path()
         current = new_config.to_dict()
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(current, f, ensure_ascii=False, indent=2)
+        async with aiofiles.open(config_path, "w", encoding="utf-8") as f:
+            await f.write(json.dumps(current, ensure_ascii=False, indent=2))
 
         log_operation("config", "Advanced params updated", validated)
         return {"status": "ok", "params": current}
 
     except Exception as e:
-        logger.error(f"Failed to save advanced params: {e}", exc_info=True)
+        logger.error(f"保存高级参数失败: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 
@@ -277,7 +282,7 @@ async def save_general_settings(request: Request):
     except Exception:
         payload = {}
 
-    validated = {}
+    validated: dict[str, Any] = {}
     if "language" in payload:
         validated["language"] = str(payload["language"])
     if "theme" in payload:
@@ -293,24 +298,24 @@ async def save_general_settings(request: Request):
 
     config_path = _resolve_general_settings_path()
     try:
-        existing = _load_general_settings()
+        existing = await _load_general_settings()
         existing.update(validated)
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(existing, f, ensure_ascii=False, indent=2)
+        async with aiofiles.open(config_path, "w", encoding="utf-8") as f:
+            await f.write(json.dumps(existing, ensure_ascii=False, indent=2))
         log_operation("config", "General settings updated", validated)
         return {"status": "ok", "settings": existing}
     except Exception as e:
-        logger.error(f"Failed to save general settings: {e}", exc_info=True)
+        logger.error(f"保存通用设置失败: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 
 @router.get("/generation_defaults", summary="默认生成参数", description="获取默认生成参数配置")
-def get_generation_defaults():
+async def get_generation_defaults():
     try:
-        params = _load_generation_defaults()
+        params = await _load_generation_defaults()
         return {"status": "ok", "params": params}
     except Exception as e:
-        logger.warning(f"Failed to get generation defaults: {e}")
+        logger.warning(f"获取默认生成参数失败: {e}")
         return {"status": "error", "message": str(e), "params": dict(_DEFAULT_GENERATION_DEFAULTS)}
 
 
@@ -321,27 +326,27 @@ async def save_generation_defaults(request: Request):
     except Exception:
         payload = {}
 
-    validated = {}
+    validated: dict[str, Any] = {}
     if "default_sample_rate" in payload:
-        val = int(payload["default_sample_rate"])
-        validated["default_sample_rate"] = max(16000, min(48000, val))
+        default_sample_rate = int(payload["default_sample_rate"])
+        validated["default_sample_rate"] = max(16000, min(48000, default_sample_rate))
     if "default_speed" in payload:
-        val = float(payload["default_speed"])
-        validated["default_speed"] = max(0.1, min(3.0, val))
+        default_speed = float(payload["default_speed"])
+        validated["default_speed"] = max(0.1, min(3.0, default_speed))
     if "default_seed" in payload:
         validated["default_seed"] = int(payload["default_seed"])
     if "script_studio_silence_secs" in payload:
-        val = float(payload["script_studio_silence_secs"])
-        validated["script_studio_silence_secs"] = max(0.0, min(2.0, val))
+        script_studio_silence_secs = float(payload["script_studio_silence_secs"])
+        validated["script_studio_silence_secs"] = max(0.0, min(2.0, script_studio_silence_secs))
 
     config_path = _resolve_generation_defaults_path()
     try:
-        existing = _load_generation_defaults()
+        existing = await _load_generation_defaults()
         existing.update(validated)
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(existing, f, ensure_ascii=False, indent=2)
+        async with aiofiles.open(config_path, "w", encoding="utf-8") as f:
+            await f.write(json.dumps(existing, ensure_ascii=False, indent=2))
         log_operation("config", "Generation defaults updated", validated)
         return {"status": "ok", "params": existing}
     except Exception as e:
-        logger.error(f"Failed to save generation defaults: {e}", exc_info=True)
+        logger.error(f"保存默认生成参数失败: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}

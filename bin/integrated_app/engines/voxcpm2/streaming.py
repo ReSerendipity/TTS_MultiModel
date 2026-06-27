@@ -1,7 +1,5 @@
 import time
 
-import numpy as np
-
 from ._base import (
     GenerationError,
     _advanced_kwargs,
@@ -13,9 +11,14 @@ from .decorators import with_generation_context
 
 
 @with_generation_context(phase_name="VoxCPM流式生成")
-def fn_voxcpm_streaming(text: str, ref_audio_path: str | None = None,
-                        cfg_value: float = 2.0, inference_timesteps: int = 10,
-                        denoise: bool = True, seed: int = -1):
+def fn_voxcpm_streaming(
+    text: str,
+    ref_audio_path: str | None = None,
+    cfg_value: float = 2.0,
+    inference_timesteps: int = 10,
+    denoise: bool = True,
+    seed: int = -1,
+):
     from ...model_registry import registry
 
     start_time = time.time()
@@ -30,7 +33,7 @@ def fn_voxcpm_streaming(text: str, ref_audio_path: str | None = None,
         _progress_mgr.advance_segment("流式推理生成中...")
         logger.info(f"[VoxCPM流式生成] 第 1/1 段，使用 {'reference_wav' if ref_audio_path else '默认音色'} 模式...")
 
-        if hasattr(registry.voxcpm_model, 'generate_streaming'):
+        if hasattr(registry.voxcpm_model, "generate_streaming"):
             return registry.voxcpm_model.generate_streaming(
                 text=segments[0],
                 reference_wav_path=ref_audio_path if ref_audio_path else "",
@@ -65,16 +68,16 @@ def fn_voxcpm_streaming(text: str, ref_audio_path: str | None = None,
         if not seg:
             continue
 
-        _progress_mgr.advance_segment(f"第 {idx+1}/{total} 段推理中...")
+        _progress_mgr.advance_segment(f"第 {idx + 1}/{total} 段推理中...")
         elapsed = time.time() - start_time
         if idx > 0:
             avg = elapsed / idx
             remaining = avg * (total - idx)
-            logger.info(f"[VoxCPM流式生成] 第 {idx+1}/{total} 段，已耗时 {elapsed:.1f}s，预计剩余 {remaining:.1f}s")
+            logger.info(f"[VoxCPM流式生成] 第 {idx + 1}/{total} 段，已耗时 {elapsed:.1f}s，预计剩余 {remaining:.1f}s")
         else:
-            logger.info(f"[VoxCPM流式生成] 第 {idx+1}/{total} 段...")
+            logger.info(f"[VoxCPM流式生成] 第 {idx + 1}/{total} 段...")
 
-        if hasattr(registry.voxcpm_model, 'generate_streaming'):
+        if hasattr(registry.voxcpm_model, "generate_streaming"):
             for chunk in registry.voxcpm_model.generate_streaming(
                 text=seg,
                 reference_wav_path=ref_audio_path if ref_audio_path else "",

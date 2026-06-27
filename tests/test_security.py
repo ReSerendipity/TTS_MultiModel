@@ -151,7 +151,8 @@ class TestPathTraversal:
         """Normal path passes validation."""
         from integrated_app.routes.training import _validate_path
         result = _validate_path("/app", "pretrained_models/model")
-        assert result.startswith("/app")
+        normalized = os.path.normpath(result)
+        assert normalized.endswith(os.path.normpath("/app/pretrained_models/model"))
 
     def test_validate_path_traversal_rejected(self):
         """Path traversal attack is rejected."""

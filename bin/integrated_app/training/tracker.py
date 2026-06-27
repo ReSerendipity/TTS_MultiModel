@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import contextlib
-import sys
+import logging
 import time
 from pathlib import Path
-from typing import Dict
+
+logger = logging.getLogger("tts_multimodel.training.tracker")
 
 
 class TrainingTracker:
@@ -37,12 +38,12 @@ class TrainingTracker:
     # ------------------------------------------------------------------ #
     def print(self, message: str):
         if self.rank == 0:
-            print(message, flush=True, file=sys.stderr)
+            logger.info(message)
             if self.log_file:
                 with self.log_file.open("a", encoding="utf-8") as f:
                     f.write(message + "\n")
 
-    def log_metrics(self, metrics: Dict[str, float], split: str):
+    def log_metrics(self, metrics: dict[str, float], split: str):
         if self.rank == 0:
             now = time.time()
             dt_str = ""

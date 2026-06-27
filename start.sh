@@ -12,4 +12,4 @@ PORT=${PORT:-7869}
 HOST=${HOST:-127.0.0.1}
 
 echo "启动服务: http://${HOST}:${PORT}"
-python -m integrated_app.cli --host "$HOST" --port "$PORT"
+python -c "from integrated_app.app_server import run_server; run_server('${HOST}', ${PORT})"

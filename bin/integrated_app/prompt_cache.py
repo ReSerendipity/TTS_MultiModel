@@ -6,27 +6,29 @@
 """
 
 import base64
+import contextlib
 import hashlib
 import json
 import logging
-import struct
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
+np: Any = None
 try:
     import numpy as np
+
     _HAS_NUMPY = True
 except ImportError:
-    np = None
     _HAS_NUMPY = False
 
+torch: Any = None
 try:
     import torch
+
     _HAS_TORCH = True
 except ImportError:
-    torch = None
     _HAS_TORCH = False
 
 logger = logging.getLogger("tts_multimodel")
@@ -99,27 +101,33 @@ def _deserialize_prompt_cache(data):
 def _ensure_cache_dir():
     _PROMPT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def _get_prompt_cache_key(audio_path: str) -> str:
     h = hashlib.sha256()
     try:
-        with open(audio_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
+        with open(audio_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
                 h.update(chunk)
     except OSError:
-        h.update(audio_path.encode('utf-8'))
+        h.update(audio_path.encode("utf-8"))
     return h.hexdigest()[:16]
+
 
 def _get_cache_file_path(cache_key: str) -> Path:
     return _PROMPT_CACHE_DIR / f"{cache_key}.json"
 
+
 def _get_old_cache_file_path(cache_key: str) -> Path:
     return _PROMPT_CACHE_DIR / f"{cache_key}.pkl"
+
 
 def _get_metadata_path() -> Path:
     return _PROMPT_CACHE_DIR / "metadata.json"
 
+
 def _get_old_metadata_path() -> Path:
     return _PROMPT_CACHE_DIR / "metadata.pkl"
+
 
 def _migrate_legacy_metadata() -> dict:
     """尝试从旧版 metadata.pkl 迁移元数据到新格式。"""
@@ -128,26 +136,26 @@ def _migrate_legacy_metadata() -> dict:
         return {}
     try:
         import pickle as _pickle
-        with open(old_path, 'rb') as f:
+
+        with open(old_path, "rb") as f:
             metadata = _pickle.load(f)
         if isinstance(metadata, dict):
             metadata["version"] = _METADATA_VERSION
             _save_metadata(metadata)
-            try:
+            with contextlib.suppress(OSError):
                 old_path.unlink()
-            except OSError:
-                pass
             logger.info("已将元数据从 metadata.pkl 迁移为 metadata.json")
             return metadata
     except Exception as e:
         logger.warning(f"迁移旧版元数据失败: {e}")
     return {}
 
+
 def _load_metadata() -> dict:
     meta_path = _get_metadata_path()
     if meta_path.exists():
         try:
-            with open(meta_path, 'r', encoding='utf-8') as f:
+            with open(meta_path, encoding="utf-8") as f:
                 metadata = json.load(f)
             if not isinstance(metadata, dict):
                 return {}
@@ -157,33 +165,33 @@ def _load_metadata() -> dict:
     # 尝试从旧格式迁移
     return _migrate_legacy_metadata()
 
+
 def _save_metadata(metadata: dict):
     meta_path = _get_metadata_path()
     try:
         metadata["version"] = _METADATA_VERSION
-        with open(meta_path, 'w', encoding='utf-8') as f:
+        with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
     except (json.JSONDecodeError, OSError, TypeError) as e:
         logger.warning(f"保存缓存元数据失败: {e}")
 
+
 def _cleanup_expired(metadata: dict):
     now = time.time()
     expired_keys = [
-        k for k, v in metadata.items()
-        if k != "version" and now - v.get("created_at", 0) > _CACHE_TTL_SECONDS
+        k for k, v in metadata.items() if k != "version" and now - v.get("created_at", 0) > _CACHE_TTL_SECONDS
     ]
     for key in expired_keys:
         cache_file = _get_cache_file_path(key)
         if cache_file.exists():
-            try:
+            with contextlib.suppress(OSError):
                 cache_file.unlink()
-            except OSError:
-                pass
         del metadata[key]
     if expired_keys:
         logger.info(f"清理了 {len(expired_keys)} 个过期缓存条目")
         _save_metadata(metadata)
     return metadata
+
 
 def _evict_lru(metadata: dict) -> dict:
     entries = {k: v for k, v in metadata.items() if k != "version"}
@@ -191,15 +199,14 @@ def _evict_lru(metadata: dict) -> dict:
         oldest_key = min(entries, key=lambda k: entries[k].get("last_accessed", 0))
         cache_file = _get_cache_file_path(oldest_key)
         if cache_file.exists():
-            try:
+            with contextlib.suppress(OSError):
                 cache_file.unlink()
-            except OSError:
-                pass
         del metadata[oldest_key]
         del entries[oldest_key]
         logger.info(f"LRU 淘汰缓存条目: {oldest_key}")
     _save_metadata(metadata)
     return metadata
+
 
 def _migrate_legacy_cache(cache_key: str) -> Any | None:
     """尝试从旧版 .pkl 缓存文件迁移到新 JSON 格式。"""
@@ -208,23 +215,23 @@ def _migrate_legacy_cache(cache_key: str) -> Any | None:
         return None
     try:
         import pickle as _pickle
-        with open(old_path, 'rb') as f:
+
+        with open(old_path, "rb") as f:
             prompt_cache = _pickle.load(f)
         # 保存为新格式
         new_path = _get_cache_file_path(cache_key)
         serialized = _serialize_prompt_cache(prompt_cache)
-        with open(new_path, 'w', encoding='utf-8') as f:
+        with open(new_path, "w", encoding="utf-8") as f:
             json.dump(serialized, f, ensure_ascii=False)
         # 删除旧文件
-        try:
+        with contextlib.suppress(OSError):
             old_path.unlink()
-        except OSError:
-            pass
         logger.info(f"已将缓存 {cache_key} 从 .pkl 迁移为 .json")
         return prompt_cache
     except Exception as e:
         logger.warning(f"迁移旧版缓存失败 ({cache_key}): {e}")
         return None
+
 
 def load_cached_prompt(audio_path: str) -> Any | None:
     with _lock:
@@ -244,7 +251,9 @@ def load_cached_prompt(audio_path: str) -> Any | None:
                     metadata[cache_key]["last_accessed"] = now
                     metadata[cache_key]["access_count"] = metadata[cache_key].get("access_count", 0) + 1
                     _save_metadata(metadata)
-                    logger.info(f"Prompt Cache 命中(迁移): {audio_path} (访问 {metadata[cache_key]['access_count']} 次)")
+                    logger.info(
+                        f"Prompt Cache 命中(迁移): {audio_path} (访问 {metadata[cache_key]['access_count']} 次)"
+                    )
                 return migrated
             return None
 
@@ -260,7 +269,7 @@ def load_cached_prompt(audio_path: str) -> Any | None:
         _save_metadata(metadata)
 
         try:
-            with open(cache_file, 'r', encoding='utf-8') as f:
+            with open(cache_file, encoding="utf-8") as f:
                 data = json.load(f)
             prompt_cache = _deserialize_prompt_cache(data)
             logger.info(f"Prompt Cache 命中: {audio_path} (访问 {metadata[cache_key]['access_count']} 次)")
@@ -268,14 +277,13 @@ def load_cached_prompt(audio_path: str) -> Any | None:
         except (json.JSONDecodeError, OSError, Exception) as e:
             logger.warning(f"读取缓存失败: {e}")
             if cache_file.exists():
-                try:
+                with contextlib.suppress(OSError):
                     cache_file.unlink()
-                except OSError:
-                    pass
             if cache_key in metadata:
                 del metadata[cache_key]
                 _save_metadata(metadata)
             return None
+
 
 def save_prompt_cache(audio_path: str, prompt_cache: Any):
     with _lock:
@@ -298,13 +306,14 @@ def save_prompt_cache(audio_path: str, prompt_cache: Any):
 
         try:
             serialized = _serialize_prompt_cache(prompt_cache)
-            with open(cache_file, 'w', encoding='utf-8') as f:
+            with open(cache_file, "w", encoding="utf-8") as f:
                 json.dump(serialized, f, ensure_ascii=False)
             metadata[cache_key]["file_size"] = cache_file.stat().st_size
             _save_metadata(metadata)
             logger.info(f"Prompt Cache 已保存: {audio_path}")
         except (json.JSONDecodeError, OSError, TypeError, Exception) as e:
             logger.warning(f"保存缓存失败: {e}")
+
 
 def clear_prompt_cache():
     with _lock:
@@ -318,20 +327,17 @@ def clear_prompt_cache():
             old_cache_file = _get_old_cache_file_path(key)
             for f in (cache_file, old_cache_file):
                 if f.exists():
-                    try:
+                    with contextlib.suppress(OSError):
                         f.unlink()
                         cleared += 1
-                    except OSError:
-                        pass
         meta_path = _get_metadata_path()
         old_meta_path = _get_old_metadata_path()
         for f in (meta_path, old_meta_path):
             if f.exists():
-                try:
+                with contextlib.suppress(OSError):
                     f.unlink()
-                except OSError:
-                    pass
         logger.info(f"Prompt Cache 已清空，共清理 {cleared} 个条目")
+
 
 def get_cache_stats() -> dict:
     with _lock:

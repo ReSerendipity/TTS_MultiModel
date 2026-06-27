@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-import os
 
-from ..i18n import t, get_lang, register_i18n_filters, get_i18n_json
+from ..config import get_config
+from ..i18n import get_i18n_json, get_lang
 
 router = APIRouter()
 
@@ -11,6 +11,7 @@ router = APIRouter()
 async def index(request: Request):
     templates = request.app.state.templates
     lang = get_lang(request)
+    config = get_config()
     return templates.TemplateResponse(
         request=request,
         name="base.html",
@@ -18,6 +19,8 @@ async def index(request: Request):
             "version": getattr(request.app.state, "version", "0.0.0"),
             "lang": lang,
             "i18n_json": get_i18n_json(lang),
+            "audio_player_config": config.pydantic_config.audio_player.model_dump(),
+            "ui_config": config.pydantic_config.ui.model_dump(),
         },
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
     )

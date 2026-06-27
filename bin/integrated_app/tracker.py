@@ -26,6 +26,15 @@ class GenerationTracker:
         self._lock = threading.RLock()
         self.phase = "空闲"
 
+    def _notify_sse(self):
+        """通知 SSE 事件总线状态已变化。"""
+        try:
+            from .routes.sse import event_bus
+
+            event_bus.notify()
+        except Exception:
+            pass
+
     def start_generation(self):
         """Increment queue depth at the start of a generation request.
 
@@ -34,7 +43,9 @@ class GenerationTracker:
         """
         with self._lock:
             self.queue_depth += 1
-            return self.queue_depth
+            depth = self.queue_depth
+        self._notify_sse()
+        return depth
 
     def end_generation(self, elapsed):
         """Update average generation time and decrement queue depth.
@@ -45,6 +56,7 @@ class GenerationTracker:
         with self._lock:
             self.avg_gen_time = 0.8 * self.avg_gen_time + 0.2 * elapsed
             self.queue_depth = max(0, self.queue_depth - 1)
+        self._notify_sse()
 
     def estimate_wait(self):
         """Estimate total wait time for queued requests.
