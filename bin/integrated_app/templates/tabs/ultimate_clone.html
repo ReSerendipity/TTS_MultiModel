@@ -1,69 +1,290 @@
 {% from 'partials/advanced_params.html' import advanced_params %}
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></span>
-        <h3 class="card-header-title">{{ "tab_ultimate_clone"|t(lang) }}</h3>
-        <span class="card-header-badge">{{ "advanced_params"|t(lang) }}</span>
-    </div>
-    <div class="tts-card-desc">{{ "ultimate_clone_desc"|t(lang) }}</div>
-    <form id="uc-form" hx-post="/api/generate/voxcpm_ultimate" hx-target="#uc-result" hx-swap="innerHTML" hx-indicator="#uc-spinner" hx-encoding="multipart/form-data">
-        {% with prefix='uc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
-        {% include 'partials/text_input.html' %}
-        {% endwith %}
-        {% with prefix='uc' %}
-        {% include 'partials/language_selector.html' %}
-        {% endwith %}
+{# Ultimate Clone tab - rewritten with prototype_v4 visual design
+   Full parameter control panel (not collapsed), with toggle switches for audio post-processing. #}
+<div class="pv-theme">
+    <div class="two-col">
+        <!-- ============ Form Column (65%) ============ -->
+        <div class="col-form">
+            <form id="uc-form" hx-post="/api/generate/voxcpm_ultimate" hx-target="#uc-result" hx-swap="innerHTML" hx-indicator="#uc-spinner" hx-encoding="multipart/form-data" x-data="{ ucTab: 'saved' }">
+                <input type="hidden" name="mode" value="voxcpm_ultimate">
 
-        <div style="margin:16px 0;">
-            <label>{{ "ref_audio"|t(lang) }}</label>
-            <div class="inner-tabs" style="margin-top:8px;">
-                <div class="sub-tab-nav">
-                    <button type="button" class="sub-tab-btn active" onclick="switchUcRefTab('saved', this)">{{ "saved_voices"|t(lang) }}</button>
-                    <button type="button" class="sub-tab-btn" onclick="switchUcRefTab('upload', this)">{{ "upload_reference"|t(lang) }}</button>
-                </div>
-                <div id="uc-tab-saved" class="inner-tab-panel">
-                    <select name="persona_name" class="tts-input-dropdown" style="width:100%;margin-bottom:8px;">
-                        {% if not persona_list %}
-                        <option value="" disabled selected>{{ "no_persona_please_clone"|t(lang) }}</option>
-                        {% endif %}
-                        {% for p in persona_list %}
-                        <option value="{{ p }}">{{ p }}</option>
-                        {% endfor %}
-                    </select>
-                    <div style="display:flex;gap:8px;">
-                        <button type="button" class="tts-btn tts-btn-secondary" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML" style="flex:1;">{{ "refresh_list"|t(lang) }}</button>
+                <!-- Card: 合成文本 -->
+                <div class="card">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+                        {{ "synthesis_text"|t(lang) }}
+                    </div>
+                    <div class="card-body">
+                        <div class="fg">
+                            <label class="fl" for="uc-text">{{ "synthesis_text"|t(lang) }}</label>
+                            <textarea name="text" id="uc-text"
+                                      class="ft tts-textarea tts-auto-resize"
+                                      rows="3"
+                                      placeholder="{{ 'enter_text_placeholder'|t(lang) }}"
+                                      data-char-counter="uc-char-counter"
+                                      data-max-chars="{{ engine_max_total_chars }}"
+                                      data-segment-max-chars="{{ gen_split_max_chars }}"
+                                      data-auto-resize="true"></textarea>
+                            <div class="cc" id="uc-char-counter">0/{{ engine_max_total_chars }} | {{ "per_segment"|t(lang) }} {{ gen_split_max_chars }}{{ "chars"|t(lang) }}</div>
+                        </div>
+                        <div class="fg">
+                            <label class="fl" for="uc-lang-select">{{ "language"|t(lang) }}</label>
+                            <select name="lang" id="uc-lang-select" class="fs">
+                                {% for l in langs %}
+                                <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
+                                {% endfor %}
+                                {% if dialects %}
+                                <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
+                                    {% for dialect in dialects %}
+                                    <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <div id="uc-tab-upload" class="inner-tab-panel" style="display:none;">
-                    <input type="file" name="ref_audio_path" class="tts-input-file" accept=".wav,.mp3,.ogg,.flac" style="width:100%;">
+
+                <!-- Card: 参考音频 -->
+                <div class="card">
+                    <div class="stabs">
+                        <button type="button" class="stab" :class="{ 'active': ucTab === 'saved' }" @click="ucTab = 'saved'">{{ "saved_voices"|t(lang) }}</button>
+                        <button type="button" class="stab" :class="{ 'active': ucTab === 'upload' }" @click="ucTab = 'upload'">{{ "upload_reference"|t(lang) }}</button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Panel: 已保存音色 -->
+                        <div id="uc-tab-saved" class="tab-panel" x-show="ucTab === 'saved'" x-transition>
+                            <div class="fg">
+                                <label class="fl" for="uc-persona-name">{{ "select_voice"|t(lang) }}</label>
+                                <div style="display:flex;gap:8px;align-items:center">
+                                    <select name="persona_name" id="uc-persona-name" class="fs" style="flex:1">
+                                        {% if not persona_list %}
+                                        <option value="" disabled selected>{{ "no_persona_please_clone"|t(lang) }}</option>
+                                        {% endif %}
+                                        {% for p in persona_list %}
+                                        <option value="{{ p }}">{{ p }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="button" class="btn btn-o btn-sm" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML" style="white-space:nowrap">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                                        {{ "refresh_list"|t(lang) }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel: 上传参考 -->
+                        <div id="uc-tab-upload" class="tab-panel" x-show="ucTab === 'upload'" x-transition style="display:none">
+                            <div class="fg">
+                                <label class="fl">{{ "ref_audio"|t(lang) }}</label>
+                                <div class="upload-zone" onclick="this.querySelector('input').click()">
+                                    <input type="file" name="ref_audio_path" accept=".wav,.mp3,.flac,.ogg,.m4a,audio/*" style="display:none">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    <p><span id="uc-selected-filename">{{ "no_file_selected"|t(lang) }}</span></p>
+                                    <p style="font-size:10px;margin-top:2px">{{ "supported_formats"|t(lang) }} (5-30s)</p>
+                                </div>
+                            </div>
+                            <div class="fg">
+                                <label class="fl" for="uc-ref-text">{{ "ref_text"|t(lang) }} <span style="font-size:10px;color:var(--t3);font-weight:400">({{ 'optional'|t(lang) }})</span></label>
+                                <textarea name="ref_text" id="uc-ref-text" class="ft" rows="2" placeholder="{{ 'ref_text_placeholder'|t(lang) }}"></textarea>
+                            </div>
+                            <div class="fg">
+                                <label class="fl" for="uc-instruction">{{ "control_instruction"|t(lang) }} <span style="font-size:10px;color:var(--t3);font-weight:400">({{ 'optional'|t(lang) }})</span></label>
+                                <input type="text" name="instruction" id="uc-instruction" class="fi" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card: 极致参数 (展开式，非折叠) -->
+                <div class="card">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+                        {{ "ultimate_params"|t(lang) }}
+                    </div>
+                    <div class="card-body">
+                        <div class="hint-text" style="margin-bottom:10px">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            {{ "ultimate_params_hint"|t(lang) }}
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="fl" for="uc-cfg-value">CFG Scale</label>
+                                <input type="number" id="uc-cfg-value" name="cfg" class="fi" value="2.0" step="0.1" min="0.1" max="10">
+                            </div>
+                            <div class="form-col">
+                                <label class="fl" for="uc-inference-steps">{{ "inference_steps"|t(lang) }}</label>
+                                <input type="number" id="uc-inference-steps" name="steps" class="fi" value="32" min="1" max="200">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="fl" for="uc-seed-input">{{ "random_seed"|t(lang) }}</label>
+                                <input type="number" id="uc-seed-input" name="seed" class="fi" value="42" min="-1" max="2147483647">
+                            </div>
+                            <div class="form-col">
+                                <label class="fl" for="uc-denoise">{{ "denoise"|t(lang) }}</label>
+                                <input type="number" id="uc-denoise" name="denoise_strength" class="fi" value="0.6" step="0.05" min="0" max="1">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="fl" for="uc-samplerate">{{ "sample_rate"|t(lang) }}</label>
+                                <select id="uc-samplerate" name="sample_rate" class="fs">
+                                    <option value="24000" selected>24000</option>
+                                    <option value="16000">16000</option>
+                                    <option value="44100">44100</option>
+                                    <option value="48000">48000</option>
+                                </select>
+                            </div>
+                            <div class="form-col">
+                                <label class="fl" for="uc-speed">{{ "speed_factor"|t(lang) }}</label>
+                                <input type="number" id="uc-speed" name="speed" class="fi" value="1.0" step="0.1" min="0.5" max="2.0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="fl" for="uc-prosody">{{ "prosody_intensity"|t(lang) }}</label>
+                                <input type="number" id="uc-prosody" name="prosody_intensity" class="fi" value="1.0" step="0.1" min="0.1" max="2.0">
+                            </div>
+                            <div class="form-col">
+                                <label class="fl" for="uc-emotion">{{ "emotion_intensity"|t(lang) }}</label>
+                                <input type="number" id="uc-emotion" name="emotion_intensity" class="fi" value="1.0" step="0.1" min="0.1" max="2.0">
+                            </div>
+                        </div>
+
+                        <!-- Toggle switches for audio post-processing -->
+                        <div class="toggle-row" style="border-top:1px solid var(--border-lt);margin-top:6px;padding-top:8px">
+                            <div>
+                                <label class="fl" style="margin-bottom:0">{{ "enable_loudness_norm"|t(lang) }}</label>
+                                <div class="fh">{{ "loudness_norm_hint"|t(lang) }}</div>
+                            </div>
+                            <div class="toggle on" onclick="toggleSwitch(this)"></div>
+                            <input type="hidden" name="loudness_norm" value="true" data-toggle-source="uc-loudness-norm">
+                        </div>
+                        <div class="toggle-row">
+                            <div>
+                                <label class="fl" style="margin-bottom:0">{{ "enable_vad_trim"|t(lang) }}</label>
+                                <div class="fh">{{ "vad_trim_hint"|t(lang) }}</div>
+                            </div>
+                            <div class="toggle on" onclick="toggleSwitch(this)"></div>
+                            <input type="hidden" name="vad_trim" value="true" data-toggle-source="uc-vad-trim">
+                        </div>
+                        <div class="toggle-row">
+                            <div>
+                                <label class="fl" style="margin-bottom:0">{{ "enable_stream_segment"|t(lang) }}</label>
+                                <div class="fh">{{ "stream_segment_hint"|t(lang) }}</div>
+                            </div>
+                            <div class="toggle" onclick="toggleSwitch(this)"></div>
+                            <input type="hidden" name="stream_segment" value="false" data-toggle-source="uc-stream-segment">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <button type="submit" id="uc-submit-btn" class="btn-generate">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    {{ "generate_ultimate"|t(lang) }}
+                </button>
+                <div class="gen-hint">Ctrl+Enter</div>
+
+                <!-- Voice name + save -->
+                <div class="voice-name-row">
+                    <div>
+                        <label class="fl" for="uc-save-name">{{ "save_voice_name"|t(lang) }}</label>
+                        <input type="text" id="uc-save-name" name="save_name" class="fi" placeholder="{{ 'save_voice_name'|t(lang) }}">
+                    </div>
+                    <button type="button" class="btn btn-o" style="height:34px;white-space:nowrap" hx-post="/api/persona/save" hx-target="#uc-status" hx-swap="innerHTML">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-6-8-6 8"/><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>
+                        {{ "save_persona"|t(lang) }}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ============ Result Column (35%) ============ -->
+        <div class="col-result">
+            <!-- Card: 生成结果 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+                    {{ "result_audio"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <div id="uc-result" aria-live="polite">
+                        <div id="uc-spinner" class="htmx-indicator" style="display:none">
+                            <div class="hint-text">{{ "generating"|t(lang) }}</div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+                        </div>
+                        <div class="status-message" id="uc-status" aria-live="polite"></div>
+                        <div class="empty-state" id="uc-empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
+                            <p>{{ "no_result_yet"|t(lang) }}</p>
+                            <p style="font-size:10px;color:var(--t3);margin-top:2px">{{ "upload_ref_then_generate"|t(lang) }}</p>
+                        </div>
+                    </div>
+                    <audio class="tts-audio-hidden" id="uc-audio" style="display:none"></audio>
+                </div>
+            </div>
+
+            <!-- Card: 后处理 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                    {{ "post_processing"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <details id="uc-pp-section" style="display:none">
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="fl" for="uc-pp-tempo">{{ "speed_factor"|t(lang) }}</label>
+                                <div style="display:flex;align-items:center;gap:6px">
+                                    <input type="range" id="uc-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1" oninput="document.getElementById('uc-pp-tempo-val').textContent=this.value">
+                                    <span id="uc-pp-tempo-val" style="font-size:11px;min-width:28px;text-align:center;font-family:var(--mono)">1.0</span>
+                                </div>
+                            </div>
+                            <div class="form-col">
+                                <label class="fl" for="uc-pp-enhance">{{ "voice_enhancement"|t(lang) }}</label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+                                    <input type="checkbox" id="uc-pp-enhance">
+                                    {{ "enabled"|t(lang) }}
+                                </label>
+                            </div>
+                        </div>
+                        <div style="text-align:right;margin-top:8px">
+                            <button type="button" class="btn btn-p btn-sm" onclick="ucReprocess()">{{ "reprocess"|t(lang) }}</button>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Card: 快捷操作 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+                    {{ "quick_actions"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+                        <button type="button" class="btn btn-o btn-sm" onclick="document.getElementById('uc-form').requestSubmit()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                            {{ "regenerate"|t(lang) }}
+                        </button>
+                        <button type="button" class="btn btn-o btn-sm" onclick="ucCopyText()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                            {{ "copy_text"|t(lang) }}
+                        </button>
+                        <button type="button" class="btn btn-o btn-sm" onclick="ucClearResult()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            {{ "clear_result"|t(lang) }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-
-        {{ advanced_params(prefix='uc', lang=lang) }}
-
-        <div style="margin-top:12px;">
-            <label>{{ "control_instruction"|t(lang) }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">({{ 'optional'|t(lang) }})</span></label>
-            <input type="text" name="instruction" class="tts-input-textbox" placeholder="{{ 'instruction_placeholder'|t(lang) }}" style="width:100%;">
-        </div>
-
-        <button type="submit" id="uc-submit-btn" class="tts-btn tts-btn-primary generate-btn" style="width:100%;"><span class="btn-text">{{ "generate_ultimate"|t(lang) }}</span></button>
-    </form>
+    </div>
 </div>
-<style>
-    /* uc-auto-resize replaced by shared tts-auto-resize in tabs.css */
-    @media (max-width: 640px) {
-        .advanced-params .grid-2col { grid-template-columns: 1fr !important; }
-        .advanced-params .grid-2col [style*="grid-column: span 2"] { grid-column: span 1 !important; }
-        .pp-grid { grid-template-columns: 1fr !important; }
-    }
-</style>
-{% with prefix='uc', title_key='result_audio' %}
-{% include 'partials/result_card.html' %}
-{% endwith %}
-{% with prefix='uc' %}
-{% include 'partials/post_processing.html' %}
-{% endwith %}
+
 <script>
 (function(){
     // Initialize shared TTS form utilities
@@ -78,12 +299,6 @@
         counterClass: 'tts-char-counter'
     });
 
-    // Initialize inner tab switching for reference audio tabs
-    TTSTabSwitcher.init({
-        formId: 'uc-form',
-        prefix: 'uc'
-    });
-
     // Ultimate Clone specific: segment info helper
     window.getUcSegmentInfo = function() {
         var form = document.getElementById('uc-form');
@@ -94,6 +309,48 @@
         var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
         return { textLength: len, segmentCount: Math.ceil(len / SPLIT_MAX_CHARS), maxLen: SPLIT_MAX_CHARS };
     };
+
+    // Quick action: copy text
+    window.ucCopyText = function() {
+        var textarea = document.getElementById('uc-text');
+        if (textarea && textarea.value) {
+            navigator.clipboard.writeText(textarea.value).then(function() {
+                if (window.Toast) Toast.show((window.I18N && window.I18N['copied']) || '已复制', 'success');
+            }).catch(function() {
+                if (window.Toast) Toast.show((window.I18N && window.I18N['copy_failed']) || '复制失败', 'error');
+            });
+        }
+    };
+
+    // Quick action: clear result
+    window.ucClearResult = function() {
+        var resultEl = document.getElementById('uc-result');
+        var statusEl = document.getElementById('uc-status');
+        var ppSection = document.getElementById('uc-pp-section');
+        if (resultEl) {
+            resultEl.innerHTML = '<div class="empty-state" id="uc-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg><p>{{ "no_result_yet"|t(lang) }}</p></div>';
+        }
+        if (statusEl) statusEl.innerHTML = '';
+        if (ppSection) ppSection.style.display = 'none';
+    };
+
+    // Sync toggle switches with hidden inputs
+    document.querySelectorAll('#uc-form .toggle').forEach(function(toggle) {
+        var hiddenInput = toggle.parentElement.querySelector('input[type="hidden"][data-toggle-source]');
+        if (hiddenInput) {
+            // Listen for change events dispatched by toggleSwitch()
+            toggle.addEventListener('change', function() {
+                hiddenInput.value = this.classList.contains('on') ? 'true' : 'false';
+            });
+            // Also handle click directly for redundancy
+            toggle.addEventListener('click', function(e) {
+                // Note: toggleSwitch() already toggles the class; this is just for syncing
+                setTimeout(function() {
+                    hiddenInput.value = toggle.classList.contains('on') ? 'true' : 'false';
+                }, 0);
+            });
+        }
+    });
 
     // Ultimate Clone specific: segment confirmation on submit
     var ucSubmitConfirmed = false;
@@ -129,7 +386,6 @@
 
     document.getElementById('uc-form').addEventListener('htmx:afterSettle', function(e){
         if (e.detail.successful) {
-            // Show post-processing section when audio is available
             var wrapper = document.querySelector('#uc-result [data-audio-filename]');
             var ppSection = document.getElementById('uc-pp-section');
             if (wrapper && ppSection) {
@@ -155,5 +411,29 @@
             params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
         });
     };
+
+    // File upload feedback
+    var ucFileInput = document.querySelector('input[type="file"][name="ref_audio_path"]');
+    var ucFilenameSpan = document.getElementById('uc-selected-filename');
+    var UC_MAX_SIZE = 100 * 1024 * 1024;
+    if (ucFileInput && ucFilenameSpan) {
+        ucFileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                var file = this.files[0];
+                var sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                if (file.size > UC_MAX_SIZE) {
+                    ucFilenameSpan.textContent = '{{ "file_too_large"|t(lang) }}' + sizeMB + 'MB';
+                    ucFilenameSpan.style.color = 'var(--red, #EF4444)';
+                    this.value = '';
+                } else {
+                    ucFilenameSpan.textContent = file.name + ' (' + sizeMB + 'MB)';
+                    ucFilenameSpan.style.color = 'var(--t2)';
+                }
+            } else {
+                ucFilenameSpan.textContent = '{{ "no_file_selected"|t(lang) }}';
+                ucFilenameSpan.style.color = 'var(--t3)';
+            }
+        });
+    }
 })();
 </script>

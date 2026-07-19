@@ -209,3 +209,48 @@ def get_persona_map() -> dict[str, dict[str, str]]:
             wav_path = os.path.join(PERSONA_DIR, f)
             persona_map[name] = {"wav": wav_path}
     return persona_map
+
+
+def delete_persona(name: str) -> tuple[bool, str]:
+    """删除指定音色及其关联文件（.wav / .txt / .pt）。
+
+    Returns:
+        (success, message): 成功返回 (True, 提示信息)，失败返回 (False, 错误原因)。
+    """
+    if not name:
+        return False, "名称不能为空"
+
+    valid, err_msg = _validate_persona_name(name)
+    if not valid:
+        return False, err_msg
+
+    wav_path = os.path.join(PERSONA_DIR, f"{name}.wav")
+    txt_path = os.path.join(PERSONA_DIR, f"{name}.txt")
+    pt_path = os.path.join(PERSONA_DIR, f"{name}.pt")
+
+    real_wav = os.path.realpath(wav_path)
+    if not real_wav.startswith(os.path.realpath(PERSONA_DIR)):
+        return False, "非法路径"
+
+    deleted_any = False
+    errors: list[str] = []
+
+    for path in (wav_path, txt_path, pt_path):
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                deleted_any = True
+            except OSError as e:
+                errors.append(f"删除 {os.path.basename(path)} 失败: {e}")
+
+    if name in _persona_embedding_cache:
+        try:
+            del _persona_embedding_cache[name]
+        except Exception:
+            pass
+
+    if errors:
+        return False, "; ".join(errors)
+    if not deleted_any:
+        return False, f"音色 [{name}] 不存在"
+    return True, f"音色 [{name}] 已删除"
