@@ -1,0 +1,199 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg></span>
+        <h3 class="card-header-title">{{ "tab_prompt_continue"|t(lang) }}</h3>
+    </div>
+    <div class="tts-card-desc">{{ "prompt_continue_desc"|t(lang) }}</div>
+    <form id="pc-form" hx-post="/api/generate/voxcpm_prompt_continue" hx-target="#pc-result" hx-swap="innerHTML" hx-indicator="#pc-spinner" hx-encoding="multipart/form-data">
+        {% with prefix='pc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
+        <label class="tts-form-label">{{ "language"|t(lang) }}</label>
+        <select name="lang" class="tts-input-dropdown tts-full-width">
+            {% for l in langs %}
+            <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+            <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
+                {% for dialect in dialects %}
+                <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
+                {% endfor %}
+            </optgroup>
+        </select>
+
+        <div class="tts-form-group">
+            <label class="tts-form-label">{{ "prompt_audio"|t(lang) }}</label>
+            <input type="file" name="prompt_wav" class="tts-input-file tts-full-width" accept=".wav,.mp3,.ogg,.flac" required>
+        </div>
+
+        <div class="tts-form-group">
+            <label class="tts-form-label">{{ "prompt_text_label"|t(lang) }}</label>
+            <input type="text" name="prompt_text" class="tts-input-textbox tts-full-width" placeholder="{{ 'ref_text_placeholder'|t(lang) }}" required>
+        </div>
+
+        <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "generate_prompt_continue"|t(lang) }}</span></button>
+    </form>
+</div>
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
+    </div>
+    <div id="pc-result">
+        <div id="pc-spinner" class="htmx-indicator tts-result-spinner tts-spinner-center">
+            <div class="tts-loading-spinner tts-spinner-center"></div>
+            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
+        </div>
+        <div class="status-message" id="pc-status" aria-live="polite"></div>
+    </div>
+    <audio class="tts-audio-player tts-audio-hidden" id="pc-audio" controls></audio>
+    <details class="pp-section tts-hidden" id="pc-pp-section">
+        <summary>{{ "post_processing"|t(lang) }}</summary>
+        <div class="pp-grid">
+            <div>
+                <label class="pp-tempo-label">{{ "speed_factor"|t(lang) }}</label>
+                <div class="pp-tempo-row">
+                    <input type="range" id="pc-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('pc-pp-tempo-val').textContent=this.value">
+                    <span id="pc-pp-tempo-val" class="pp-tempo-val">1.0</span>
+                </div>
+            </div>
+            <div>
+                <label class="pp-enhance-label">
+                    <input type="checkbox" id="pc-pp-enhance">
+                    {{ "voice_enhancement"|t(lang) }}
+                </label>
+            </div>
+        </div>
+        <div class="pp-actions">
+            <button type="button" class="tts-btn tts-btn-secondary" onclick="pcReprocess()">{{ "reprocess"|t(lang) }}</button>
+        </div>
+    </details>
+</div>
+<script>
+(function(){
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'pc-form',
+        resultId: 'pc-result',
+        statusId: 'pc-status',
+        textareaId: 'pc-text',
+        counterId: 'pc-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'tts-char-counter'
+    });
+
+    window.getPcSegmentInfo = function() {
+        var textarea = document.querySelector('#pc-form textarea[name=text]');
+        if (!textarea || !textarea.value.trim()) return null;
+        var len = textarea.value.length;
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        return { textLength: len, segmentCount: Math.ceil(len / SPLIT_MAX_CHARS), maxLen: SPLIT_MAX_CHARS };
+    };
+
+    // Frontend validation: ensure prompt text and audio are provided
+    document.getElementById('pc-form').addEventListener('submit', function(e) {
+        var textarea = this.querySelector('textarea[name="text"]');
+        var promptText = this.querySelector('input[name="prompt_text"]');
+        var promptWav = this.querySelector('input[name="prompt_wav"]');
+        if (textarea && !textarea.value.trim()) {
+            e.preventDefault();
+            var statusEl = document.getElementById('pc-status');
+            if (statusEl) {
+                statusEl.className = 'status-message error';
+                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
+            }
+            return false;
+        }
+        if (promptText && !promptText.value.trim()) {
+            e.preventDefault();
+            var statusEl = document.getElementById('pc-status');
+            if (statusEl) {
+                statusEl.className = 'status-message error';
+                statusEl.textContent = '{{ "enter_prompt_text"|t(lang) }}';
+            }
+            return false;
+        }
+        if (promptWav && !promptWav.files.length) {
+            e.preventDefault();
+            var statusEl = document.getElementById('pc-status');
+            if (statusEl) {
+                statusEl.className = 'status-message error';
+                statusEl.textContent = '{{ "no_file_selected"|t(lang) }}';
+            }
+            return false;
+        }
+
+        var info = window.getPcSegmentInfo();
+        if (info && info.segmentCount > 1) {
+            e.preventDefault();
+            var confirmed = confirm(
+                '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}\n' +
+                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}\n' +
+                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}\n\n' +
+                '{{ "confirm_continue"|t(lang) }}'
+            );
+            if (!confirmed) return false;
+        }
+    });
+    document.getElementById('pc-form').addEventListener('htmx:afterSettle', function(e){
+        if (e.detail.successful) {
+            var audioEl = document.getElementById('pc-audio');
+            var audioSrc = document.querySelector('#pc-result audio');
+            if (audioSrc && audioEl) {
+                audioEl.style.display = '';
+            }
+            // Show post-processing section when audio is available
+            var wrapper = document.querySelector('#pc-result [data-audio-filename]');
+            var ppSection = document.getElementById('pc-pp-section');
+            if (wrapper && ppSection) {
+                ppSection.style.display = '';
+            }
+        }
+    });
+
+    // Post-processing re-process
+    window.pcReprocess = async function() {
+        var resultEl = document.getElementById('pc-result');
+        if (!resultEl) return;
+        var wrapper = resultEl.querySelector('[data-audio-filename]');
+        if (!wrapper) return;
+        var audioPath = wrapper.getAttribute('data-audio-filename');
+        var tempo = document.getElementById('pc-pp-tempo').value;
+        var enhance = document.getElementById('pc-pp-enhance').checked ? 'true' : 'false';
+        var statusEl = document.getElementById('pc-status');
+        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">' + ((window.I18N && window.I18N['processing']) || 'Processing...') + '</div>';
+        try {
+            var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
+            var fetchHeaders = {'Content-Type': 'application/x-www-form-urlencoded'};
+            if (csrfToken) fetchHeaders['X-CSRF-Token'] = csrfToken;
+            var resp = await fetch('/api/generate/post-process', {
+                method: 'POST',
+                headers: fetchHeaders,
+                body: 'audio_path=' + encodeURIComponent(audioPath) + '&tempo_factor=' + tempo + '&voice_enhancement=' + enhance + '&target_lufs=-16.0'
+            });
+            if (!resp.ok) {
+                var errMsg = 'HTTP ' + resp.status;
+                if (resp.status === 403) {
+                    errMsg = (window.I18N && window.I18N['csrf_error']) || '安全验证失败，请刷新页面后重试';
+                }
+                statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + errMsg + '</div></div>';
+                if (window.Toast) Toast.show(errMsg, 'error');
+                return;
+            }
+            var html = await resp.text();
+            resultEl.innerHTML = html;
+            var audioSrc = resultEl.querySelector('audio');
+            var audioEl = document.getElementById('pc-audio');
+            if (audioSrc && audioEl) {
+                if (window.globalAudioPlayer) {
+                    var filename2 = audioSrc.src.split('/').pop().split('?')[0];
+                    window.globalAudioPlayer.play(audioSrc.src, filename2);
+                }
+                audioEl.style.display = '';
+            }
+        } catch(err) {
+            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';
+        }
+    };
+})();
+</script>

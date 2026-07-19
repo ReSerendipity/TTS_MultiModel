@@ -1,0 +1,181 @@
+{% from 'partials/advanced_params.html' import advanced_params %}
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+        <h3 class="card-header-title">{{ "tab_voice_clone"|t(lang) }}</h3>
+    </div>
+    <div class="tts-card-desc">{{ "voice_clone_desc"|t(lang) }}</div>
+    <form id="vc-form" hx-post="/api/generate/voxcpm_clone" hx-target="#vc-result" hx-swap="innerHTML" hx-indicator="#vc-spinner" hx-encoding="multipart/form-data">
+        <input type="hidden" name="mode" value="voxcpm_clone">
+        {% with prefix='vc', label='synthesis_text'|t(lang), placeholder='default_clone_text'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=3, textarea_style='' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
+        {% with prefix='vc' %}
+        {% include 'partials/language_selector.html' %}
+        {% endwith %}
+        <div class="inner-tabs">
+            <div class="sub-tab-nav">
+                <button type="button" class="sub-tab-btn active" onclick="switchVcInnerTab('saved', this)">{{ "saved_voices"|t(lang) }}</button>
+                <button type="button" class="sub-tab-btn" onclick="switchVcInnerTab('upload', this)">{{ "upload_reference"|t(lang) }}</button>
+            </div>
+            <div id="vc-tab-saved" class="inner-tab-panel">
+                <label>{{ "select_voice"|t(lang) }}</label>
+                <select name="persona_name" class="tts-input-dropdown">
+                    {% if not persona_list %}
+                    <option value="" disabled selected>{{ "no_voice_placeholder"|t(lang) }}</option>
+                    {% endif %}
+                    {% for p in persona_list %}
+                    <option value="{{ p }}">{{ p }}</option>
+                    {% endfor %}
+                </select>
+                <div id="vc-persona-desc" class="vc-persona-desc"></div>
+                <div class="vc-spacer-top-sm">
+                    <button type="button" class="tts-btn tts-btn-secondary" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
+                </div>
+            </div>
+            <div id="vc-tab-upload" class="inner-tab-panel vc-hidden">
+                <label>{{ "ref_audio"|t(lang) }}</label>
+                <input type="file" name="ref_audio_path" accept=".wav,.mp3,.flac,.ogg,.m4a,audio/*" class="vc-file-input">
+                <div class="file-upload-info vc-file-upload-info">
+                    <span id="selected-filename">{{ "no_file_selected"|t(lang) }}</span>
+                    <span class="vc-file-formats">{{ "supported_formats"|t(lang) }}</span>
+                </div>
+                <label>{{ "ref_text"|t(lang) }}</label>
+                <textarea name="ref_text" class="tts-input-textarea" rows="2" placeholder="{{ 'ref_text_placeholder'|t(lang) }}"></textarea>
+                <label class="vc-instruction-label">{{ "control_instruction"|t(lang) }} <span class="vc-instruction-optional">({{ 'optional'|t(lang) }})</span></label>
+                <input type="text" name="instruction" class="tts-input-textbox vc-instruction-input" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
+            </div>
+        </div>
+        <button type="submit" class="tts-btn tts-btn-primary generate-btn vc-submit-btn"><span class="btn-text">{{ "clone_btn"|t(lang) }}</span></button>
+        {{ advanced_params(prefix='vc', lang=lang, show_seed=false) }}
+        <div class="vc-save-row">
+            <input type="text" id="vc-save-name" name="save_name" aria-label="{{ 'save_voice_name'|t(lang) }}" placeholder="{{ 'save_voice_name'|t(lang) }}" class="vc-save-input">
+            <button type="button" class="tts-btn tts-btn-secondary icon-btn vc-save-btn" hx-post="/api/persona/save" hx-target="#vc-status" hx-swap="innerHTML">{{ "save_persona"|t(lang) }}</button>
+        </div>
+    </form>
+</div>
+{% with prefix='vc', title_key='clone_result' %}
+{% include 'partials/result_card.html' %}
+{% endwith %}
+{% with prefix='vc' %}
+{% include 'partials/post_processing.html' %}
+{% endwith %}
+<script>
+(function(){
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'vc-form',
+        statusId: 'vc-status',
+        resultId: 'vc-result',
+        textareaId: 'vc-text',
+        counterId: 'vc-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'vc-char-counter'
+    });
+
+    // Initialize inner tab switching
+    TTSTabSwitcher.init({
+        formId: 'vc-form',
+        prefix: 'vc'
+    });
+
+    // Voice Clone specific: segment info helper
+    window.getVcSegmentInfo = function() {
+        var form = document.getElementById('vc-form');
+        if (!form) return null;
+        var textarea = form.querySelector('textarea[name=text]');
+        if (!textarea || !textarea.value.trim()) return null;
+        var len = textarea.value.length;
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        var segments = Math.ceil(len / SPLIT_MAX_CHARS);
+        return { textLength: len, segmentCount: segments, maxLen: SPLIT_MAX_CHARS };
+    };
+
+    // Voice Clone specific: reference audio validation and segment confirmation
+    document.getElementById('vc-form').addEventListener('submit', function(e) {
+        // Reference audio validation: check if upload tab is active and no file selected
+        var uploadTab = document.getElementById('vc-tab-upload');
+        if (uploadTab && uploadTab.style.display !== 'none') {
+            var fileInput = this.querySelector('input[type="file"][name="ref_audio_path"]');
+            if (fileInput && (!fileInput.files || fileInput.files.length === 0)) {
+                e.preventDefault();
+                var statusEl = document.getElementById('vc-status');
+                if (statusEl) {
+                    statusEl.className = 'status-message error';
+                    statusEl.textContent = '{{ "select_ref_audio"|t(lang) }}';
+                }
+                return false;
+            }
+        }
+
+        var info = window.getVcSegmentInfo();
+        if (info && info.segmentCount > 1) {
+            e.preventDefault();
+            var msg = '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}<br>' +
+                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}<br>' +
+                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}<br><br>' +
+                '{{ "confirm_continue"|t(lang) }}';
+            ConfirmDialog.show(msg, function() {
+                document.getElementById('vc-form').submit();
+            });
+            return false;
+        }
+    });
+
+    // Show post-processing section when audio is available
+    document.getElementById('vc-form').addEventListener('htmx:afterSettle', function(e) {
+        if (e.detail.successful) {
+            var wrapper = document.querySelector('#vc-result [data-audio-filename]');
+            var ppSection = document.getElementById('vc-pp-section');
+            if (wrapper && ppSection) {
+                ppSection.style.display = '';
+            }
+        }
+    });
+
+    // Post-processing reprocess using Reprocess factory
+    window.vcReprocess = function() {
+        var resultEl = document.getElementById('vc-result');
+        if (!resultEl) return;
+        var wrapper = resultEl.querySelector('[data-audio-filename]');
+        if (!wrapper) return;
+        var audioPath = wrapper.getAttribute('data-audio-filename');
+        var tempo = document.getElementById('vc-pp-tempo').value;
+        var enhance = document.getElementById('vc-pp-enhance').checked ? 'true' : 'false';
+        Reprocess.execute({
+            resultId: 'vc-result',
+            statusId: 'vc-status',
+            audioElementId: 'vc-audio',
+            audioPath: audioPath,
+            params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
+        });
+    };
+
+    // File upload feedback
+    var fileInput = document.querySelector('input[type="file"][name="ref_audio_path"]');
+    var filenameSpan = document.getElementById('selected-filename');
+    var MAX_SIZE = 100 * 1024 * 1024;
+
+    if (fileInput && filenameSpan) {
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                var file = this.files[0];
+                var sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                if (file.size > MAX_SIZE) {
+                    filenameSpan.textContent = '{{ "file_too_large"|t(lang) }}' + sizeMB + 'MB ({{ "max_size"|t(lang) }})';
+                    filenameSpan.style.color = 'var(--color-error)';
+                    this.value = '';
+                } else {
+                    filenameSpan.textContent = file.name + ' (' + sizeMB + 'MB)';
+                    filenameSpan.style.color = 'var(--text-secondary)';
+                }
+            } else {
+                filenameSpan.textContent = '{{ "no_file_selected"|t(lang) }}';
+                filenameSpan.style.color = 'var(--text-muted)';
+            }
+        });
+    }
+})();
+</script>

@@ -1,0 +1,159 @@
+{% from 'partials/advanced_params.html' import advanced_params %}
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></span>
+        <h3 class="card-header-title">{{ "tab_ultimate_clone"|t(lang) }}</h3>
+        <span class="card-header-badge">{{ "advanced_params"|t(lang) }}</span>
+    </div>
+    <div class="tts-card-desc">{{ "ultimate_clone_desc"|t(lang) }}</div>
+    <form id="uc-form" hx-post="/api/generate/voxcpm_ultimate" hx-target="#uc-result" hx-swap="innerHTML" hx-indicator="#uc-spinner" hx-encoding="multipart/form-data">
+        {% with prefix='uc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
+        {% with prefix='uc' %}
+        {% include 'partials/language_selector.html' %}
+        {% endwith %}
+
+        <div style="margin:16px 0;">
+            <label>{{ "ref_audio"|t(lang) }}</label>
+            <div class="inner-tabs" style="margin-top:8px;">
+                <div class="sub-tab-nav">
+                    <button type="button" class="sub-tab-btn active" onclick="switchUcRefTab('saved', this)">{{ "saved_voices"|t(lang) }}</button>
+                    <button type="button" class="sub-tab-btn" onclick="switchUcRefTab('upload', this)">{{ "upload_reference"|t(lang) }}</button>
+                </div>
+                <div id="uc-tab-saved" class="inner-tab-panel">
+                    <select name="persona_name" class="tts-input-dropdown" style="width:100%;margin-bottom:8px;">
+                        {% if not persona_list %}
+                        <option value="" disabled selected>{{ "no_persona_please_clone"|t(lang) }}</option>
+                        {% endif %}
+                        {% for p in persona_list %}
+                        <option value="{{ p }}">{{ p }}</option>
+                        {% endfor %}
+                    </select>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" class="tts-btn tts-btn-secondary" hx-get="/api/persona/list" hx-target="select[name=persona_name]" hx-swap="innerHTML" style="flex:1;">{{ "refresh_list"|t(lang) }}</button>
+                    </div>
+                </div>
+                <div id="uc-tab-upload" class="inner-tab-panel" style="display:none;">
+                    <input type="file" name="ref_audio_path" class="tts-input-file" accept=".wav,.mp3,.ogg,.flac" style="width:100%;">
+                </div>
+            </div>
+        </div>
+
+        {{ advanced_params(prefix='uc', lang=lang) }}
+
+        <div style="margin-top:12px;">
+            <label>{{ "control_instruction"|t(lang) }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">({{ 'optional'|t(lang) }})</span></label>
+            <input type="text" name="instruction" class="tts-input-textbox" placeholder="{{ 'instruction_placeholder'|t(lang) }}" style="width:100%;">
+        </div>
+
+        <button type="submit" id="uc-submit-btn" class="tts-btn tts-btn-primary generate-btn" style="width:100%;"><span class="btn-text">{{ "generate_ultimate"|t(lang) }}</span></button>
+    </form>
+</div>
+<style>
+    /* uc-auto-resize replaced by shared tts-auto-resize in tabs.css */
+    @media (max-width: 640px) {
+        .advanced-params .grid-2col { grid-template-columns: 1fr !important; }
+        .advanced-params .grid-2col [style*="grid-column: span 2"] { grid-column: span 1 !important; }
+        .pp-grid { grid-template-columns: 1fr !important; }
+    }
+</style>
+{% with prefix='uc', title_key='result_audio' %}
+{% include 'partials/result_card.html' %}
+{% endwith %}
+{% with prefix='uc' %}
+{% include 'partials/post_processing.html' %}
+{% endwith %}
+<script>
+(function(){
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'uc-form',
+        resultId: 'uc-result',
+        statusId: 'uc-status',
+        textareaId: 'uc-text',
+        counterId: 'uc-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'tts-char-counter'
+    });
+
+    // Initialize inner tab switching for reference audio tabs
+    TTSTabSwitcher.init({
+        formId: 'uc-form',
+        prefix: 'uc'
+    });
+
+    // Ultimate Clone specific: segment info helper
+    window.getUcSegmentInfo = function() {
+        var form = document.getElementById('uc-form');
+        if (!form) return null;
+        var textarea = form.querySelector('textarea[name=text]');
+        if (!textarea || !textarea.value.trim()) return null;
+        var len = textarea.value.length;
+        var SPLIT_MAX_CHARS = {{ gen_split_max_chars }};
+        return { textLength: len, segmentCount: Math.ceil(len / SPLIT_MAX_CHARS), maxLen: SPLIT_MAX_CHARS };
+    };
+
+    // Ultimate Clone specific: segment confirmation on submit
+    var ucSubmitConfirmed = false;
+    var ucForm = document.getElementById('uc-form');
+    ucForm.addEventListener('submit', function(e) {
+        var textarea = this.querySelector('textarea[name="text"]');
+        if (textarea && !textarea.value.trim()) {
+            e.preventDefault();
+            var statusEl = document.getElementById('uc-status');
+            if (statusEl) {
+                statusEl.className = 'status-message error';
+                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
+            }
+            return false;
+        }
+
+        var info = window.getUcSegmentInfo();
+        if (info && info.segmentCount > 1 && !ucSubmitConfirmed) {
+            e.preventDefault();
+            var message = '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}\n' +
+                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}\n' +
+                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}\n\n' +
+                '{{ "confirm_continue"|t(lang) }}';
+            ConfirmDialog.show(message, function() {
+                ucSubmitConfirmed = true;
+                ucForm.requestSubmit();
+            });
+            return false;
+        }
+
+        ucSubmitConfirmed = false;
+    });
+
+    document.getElementById('uc-form').addEventListener('htmx:afterSettle', function(e){
+        if (e.detail.successful) {
+            // Show post-processing section when audio is available
+            var wrapper = document.querySelector('#uc-result [data-audio-filename]');
+            var ppSection = document.getElementById('uc-pp-section');
+            if (wrapper && ppSection) {
+                ppSection.style.display = '';
+            }
+        }
+    });
+
+    // Post-processing reprocess using Reprocess factory
+    window.ucReprocess = function() {
+        var resultEl = document.getElementById('uc-result');
+        if (!resultEl) return;
+        var wrapper = resultEl.querySelector('[data-audio-filename]');
+        if (!wrapper) return;
+        var audioPath = wrapper.getAttribute('data-audio-filename');
+        var tempo = document.getElementById('uc-pp-tempo').value;
+        var enhance = document.getElementById('uc-pp-enhance').checked ? 'true' : 'false';
+        Reprocess.execute({
+            resultId: 'uc-result',
+            statusId: 'uc-status',
+            audioElementId: 'uc-audio',
+            audioPath: audioPath,
+            params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
+        });
+    };
+})();
+</script>

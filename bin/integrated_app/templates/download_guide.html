@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ "download_guide_title"|t(lang) }}</title>
+    <style>
+        :root {
+            --dg-bg: var(--bg-primary, #0C0C18);
+            --dg-text: var(--text-primary, #e2e8f0);
+            --dg-container: var(--bg-secondary, #1a1a2e);
+            --dg-border: var(--border-subtle, #2a2a4a);
+            --dg-accent: #8b5cf6;
+            --dg-section: var(--bg-tertiary, #12122a);
+            --dg-muted: var(--text-muted, #94a3b8);
+            --dg-code-text: #a5b4fc;
+            --dg-code-bg: var(--code-bg, #1a1a3e);
+            --dg-note: var(--text-tertiary, #64748b);
+        }
+        body { background: var(--dg-bg); color: var(--dg-text); font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; }
+        .guide-container { max-width: 800px; margin: 40px auto; padding: 32px; background: var(--dg-container); border-radius: 16px; border: 1px solid var(--dg-border); text-align: center; }
+        h2 { color: var(--dg-accent); margin-bottom: 16px; font-size: 24px; }
+        .missing-list { text-align: left; padding: 20px; background: var(--dg-section); border-radius: 12px; margin-bottom: 24px; }
+        .missing-list h3 { color: var(--dg-text); margin-bottom: 12px; font-size: 16px; }
+        .missing-list ul { color: var(--dg-muted); margin-left: 20px; }
+        .missing-list li { margin-bottom: 6px; }
+        .missing-list code { color: var(--dg-code-text); background: var(--dg-code-bg); padding: 2px 8px; border-radius: 4px; }
+        .steps-list { text-align: left; padding: 20px; background: var(--dg-section); border-radius: 12px; margin-bottom: 24px; }
+        .steps-list h3 { color: var(--dg-text); margin-bottom: 12px; font-size: 16px; }
+        .steps-list ol { color: var(--dg-muted); margin-left: 20px; line-height: 1.8; }
+        .steps-list code { color: var(--dg-code-text); background: var(--dg-code-bg); padding: 2px 8px; border-radius: 4px; }
+        .note { color: var(--dg-note); font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="guide-container">
+        <h2>{{ "download_guide_welcome"|t(lang) }}</h2>
+        <p style="color:var(--dg-muted);margin-bottom:24px;font-size:15px;">{{ "download_guide_notice"|t(lang) }}</p>
+        <div class="missing-list">
+            <h3>{{ "download_guide_missing"|t(lang) }}</h3>
+            <ul>
+                {% for m in missing %}
+                <li><code>{{ m }}</code></li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="steps-list">
+            <h3>{{ "download_guide_steps"|t(lang) }}</h3>
+            <ol>
+                <li>{{ "download_guide_step1"|t(lang) }}</li>
+                <li>{{ "download_guide_step2"|t(lang) }}: <code>python download_models.py</code></li>
+                <li>{{ "download_guide_step3"|t(lang) }}</li>
+                <li>{{ "download_guide_step4"|t(lang) }}</li>
+            </ol>
+        </div>
+        <p class="note">{{ "download_guide_note"|t(lang) }}</p>
+    </div>
+</body>
+</html>

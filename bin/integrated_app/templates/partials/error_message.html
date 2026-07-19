@@ -1,0 +1,9 @@
+<div class="tts-error-block" data-error-type="{{ error_type|default('general') }}">
+  <div class="error-title">{{ "gen_failed"|t(lang|default('zh-CN')) }}</div>
+  <div class="error-message">{{ error_message }}</div>
+  <div class="tts-error-actions">
+    <button type="button" class="tts-btn tts-btn-retry" onclick="this.closest('.tts-error-block').querySelector('.retry-btn')?.click(); if(window._retryLastGeneration) window._retryLastGeneration();">
+      {{ "retry"|t(lang|default('zh-CN')) }}
+    </button>
+  </div>
+</div>

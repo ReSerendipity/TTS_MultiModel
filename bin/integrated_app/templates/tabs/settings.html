@@ -1,0 +1,595 @@
+<div class="settings-grid-layout">
+    <!-- Settings Table of Contents -->
+    <div class="settings-toc" style="grid-column: 1 / -1;">
+        <div class="settings-toc-title">{{ "quick_nav"|t(lang) }}</div>
+        <div class="settings-toc-links">
+            <a href="#settings-hardware" class="settings-toc-link">{{ "engine_info"|t(lang) }}</a>
+            <a href="#settings-gpu" class="settings-toc-link">{{ "gpu_vram"|t(lang) }}</a>
+            <a href="#settings-advanced" class="settings-toc-link">{{ "advanced_gen_params"|t(lang) }}</a>
+            <a href="#settings-defaults" class="settings-toc-link">{{ "generation_defaults"|t(lang) }}</a>
+            <a href="#settings-general" class="settings-toc-link">{{ "general_settings"|t(lang) }}</a>
+        </div>
+    </div>
+
+    <!-- Left Column: System Monitor -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="card" id="settings-hardware">
+        <div class="card-header settings-section-header collapsed" onclick="toggleSettingsSection('section-hardware-body', this)">
+            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
+            <h3 class="card-header-title">{{ "engine_info"|t(lang) }}</h3>
+        </div>
+        <div class="settings-section-body collapsed" id="section-hardware-body" style="display:none;">
+            <div id="settings-engine-info">
+                <div class="settings-stack">
+                    <div class="settings-row-bordered">
+                        <span class="settings-label">{{ "engine_version"|t(lang) }}</span>
+                        <span id="settings-engine-version" class="settings-value">{{ version }}</span>
+                    </div>
+                    <div class="settings-row-bordered">
+                        <span class="settings-label">{{ "model_path"|t(lang) }}</span>
+                        <span id="settings-model-path" class="settings-value" style="max-width:200px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ "loading"|t(lang) }}</span>
+                    </div>
+                    <div class="settings-row-bordered settings-row-group-end">
+                        <span class="settings-label">{{ "running_status"|t(lang) }}</span>
+                        <span id="settings-engine-status" class="settings-value" aria-live="polite">
+                            <span class="health-status-badge ready">{{ "ready"|t(lang) }}</span>
+                        </span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-label">{{ "device"|t(lang) }}</span>
+                        <span id="settings-device" class="settings-value">{{ "loading"|t(lang) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="settings-gpu">
+        <div class="card-header settings-section-header collapsed" onclick="toggleSettingsSection('section-gpu-body', this)">
+            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg></span>
+            <h3 class="card-header-title">{{ "gpu_vram"|t(lang) }}</h3>
+        </div>
+        <div class="settings-section-body collapsed" id="section-gpu-body" style="display:none;">
+            <div id="settings-vram-section">
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span class="vram-label" style="color:var(--text-secondary);font-size:13px;">{{ "vram_usage"|t(lang) }}</span>
+                        <span id="settings-vram-used" style="font-weight:600;font-size:13px;">--</span>
+                    </div>
+                    <div style="width:100%;height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;">
+                        <div id="settings-vram-bar" style="width:0%;height:100%;background:var(--accent-success);transition:width 0.5s ease,background-color 0.5s ease;"></div>
+                    </div>
+                </div>
+                <div class="settings-stack">
+                    <div class="settings-row-bordered">
+                        <span class="vram-label settings-label">{{ "vram_total"|t(lang) }}</span>
+                        <span id="settings-vram-total" class="settings-value">--</span>
+                    </div>
+                    <div class="settings-row-bordered settings-row-group-end">
+                        <span class="vram-label settings-label">{{ "vram_free"|t(lang) }}</span>
+                        <span id="settings-vram-free" class="settings-value">--</span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="vram-label settings-label">{{ "gpu_util"|t(lang) }}</span>
+                        <span id="settings-gpu-util" class="settings-value">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div><!-- End Left Column: System Monitor -->
+
+    <!-- Right Column: Parameter Config -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="card" id="settings-advanced">
+        <div class="card-header settings-section-header" onclick="toggleSettingsSection('section-advanced-body', this)">
+            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+            <h3 class="card-header-title">{{ "advanced_gen_params"|t(lang) }}</h3>
+        </div>
+        <div class="settings-section-body" id="section-advanced-body">
+            <div id="settings-advanced-params">
+            <div class="settings-stack">
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "retry_badcase"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "retry_badcase_hint"|t(lang) }}</div>
+                    </div>
+                    <label class="settings-toggle">
+                        <input id="settings-retry-badcase" type="checkbox" checked />
+                        <span class="toggle-track"></span>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "retry_max_times"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "retry_max_times_hint"|t(lang) }}</div>
+                    </div>
+                    <input id="settings-retry-max-times" type="number" min="0" max="10" value="3" placeholder="{{ 'recommended_3'|t(lang) }}" class="settings-number-input" />
+                </div>
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "retry_ratio_threshold"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "retry_ratio_threshold_hint"|t(lang) }}</div>
+                    </div>
+                    <input id="settings-retry-ratio-threshold" type="number" min="1" max="20" step="0.5" value="6" placeholder="{{ 'recommended_6'|t(lang) }}" class="settings-number-input" />
+                </div>
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "target_lufs"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "target_lufs_hint"|t(lang) }}</div>
+                    </div>
+                    <input id="settings-target-lufs" type="number" min="-30" max="0" step="1" value="-16" placeholder="{{ 'recommended_minus_16'|t(lang) }}" class="settings-number-input" />
+                </div>
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "idle_timeout"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "idle_timeout_hint"|t(lang) }}</div>
+                    </div>
+                    <input id="settings-idle-timeout" type="number" min="60" max="3600" value="300" placeholder="{{ 'recommended_300'|t(lang) }}" class="settings-number-input" />
+                </div>
+                <div class="settings-row">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "trim_silence"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "trim_silence_hint"|t(lang) }}</div>
+                    </div>
+                    <label class="settings-toggle">
+                        <input id="settings-trim-silence-vad" type="checkbox" checked />
+                        <span class="toggle-track"></span>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <button type="button" id="settings-save-advanced-btn" class="tts-btn tts-btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="saveAdvancedParams()"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>{{ "save"|t(lang) }}</button>
+            </div>
+            </div><!-- end settings-advanced-params -->
+        </div><!-- end section-advanced-body -->
+    </div>
+
+    <div class="card" id="settings-defaults">
+        <div class="card-header settings-section-header" onclick="toggleSettingsSection('section-defaults-body', this)">
+            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg></span>
+            <h3 class="card-header-title">{{ "generation_defaults"|t(lang) }}</h3>
+        </div>
+        <div class="settings-section-body" id="section-defaults-body">
+            <div id="settings-generation-defaults">
+            <div class="settings-stack">
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "default_sample_rate"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "default_sample_rate_hint"|t(lang) }}</div>
+                    </div>
+                    <input id="settings-default-sample-rate" type="number" min="16000" max="48000" value="24000" placeholder="{{ 'recommended_24000'|t(lang) }}" class="settings-number-input settings-number-input-wide" />
+                </div>
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "default_speed"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "default_speed_hint"|t(lang) }}</div>
+                    </div>
+                    <input id="settings-default-speed" type="number" min="0.1" max="3.0" step="0.1" value="1.0" placeholder="{{ 'recommended_1.0'|t(lang) }}" class="settings-number-input" />
+                </div>
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "default_seed"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "default_seed_hint"|t(lang) }}</div>
+                    </div>
+                    <input id="settings-default-seed" type="number" min="0" max="999999" value="42" placeholder="{{ 'recommended_42'|t(lang) }}" class="settings-number-input settings-number-input-wide" />
+                </div>
+                <div class="settings-row">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "script_studio_silence_secs"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "script_studio_silence_secs_hint"|t(lang) }}</div>
+                    </div>
+                    <input id="settings-script-studio-silence" type="number" min="0" max="2.0" step="0.1" value="0.4" placeholder="{{ 'recommended_0.4'|t(lang) }}" class="settings-number-input" />
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <button type="button" id="settings-save-generation-btn" class="tts-btn tts-btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="saveGenerationDefaults()"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>{{ "save"|t(lang) }}</button>
+            </div>
+            </div><!-- end settings-generation-defaults -->
+        </div><!-- end section-defaults-body -->
+    </div>
+
+    <div class="card" id="settings-general">
+        <div class="card-header settings-section-header" onclick="toggleSettingsSection('section-general-body', this)">
+            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1-1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <h3 class="card-header-title">{{ "general_settings"|t(lang) }}</h3>
+        </div>
+        <div class="settings-section-body" id="section-general-body">
+            <div id="settings-general">
+            <div class="settings-stack">
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "auto_save"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "auto_save_hint"|t(lang) }}</div>
+                    </div>
+                    <label class="settings-toggle">
+                        <input id="settings-auto-save" type="checkbox" checked />
+                        <span class="toggle-track"></span>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+                <div class="settings-row-bordered">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "auto_play"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "auto_play_hint"|t(lang) }}</div>
+                    </div>
+                    <label class="settings-toggle">
+                        <input id="settings-auto-play" type="checkbox" />
+                        <span class="toggle-track"></span>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+                <div class="settings-row-bordered settings-row-group-end">
+                    <div style="flex:1;">
+                        <span class="settings-label">{{ "notifications"|t(lang) }}</span>
+                        <div class="settings-hint">{{ "notifications_hint"|t(lang) }}</div>
+                    </div>
+                    <label class="settings-toggle">
+                        <input id="settings-notifications" type="checkbox" checked />
+                        <span class="toggle-track"></span>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">{{ "default_output_format"|t(lang) }}</span>
+                    <select id="settings-output-format" class="tts-input-dropdown" style="width:100px;font-size:13px;padding:4px 8px;">
+                        <option value="wav">WAV</option>
+                        <option value="mp3">MP3</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <button type="button" id="settings-save-general-btn" class="tts-btn tts-btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="saveGeneralSettings()"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>{{ "save"|t(lang) }}</button>
+            </div>
+            </div><!-- end settings-general -->
+        </div><!-- end section-general-body -->
+    </div>
+    </div><!-- End Right Column: Parameter Config -->
+</div>
+
+<script>
+function toggleSettingsSection(bodyId, headerEl) {
+    var body = document.getElementById(bodyId);
+    if (!body) return;
+    var isCollapsed = body.style.display === 'none';
+    if (isCollapsed) {
+        body.style.display = '';
+        body.classList.remove('collapsed');
+        headerEl.classList.remove('collapsed');
+    } else {
+        body.style.display = 'none';
+        body.classList.add('collapsed');
+        headerEl.classList.add('collapsed');
+    }
+}
+(function(){
+    var t = function(key) {
+        return (window.I18N && window.I18N[key]) || key;
+    };
+
+    // Initialize toggle switch visual state
+    function initToggles() {
+        var toggles = document.querySelectorAll('.settings-toggle');
+        for (var i = 0; i < toggles.length; i++) {
+            (function(toggle) {
+                var input = toggle.querySelector('input[type="checkbox"]');
+                var track = toggle.querySelector('.toggle-track');
+                var knob = toggle.querySelector('.toggle-knob');
+                if (!input || !track || !knob) return;
+
+                function updateVisual() {
+                    if (input.checked) {
+                        track.style.backgroundColor = 'var(--toggle-on-bg)';
+                        knob.style.transform = 'translateX(18px)';
+                    } else {
+                        track.style.backgroundColor = 'var(--toggle-off-bg)';
+                        knob.style.transform = 'translateX(0)';
+                    }
+                }
+
+                updateVisual();
+                input.addEventListener('change', updateVisual);
+            })(toggles[i]);
+        }
+    }
+
+    function isCpuMode() {
+        var dev = document.getElementById('settings-device');
+        return dev && (dev.textContent === 'CPU' || dev.textContent.includes('CPU'));
+    }
+
+    function updateVramLabels() {
+        var cpu = isCpuMode();
+        var section = document.getElementById('settings-vram-section');
+        if (!section) return;
+        var card = section.parentElement;
+        var cardTitle = card.querySelector('.card-header-title');
+        if (cardTitle) cardTitle.textContent = t(cpu ? 'cpu_memory' : 'gpu_vram');
+
+        var labels = section.querySelectorAll('.vram-label');
+        var cpuKeys = ['memory_usage', 'memory_total', 'memory_free', 'cpu_util'];
+        var gpuKeys = ['vram_usage', 'vram_total', 'vram_free', 'gpu_util'];
+
+        for (var i = 0; i < labels.length && i < 4; i++) {
+            labels[i].textContent = t(cpu ? cpuKeys[i] : gpuKeys[i]);
+        }
+    }
+
+    var _lastMemoryWarning = 0;
+    var _lastVramWarning = 0;
+
+    function fetchSettingsData() {
+        fetch('/api/system/settings')
+            .then(function(res) {
+                if (!res.ok) {
+                    console.warn('Settings API returned status:', res.status);
+                    return null;
+                }
+                return res.json();
+            })
+            .then(function(data) {
+                if (!data || data.status !== 'ok') return;
+                var modelPath = document.getElementById('settings-model-path');
+                if (modelPath) modelPath.textContent = data.model_path || '--';
+
+                var device = document.getElementById('settings-device');
+                if (device) {
+                    device.textContent = data.device || '--';
+                    updateVramLabels();
+                }
+
+                var cpu = isCpuMode();
+                if (cpu) {
+                    var vramUsed = document.getElementById('settings-vram-used');
+                    if (vramUsed) vramUsed.textContent = data.memory_used || '--';
+                    var vramTotal = document.getElementById('settings-vram-total');
+                    if (vramTotal) vramTotal.textContent = data.memory_total || '--';
+                    var vramFree = document.getElementById('settings-vram-free');
+                    if (vramFree) vramFree.textContent = data.memory_free || '--';
+                    var gpuUtil = document.getElementById('settings-gpu-util');
+                    if (gpuUtil) gpuUtil.textContent = data.cpu_util || '--';
+
+                    var vramBar = document.getElementById('settings-vram-bar');
+                    if (vramBar && data.memory_percent) {
+                        vramBar.style.width = data.memory_percent + '%';
+                        if (data.memory_percent > 90) {
+                            vramBar.style.background = 'var(--accent-error)';
+                            var now = Date.now();
+                            if (now - _lastMemoryWarning > 60000) {
+                                _lastMemoryWarning = now;
+                                Toast.show(t('memory_high_warning') + ' (' + data.memory_percent + '%)', 'error');
+                            }
+                        } else if (data.memory_percent > 70) {
+                            vramBar.style.background = 'var(--accent-warning)';
+                        } else {
+                            vramBar.style.background = 'var(--accent-success)';
+                        }
+                    }
+                } else {
+                    var vramUsed = document.getElementById('settings-vram-used');
+                    if (vramUsed) vramUsed.textContent = data.vram_used || '--';
+                    var vramTotal = document.getElementById('settings-vram-total');
+                    if (vramTotal) vramTotal.textContent = data.vram_total || '--';
+                    var vramFree = document.getElementById('settings-vram-free');
+                    if (vramFree) vramFree.textContent = data.vram_free || '--';
+                    var gpuUtil = document.getElementById('settings-gpu-util');
+                    if (gpuUtil) gpuUtil.textContent = data.gpu_util || '--';
+
+                    var vramBar = document.getElementById('settings-vram-bar');
+                    if (vramBar && data.vram_percent) {
+                        vramBar.style.width = data.vram_percent + '%';
+                        if (data.vram_percent > 90) {
+                            vramBar.style.background = 'var(--accent-error)';
+                            var now = Date.now();
+                            if (now - _lastVramWarning > 60000) {
+                                _lastVramWarning = now;
+                                Toast.show(t('vram_high_warning') + ' (' + data.vram_percent + '%)', 'error');
+                            }
+                        } else if (data.vram_percent > 70) {
+                            vramBar.style.background = 'var(--accent-warning)';
+                        } else {
+                            vramBar.style.background = 'var(--accent-success)';
+                        }
+                    }
+                }
+
+                if (data.general_settings) {
+                    var gs = data.general_settings;
+                    var autoSaveEl = document.getElementById('settings-auto-save');
+                    if (autoSaveEl) { autoSaveEl.checked = gs.auto_save !== false; }
+                    var autoPlayEl = document.getElementById('settings-auto-play');
+                    if (autoPlayEl) { autoPlayEl.checked = gs.auto_play === true; }
+                    var notifEl = document.getElementById('settings-notifications');
+                    if (notifEl) { notifEl.checked = gs.notifications !== false; }
+                    var formatEl = document.getElementById('settings-output-format');
+                    if (formatEl && gs.output_format) formatEl.value = gs.output_format;
+                }
+
+                // Re-apply toggle visuals after data updates
+                initToggles();
+            })
+            .catch(function(err) {
+                console.error('Failed to fetch settings:', err);
+            });
+
+        fetch('/api/system/advanced_params')
+            .then(function(res) {
+                if (!res.ok) return null;
+                return res.json();
+            })
+            .then(function(data) {
+                if (!data || data.status !== 'ok' || !data.params) return;
+                var p = data.params;
+                var retryBadcase = document.getElementById('settings-retry-badcase');
+                if (retryBadcase) { retryBadcase.checked = p.retry_badcase !== false; }
+                var retryMaxTimes = document.getElementById('settings-retry-max-times');
+                if (retryMaxTimes) retryMaxTimes.value = p.retry_badcase_max_times != null ? p.retry_badcase_max_times : 3;
+                var retryRatioThreshold = document.getElementById('settings-retry-ratio-threshold');
+                if (retryRatioThreshold) retryRatioThreshold.value = p.retry_badcase_ratio_threshold != null ? p.retry_badcase_ratio_threshold : 6;
+                var targetLufs = document.getElementById('settings-target-lufs');
+                if (targetLufs) targetLufs.value = p.target_lufs != null ? p.target_lufs : -16;
+                var idleTimeout = document.getElementById('settings-idle-timeout');
+                if (idleTimeout) idleTimeout.value = p.idle_timeout != null ? p.idle_timeout : 300;
+                var trimSilence = document.getElementById('settings-trim-silence-vad');
+                if (trimSilence) { trimSilence.checked = p.trim_silence_vad !== false; }
+
+                // Re-apply toggle visuals after data updates
+                initToggles();
+            })
+            .catch(function(err) {
+                console.error('Failed to fetch advanced params:', err);
+            });
+
+        fetch('/api/system/generation_defaults')
+            .then(function(res) {
+                if (!res.ok) return null;
+                return res.json();
+            })
+            .then(function(data) {
+                if (!data || data.status !== 'ok' || !data.params) return;
+                var p = data.params;
+                var sampleRateEl = document.getElementById('settings-default-sample-rate');
+                if (sampleRateEl) sampleRateEl.value = p.default_sample_rate != null ? p.default_sample_rate : 24000;
+                var speedEl = document.getElementById('settings-default-speed');
+                if (speedEl) speedEl.value = p.default_speed != null ? p.default_speed : 1.0;
+                var seedEl = document.getElementById('settings-default-seed');
+                if (seedEl) seedEl.value = p.default_seed != null ? p.default_seed : 42;
+                var silenceEl = document.getElementById('settings-script-studio-silence');
+                if (silenceEl) silenceEl.value = p.script_studio_silence_secs != null ? p.script_studio_silence_secs : 0.4;
+            })
+            .catch(function(err) {
+                console.error('Failed to fetch generation defaults:', err);
+            });
+    }
+
+    window.saveAdvancedParams = function() {
+        var retryBadcase = document.getElementById('settings-retry-badcase');
+        var retryMaxTimes = document.getElementById('settings-retry-max-times');
+        var retryRatioThreshold = document.getElementById('settings-retry-ratio-threshold');
+        var targetLufs = document.getElementById('settings-target-lufs');
+        var idleTimeout = document.getElementById('settings-idle-timeout');
+        var trimSilence = document.getElementById('settings-trim-silence-vad');
+
+        var payload = {
+            max_len: 3000,
+            split_max_chars: 200,
+            retry_badcase: retryBadcase ? retryBadcase.checked : true,
+            retry_badcase_max_times: retryMaxTimes ? parseInt(retryMaxTimes.value, 10) : 3,
+            retry_badcase_ratio_threshold: retryRatioThreshold ? parseFloat(retryRatioThreshold.value) : 6,
+            target_lufs: targetLufs ? parseFloat(targetLufs.value) : -16,
+            idle_timeout: idleTimeout ? parseInt(idleTimeout.value, 10) : 300,
+            trim_silence_vad: trimSilence ? trimSilence.checked : true,
+        };
+
+        var btn = document.getElementById('settings-save-advanced-btn');
+        if (btn) btn.disabled = true;
+
+        fetch('/api/system/advanced_params', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (btn) btn.disabled = false;
+            if (data.status === 'ok') {
+                Toast.show(t('save_success'), 'success');
+            } else {
+                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+            }
+        }).catch(function(err) {
+            if (btn) btn.disabled = false;
+            Toast.show(t('save_failed') + ': ' + err.message, 'error');
+        });
+    };
+
+    window.saveGenerationDefaults = function() {
+        var sampleRateEl = document.getElementById('settings-default-sample-rate');
+        var speedEl = document.getElementById('settings-default-speed');
+        var seedEl = document.getElementById('settings-default-seed');
+        var silenceEl = document.getElementById('settings-script-studio-silence');
+
+        var payload = {
+            default_sample_rate: sampleRateEl ? parseInt(sampleRateEl.value, 10) : 24000,
+            default_speed: speedEl ? parseFloat(speedEl.value) : 1.0,
+            default_seed: seedEl ? parseInt(seedEl.value, 10) : 42,
+            script_studio_silence_secs: silenceEl ? parseFloat(silenceEl.value) : 0.4,
+        };
+
+        var btn = document.getElementById('settings-save-generation-btn');
+        if (btn) btn.disabled = true;
+
+        fetch('/api/system/generation_defaults', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (btn) btn.disabled = false;
+            if (data.status === 'ok') {
+                Toast.show(t('save_success'), 'success');
+            } else {
+                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+            }
+        }).catch(function(err) {
+            if (btn) btn.disabled = false;
+            Toast.show(t('save_failed') + ': ' + err.message, 'error');
+        });
+    };
+
+    window.saveGeneralSettings = function() {
+        var autoSaveEl = document.getElementById('settings-auto-save');
+        var autoPlayEl = document.getElementById('settings-auto-play');
+        var notifEl = document.getElementById('settings-notifications');
+        var formatEl = document.getElementById('settings-output-format');
+
+        var payload = {
+            auto_save: autoSaveEl ? autoSaveEl.checked : true,
+            auto_play: autoPlayEl ? autoPlayEl.checked : false,
+            notifications: notifEl ? notifEl.checked : true,
+            output_format: formatEl ? formatEl.value : 'wav',
+        };
+
+        var btn = document.getElementById('settings-save-general-btn');
+        if (btn) btn.disabled = true;
+
+        fetch('/api/system/general_settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (btn) btn.disabled = false;
+            if (data.status === 'ok') {
+                Toast.show(t('save_success'), 'success');
+            } else {
+                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+            }
+        }).catch(function(err) {
+            if (btn) btn.disabled = false;
+            Toast.show(t('save_failed') + ': ' + err.message, 'error');
+        });
+    };
+
+    initToggles();
+    fetchSettingsData();
+    var refreshInterval = setInterval(fetchSettingsData, 30000);
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            clearInterval(refreshInterval);
+            refreshInterval = null;
+        } else {
+            fetchSettingsData();
+            refreshInterval = setInterval(fetchSettingsData, 30000);
+        }
+    });
+
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) clearInterval(refreshInterval);
+    });
+})();
+</script>

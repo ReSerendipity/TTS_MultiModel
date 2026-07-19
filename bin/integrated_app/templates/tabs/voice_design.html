@@ -1,0 +1,565 @@
+{% from 'partials/advanced_params.html' import advanced_params %}
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
+        <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
+    </div>
+    <div class="tts-card-desc">{{ "voice_design_desc"|t(lang) }}</div>
+    <form id="vd-form" class="tts-full-width-form" hx-post="/api/generate/voxcpm_design" hx-target="#vd-result" hx-swap="innerHTML" hx-indicator="#vd-spinner">
+        <input type="hidden" name="mode" value="voxcpm_design">
+        {% with prefix='vd', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='tts-full-width', textarea_rows=3 %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
+        {% with prefix='vd' %}
+        {% include 'partials/language_selector.html' %}
+        {% endwith %}
+        <div class="inner-tabs" x-data="{ vdTab: 'create' }">
+            <div class="sub-tab-nav">
+                <button type="button" class="sub-tab-btn" :class="{ 'active': vdTab === 'create' }" @click="vdTab = 'create'">{{ "preset_create"|t(lang) }}</button>
+                <button type="button" class="sub-tab-btn" :class="{ 'active': vdTab === 'saved' }" @click="vdTab = 'saved'">{{ "saved_voices"|t(lang) }}</button>
+            </div>
+            <div id="vd-tab-create" class="inner-tab-panel" x-show="vdTab === 'create'" x-transition>
+                <label for="vd-instruction">{{ "voice_description"|t(lang) }}</label>
+                <input type="text" name="instruction" id="vd-instruction" placeholder="{{ 'voice_desc_placeholder'|t(lang) }}" class="tts-input tts-vd-instruct-input">
+                <div class="micro-format-hint">
+                    <div class="micro-hint-label"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> {{ "voice_desc_hint"|t(lang) }}</div>
+                    <span>{{ "voice_desc_format"|t(lang) }}</span>
+                    <span class="micro-hint-example">{{ "voice_desc_example"|t(lang) }}</span>
+                </div>
+                <div class="micro-tag-search">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="vd-tag-search" class="tts-input tts-vd-tag-search" placeholder="{{ 'search_voice_tag'|t(lang) }}" aria-label="{{ 'search_voice_tag'|t(lang) }}">
+                </div>
+                <div class="tts-vd-preset-tags">
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="sweet" onclick="fillVdInstruct(this)" aria-label="{{ 'loli_voice'|t(lang) }}">{{ 'loli_voice'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="mature" onclick="fillVdInstruct(this)" aria-label="{{ 'mature_voice'|t(lang) }}">{{ 'mature_voice'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="magnetic" onclick="fillVdInstruct(this)" aria-label="{{ 'magnetic_male'|t(lang) }}">{{ 'magnetic_male'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="deep" onclick="fillVdInstruct(this)" aria-label="{{ 'bass_voice'|t(lang) }}">{{ 'bass_voice'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="energetic" onclick="fillVdInstruct(this)" aria-label="{{ 'youth_voice'|t(lang) }}">{{ 'youth_voice'|t(lang) }}</button>
+                    <button type="button" class="tts-preset-tag voice-tag" data-tag="japanese" onclick="fillVdInstruct(this)" aria-label="{{ 'japanese_sweet'|t(lang) }}">{{ 'japanese_sweet'|t(lang) }}</button>
+                </div>
+                {{ advanced_params(prefix='vd', lang=lang, show_seed=false) }}
+                <button type="submit" class="tts-btn tts-btn-primary tts-full-width-btn"><span class="btn-text">{{ "generate_btn"|t(lang) }}</span></button>
+                <div class="tts-vd-shortcut-hint"><span class="kbd">Ctrl+Enter</span></div>
+                <div class="tts-vd-flex-row">
+                    <input type="text" id="vd-save-name" name="save_name" aria-label="{{ 'save_voice_name'|t(lang) }}" placeholder="{{ 'save_voice_name'|t(lang) }}" class="tts-input tts-vd-save-input">
+                    <button type="button" class="tts-btn tts-btn-secondary tts-vd-save-btn" hx-post="/api/persona/save" hx-target="#vd-status" hx-swap="innerHTML" onclick="return checkVdSaveNameDuplicate(this);">{{ "save_persona"|t(lang) }}</button>
+                </div>
+            </div>
+            <div id="vd-tab-saved" class="inner-tab-panel" x-show="vdTab === 'saved'" x-transition>
+                <label for="vd-persona-name">{{ "select_voice"|t(lang) }}</label>
+                <select name="persona_name" id="vd-persona-name" class="tts-input-dropdown tts-full-width">
+                    {% if not persona_list %}
+                    <option value="" disabled selected>{{ "no_saved_voice"|t(lang) }}</option>
+                    {% endif %}
+                    {% for p in persona_list %}
+                    <option value="{{ p }}">{{ p }}</option>
+                    {% endfor %}
+                </select>
+                <div id="vd-persona-desc" class="tts-vd-persona-desc"></div>
+                <div class="tts-vd-flex-row">
+                    <button type="button" class="tts-btn tts-btn-secondary" hx-get="/api/persona/options" hx-target="#vd-persona-name" hx-swap="innerHTML">{{ "refresh_list"|t(lang) }}</button>
+                    <button type="button" class="tts-btn tts-btn-primary" onclick="submitWithPersona()">{{ "use_selected_voice"|t(lang) }}</button>
+                    <button type="button" class="tts-btn tts-btn-primary stream-btn" onclick="submitStreaming()">{{ "stream_generate"|t(lang) }}</button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% with prefix='vd', title_key='result_audio' %}
+{% include 'partials/result_card.html' %}
+{% endwith %}
+{% with prefix='vd' %}
+{% include 'partials/post_processing.html' %}
+{% endwith %}
+<script>
+(function(){
+    function initVoiceDesign() {
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'vd-form',
+        statusId: 'vd-status',
+        resultId: 'vd-result',
+        textareaId: 'vd-text',
+        counterId: 'vd-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'tts-char-counter'
+    });
+
+    // Check for duplicate persona name before saving
+    window.checkVdSaveNameDuplicate = function(btn) {
+        var nameInput = btn.closest('.tts-vd-flex-row').querySelector('input[name=save_name]');
+        if (!nameInput) return true;
+        var name = nameInput.value.trim();
+        if (!name) return true; // Let server handle empty name
+        var existingNames = Array.from(document.querySelectorAll('#vd-persona-name option')).map(function(opt) { return opt.textContent.trim(); });
+        if (existingNames.includes(name)) {
+            Toast.show((window.I18N && window.I18N['name_exists']) || '该名称已存在，请使用其他名称', 'error');
+            return false;
+        }
+        return true;
+    };
+
+    window.filterVdTags = function(query) {
+        var tags = document.querySelectorAll('#vd-tab-create .tts-preset-tag');
+        var q = query.toLowerCase().trim();
+        tags.forEach(function(tag) {
+            if (!q || tag.textContent.toLowerCase().indexOf(q) !== -1) {
+                tag.classList.remove('tts-hidden');
+            } else {
+                tag.classList.add('tts-hidden');
+            }
+        });
+    };
+
+    window.fillVdInstruct = function(el) {
+        var input = document.getElementById('vd-instruction');
+        if (input) { input.value = el.textContent; input.focus(); }
+        document.querySelectorAll('#vd-tab-create .tts-preset-tag').forEach(function(t){ t.classList.remove('active'); });
+        el.classList.add('active');
+    };
+
+    window.setVdMode = function(mode) {
+        var form = document.getElementById('vd-form');
+        if (form) {
+            form.querySelector('input[name=mode]').value = mode;
+        }
+    };
+
+    // Submit form using selected persona for voice cloning
+    window.submitWithPersona = function() {
+        var form = document.getElementById('vd-form');
+        if (!form) return;
+
+        // Explicitly read each field to avoid FormData issues with hidden Alpine.js panels
+        var textarea = form.querySelector('textarea[name="text"]');
+        var text = textarea ? textarea.value : '';
+        var personaSelect = form.querySelector('select[name="persona_name"]');
+        var personaName = personaSelect ? personaSelect.value : '';
+        var lang = form.querySelector('select[name="lang"]');
+        var cfgInput = form.querySelector('input[name="cfg"]');
+        var stepsInput = form.querySelector('input[name="steps"]');
+        var denoiseInput = form.querySelector('select[name="denoise"]');
+        var normInput = form.querySelector('select[name="norm"]');
+
+        var formData = new FormData();
+        formData.append('text', text);
+        formData.append('persona_name', personaName);
+        formData.append('mode', 'voice_clone');
+        // Do NOT send instruction — when using a saved persona, the persona's
+        // reference audio should fully determine the voice. Sending a stale
+        // instruction from the "描述创建" tab would conflict with the persona.
+        if (lang) formData.append('lang', lang.value);
+        if (cfgInput) formData.append('cfg', cfgInput.value);
+        if (stepsInput) formData.append('steps', stepsInput.value);
+        if (denoiseInput) formData.append('denoise', denoiseInput.value);
+        if (normInput) formData.append('norm', normInput.value);
+
+        // Use native fetch to avoid HTMX FormData compatibility issues
+        var resultEl = document.getElementById('vd-result');
+        var spinnerEl = document.getElementById('vd-spinner');
+        if (spinnerEl) spinnerEl.style.display = 'block';
+        if (resultEl) resultEl.innerHTML = '';
+
+        var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
+        var headers = csrfToken ? {'X-CSRF-Token': csrfToken} : {};
+
+        fetch('/api/generate/voxcpm_clone', {
+            method: 'POST',
+            body: formData,
+            headers: headers
+        }).then(function(response) {
+            return response.text().then(function(html) {
+                if (spinnerEl) spinnerEl.style.display = 'none';
+                if (resultEl) {
+                    resultEl.innerHTML = html;
+                    // Trigger HTMX afterSettle event for auto-play
+                    var event = new CustomEvent('htmx:afterSettle', { detail: { successful: response.ok } });
+                    form.dispatchEvent(event);
+                }
+                if (!response.ok) {
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = html;
+                    var errMsg = tmp.querySelector('.error-message');
+                    if (window.Toast) Toast.show(errMsg ? errMsg.textContent : 'Generation failed', 'error');
+                }
+            });
+        }).catch(function(err) {
+            if (spinnerEl) spinnerEl.style.display = 'none';
+            if (resultEl) resultEl.innerHTML = '<div class="tts-error-block"><div class="error-title">Generation failed</div><div class="error-message">' + err.message + '</div></div>';
+            if (window.Toast) Toast.show(err.message, 'error');
+        });
+    };
+
+    // Streaming generation - generates audio chunks progressively via SSE
+    window.submitStreaming = async function() {
+        var form = document.getElementById('vd-form');
+        if (!form) return;
+
+        var text = form.querySelector('textarea[name=text]').value;
+        var personaName = form.querySelector('select[name=persona_name]').value;
+
+        if (!text.trim()) {
+            document.getElementById('vd-status').innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">{{ "text_empty"|t(lang) }}</div></div>';
+            return;
+        }
+
+        // Show streaming UI
+        var statusEl = document.getElementById('vd-status');
+        var audioEl = document.getElementById('vd-audio');
+        statusEl.innerHTML = '<div class="streaming-container"><div class="streaming-header">{{ "streaming_gen"|t(lang) }}</div><div class="streaming-progress"><div class="streaming-bar"><div class="streaming-fill" style="width:0%"></div></div><span class="streaming-percent">0%</span></div><div class="streaming-log"></div></div>';
+
+        // Build FormData for POST request
+        var formData = new FormData();
+        formData.append('text', text);
+        formData.append('persona_name', personaName || '');
+
+        var audioChunks = [];
+        var sampleRate = 48000;
+        var totalSegments = 1;
+        var currentSegment = 0;
+        var header = '{{ "streaming_gen"|t(lang) }}';
+        var logEl = statusEl.querySelector('.streaming-log');
+        var fillEl = statusEl.querySelector('.streaming-fill');
+        var percentEl = statusEl.querySelector('.streaming-percent');
+
+        function updateProgress(pct, msg) {
+            if (fillEl) fillEl.style.width = pct + '%';
+            if (percentEl) percentEl.textContent = Math.round(pct) + '%';
+            if (logEl && msg) {
+                logEl.innerHTML = '<div class="tts-vd-streaming-log-msg">' + msg + '</div>';
+            }
+        }
+
+        function createWavBlob(pcmData, sampleRate) {
+            var bufLen = pcmData.length;
+            var byteLen = bufLen * 2;
+            var buffer = new ArrayBuffer(44 + byteLen);
+            var view = new DataView(buffer);
+
+            // WAV header
+            function writeString(offset, str) {
+                for (var i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+            }
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + byteLen, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, byteLen, true);
+
+            // PCM data
+            for (var i = 0; i < bufLen; i++) {
+                view.setInt16(44 + i * 2, pcmData[i], true);
+            }
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        function playStreamingAudio(audioBlob) {
+            console.log('[Streaming] playStreamingAudio called, blob size:', audioBlob.size);
+            var url = URL.createObjectURL(audioBlob);
+            console.log('[Streaming] Created blob URL:', url);
+            if (window.globalAudioPlayer) {
+                console.log('[Streaming] Calling globalAudioPlayer.play()');
+                window.globalAudioPlayer.play(url, '{{ "streaming_gen"|t(lang) }}');
+            } else {
+                console.warn('[Streaming] globalAudioPlayer not available!');
+                // Fallback: play directly
+                var fallbackAudio = new Audio(url);
+                fallbackAudio.play();
+            }
+        }
+
+        try {
+            var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
+            const response = await fetch('/api/generate/streaming_sse', {
+                method: 'POST',
+                body: formData,
+                headers: csrfToken ? {'X-CSRF-Token': csrfToken} : {}
+            });
+
+            if (!response.ok) {
+                var errMsg = 'HTTP ' + response.status;
+                if (response.status === 403) {
+                    errMsg = (window.I18N && window.I18N['csrf_error']) || '安全验证失败，请刷新页面后重试';
+                }
+                statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">' + errMsg + '</div></div>';
+                if (window.Toast) Toast.show(errMsg, 'error');
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let currentEvent = '';
+            let currentData = '';
+
+            function processEvent() {
+                if (!currentEvent || !currentData) return;
+
+                switch (currentEvent) {
+                    case 'meta':
+                        try {
+                            var meta = JSON.parse(currentData);
+                            totalSegments = meta.total_segments || 1;
+                            sampleRate = meta.sample_rate || 48000;
+                            updateProgress(0, header + ' - ' + totalSegments + ' segments');
+                        } catch (e) { /* ignore */ }
+                        break;
+
+                    case 'progress':
+                        try {
+                            var prog = JSON.parse(currentData);
+                            currentSegment = prog.segment || 0;
+                            totalSegments = prog.total || 1;
+                            var pct = ((currentSegment - 1) / totalSegments) * 80;
+                            updateProgress(pct, '{{ "generating_segment"|t(lang) }} ' + currentSegment + '/' + totalSegments);
+                        } catch (e) { /* ignore */ }
+                        break;
+
+                    case 'audio':
+                        try {
+                            console.log('[Streaming] Received audio event, data length:', currentData.length);
+                            // Decode base64 PCM data
+                            var binaryString = atob(currentData);
+                            var len = binaryString.length;
+                            var bytes = new Uint8Array(len);
+                            for (var j = 0; j < len; j++) {
+                                bytes[j] = binaryString.charCodeAt(j);
+                            }
+                            // Create a NEW ArrayBuffer for each chunk to avoid shared buffer issues
+                            var int16Array = new Int16Array(bytes.buffer.slice(0));
+                            audioChunks.push(int16Array);
+                            var currentPct = ((currentSegment) / totalSegments) * 80 + (audioChunks.length / totalSegments) * 20;
+                            updateProgress(Math.min(currentPct, 95), '{{ "received_chunk"|t(lang) }} #' + audioChunks.length);
+                            console.log('[Streaming] Audio chunk added, total chunks:', audioChunks.length, 'chunk samples:', int16Array.length);
+                        } catch (e) {
+                            console.warn('[Streaming] Audio chunk decode failed:', e);
+                        }
+                        break;
+
+                    case 'done':
+                        try {
+                            var doneData = JSON.parse(currentData);
+                            console.log('[Streaming] Done event received, filename:', doneData.filename, 'audio chunks:', audioChunks.length);
+                            updateProgress(100, '{{ "stream_complete"|t(lang) }} - ' + doneData.filename);
+                            // Combine all PCM chunks and play
+                            if (audioChunks.length > 0) {
+                                var totalLen = 0;
+                                for (var k = 0; k < audioChunks.length; k++) {
+                                    totalLen += audioChunks[k].length;
+                                }
+                                console.log('[Streaming] Combining', audioChunks.length, 'chunks, total samples:', totalLen);
+                                var combined = new Int16Array(totalLen);
+                                var offset = 0;
+                                for (var k = 0; k < audioChunks.length; k++) {
+                                    combined.set(audioChunks[k], offset);
+                                    offset += audioChunks[k].length;
+                                }
+                                console.log('[Streaming] Creating WAV blob...');
+                                var wavBlob = createWavBlob(combined, sampleRate);
+                                console.log('[Streaming] WAV blob created, size:', wavBlob.size, 'bytes');
+                                playStreamingAudio(wavBlob);
+                            } else {
+                                console.warn('[Streaming] No audio chunks received!');
+                            }
+                        } catch (e) {
+                            console.warn('[Streaming] Done event parse failed:', e);
+                        }
+                        break;
+
+                    case 'error':
+                        try {
+                            var errData = JSON.parse(currentData);
+                            var errBlock = document.createElement('div');
+                            errBlock.className = 'tts-error-block';
+                            var errTitle = document.createElement('div');
+                            errTitle.className = 'error-title';
+                            errTitle.textContent = '{{ "gen_failed"|t(lang) }}';
+                            errBlock.appendChild(errTitle);
+                            var errMsg = document.createElement('div');
+                            errMsg.className = 'error-message';
+                            errMsg.textContent = errData.message || '{{ "unknown_error"|t(lang) }}';
+                            errBlock.appendChild(errMsg);
+                            statusEl.innerHTML = '';
+                            statusEl.appendChild(errBlock);
+                        } catch (e) {
+                            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">{{ "unknown_error"|t(lang) }}</div></div>';
+                        }
+                        return;
+                }
+
+                // Reset event state
+                currentEvent = '';
+                currentData = '';
+            }
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (line.startsWith('event:')) {
+                        // If we have a pending event, process it first
+                        if (currentEvent && currentData) {
+                            processEvent();
+                        }
+                        currentEvent = line.substring(6).trim();
+                        currentData = '';
+                    } else if (line.startsWith('data:')) {
+                        // Append to current data (handles multi-line data)
+                        var dataValue = line.substring(5).trim();
+                        currentData = currentData ? currentData + dataValue : dataValue;
+                    } else if (line === '') {
+                        // Empty line signals end of event
+                        if (currentEvent && currentData) {
+                            processEvent();
+                        }
+                    }
+                }
+            }
+
+            // Process any remaining event
+            if (currentEvent && currentData) {
+                processEvent();
+            }
+        } catch (err) {
+            var errBlock = document.createElement('div');
+            errBlock.className = 'tts-error-block';
+            var errTitle = document.createElement('div');
+            errTitle.className = 'error-title';
+            errTitle.textContent = '{{ "gen_failed"|t(lang) }}';
+            errBlock.appendChild(errTitle);
+            var errMsg = document.createElement('div');
+            errMsg.className = 'error-message';
+            errMsg.textContent = err.message;
+            errBlock.appendChild(errMsg);
+            statusEl.innerHTML = '';
+            statusEl.appendChild(errBlock);
+        }
+    };
+
+    // Tag search filter (replaces inline oninput)
+    var tagSearchInput = document.getElementById('vd-tag-search');
+    if (tagSearchInput) {
+        tagSearchInput.addEventListener('input', function() {
+            filterVdTags(this.value);
+        });
+    }
+
+    // ISSUE 1 FIX: Save/restore selected voice tone from sessionStorage
+    var personaSelect = document.querySelector('#vd-tab-saved select[name=persona_name]');
+    if (personaSelect) {
+        var savedPersona = sessionStorage.getItem('vd_selected_persona');
+        if (savedPersona) {
+            personaSelect.value = savedPersona;
+        }
+        personaSelect.addEventListener('change', function() {
+            sessionStorage.setItem('vd_selected_persona', this.value);
+        });
+    }
+
+    // Voice Design specific: segment confirmation on submit
+    var form = document.getElementById('vd-form');
+    var vdSubmitConfirmed = false;
+
+    form.addEventListener('submit', function(e) {
+        var textarea = form.querySelector('textarea[name="text"]');
+        if (textarea && !textarea.value.trim()) {
+            e.preventDefault();
+            var statusEl = document.getElementById('vd-status');
+            if (statusEl) {
+                statusEl.className = 'status-message error';
+                statusEl.textContent = '{{ "enter_text"|t(lang) }}';
+            }
+            return false;
+        }
+
+        var info = window.getCurrentSegmentInfo && window.getCurrentSegmentInfo();
+        if (info && info.segmentCount > 1 && !vdSubmitConfirmed) {
+            e.preventDefault();
+            var msg = '{{ "confirm_split"|t(lang) }}' + info.segmentCount + '{{ "segments"|t(lang) }}<br>' +
+                '{{ "total_chars"|t(lang) }}' + info.textLength + '{{ "chars"|t(lang) }}<br>' +
+                '{{ "max_chars_per_seg"|t(lang) }}' + info.maxLen + '{{ "chars"|t(lang) }}<br><br>' +
+                '{{ "confirm_continue"|t(lang) }}';
+            ConfirmDialog.show(msg, function() {
+                vdSubmitConfirmed = true;
+                form.requestSubmit();
+            });
+            return false;
+        }
+
+        vdSubmitConfirmed = false;
+    });
+
+    // Use htmx:afterSettle to ensure DOM is fully updated
+    document.getElementById('vd-form').addEventListener('htmx:afterSettle', function(e) {
+        if (e.detail.successful) {
+            try {
+                var resultEl = document.getElementById('vd-result');
+                if (!resultEl) return;
+                var audioSrc = resultEl.querySelector('audio');
+                if (audioSrc) {
+                    var successBadge = document.createElement('div');
+                    successBadge.className = 'micro-success-badge';
+                    successBadge.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "gen_success"|t(lang) }}';
+                    resultEl.insertBefore(successBadge, resultEl.firstChild);
+
+                    var quickActions = document.createElement('div');
+                    quickActions.className = 'micro-quick-actions';
+                    quickActions.innerHTML = '<button class="micro-quick-action-btn" onclick="vdReprocess()"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ "reprocess"|t(lang) }}</button>';
+                    resultEl.insertBefore(quickActions, successBadge.nextSibling);
+                }
+                // Show post-processing section when audio is available
+                var wrapper = resultEl.querySelector('[data-audio-filename]');
+                var ppSection = document.getElementById('vd-pp-section');
+                if (wrapper && ppSection) {
+                    ppSection.style.display = '';
+                }
+            } catch(ex) {
+                console.warn('Audio playback setup failed:', ex);
+            }
+        }
+    });
+
+    // Post-processing reprocess using Reprocess factory
+    window.vdReprocess = function() {
+        var resultEl = document.getElementById('vd-result');
+        if (!resultEl) return;
+        var wrapper = resultEl.querySelector('[data-audio-filename]');
+        if (!wrapper) return;
+        var audioPath = wrapper.getAttribute('data-audio-filename');
+        var tempo = document.getElementById('vd-pp-tempo').value;
+        var enhance = document.getElementById('vd-pp-enhance').checked ? 'true' : 'false';
+        Reprocess.execute({
+            resultId: 'vd-result',
+            statusId: 'vd-status',
+            audioElementId: 'vd-audio',
+            audioPath: audioPath,
+            params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
+        });
+    };
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initVoiceDesign);
+    } else {
+        initVoiceDesign();
+    }
+})();
+</script>

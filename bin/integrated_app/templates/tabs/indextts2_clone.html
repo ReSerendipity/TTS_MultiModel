@@ -1,0 +1,87 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+        <h3 class="card-header-title">{{ "tab_indextts2_clone"|t(lang) }}</h3>
+    </div>
+    <div class="tts-card-desc">{{ "indextts2_clone_desc"|t(lang) }}</div>
+    <form id="it2c-form" hx-post="/api/generate/indextts2/clone" hx-target="#it2c-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+        <input type="hidden" name="mode" value="clone">
+        <label for="it2c-ref-audio">{{ "ref_audio"|t(lang) }}</label>
+        <div class="tts-file-upload" onclick="document.getElementById('it2c-ref-audio-input').click()">
+            <input type="file" id="it2c-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2cFileName(this)">
+            <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="tts-upload-text">{{ "upload_clone_ref"|t(lang) }}</div>
+            <div id="it2c-ref-audio-name" class="it2c-file-name">{{ "supported_formats"|t(lang) }} (5-30s)</div>
+        </div>
+        <div class="it2c-audio-preview" id="it2c-audio-preview">
+            <audio id="it2c-preview-audio" controls></audio>
+        </div>
+        {% with prefix='it2c', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
+        {% with prefix='it2c' %}
+        {% include 'partials/language_selector.html' %}
+        {% endwith %}
+        <div class="tts-form-group">
+            <label class="tts-form-label">{{ "duration_mode"|t(lang) }}</label>
+            <label class="tts-checkbox-label">
+                <input type="radio" name="duration_mode" value="free" checked onchange="toggleIt2cDurationMode('free')">
+                {{ "duration_free"|t(lang) }}
+            </label>
+            <label class="tts-checkbox-label">
+                <input type="radio" name="duration_mode" value="fixed" onchange="toggleIt2cDurationMode('fixed')">
+                {{ "duration_specified"|t(lang) }}
+            </label>
+        </div>
+        <div id="it2c-duration-options" style="display:none;">
+            <div class="it2c-duration-selector">
+                <button type="button" class="it2c-duration-btn" data-speed="0.75" onclick="selectIt2cSpeed(this)">0.75x</button>
+                <button type="button" class="it2c-duration-btn active" data-speed="1.0" onclick="selectIt2cSpeed(this)">1.0x</button>
+                <button type="button" class="it2c-duration-btn" data-speed="1.25" onclick="selectIt2cSpeed(this)">1.25x</button>
+            </div>
+            <input type="hidden" name="duration_scale" id="it2c-duration-scale" value="1.0">
+        </div>
+        <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "indextts2_generate"|t(lang) }}</span></button>
+    </form>
+</div>
+{% with prefix='it2c', title_key='result_audio' %}
+{% include 'partials/result_card.html' %}
+{% endwith %}
+<script>
+(function(){
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'it2c-form',
+        resultId: 'it2c-result',
+        statusId: 'it2c-status',
+        textareaId: 'it2c-text',
+        counterId: 'it2c-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'tts-char-counter'
+    });
+
+    window.updateIt2cFileName = function(input) {
+        var nameEl = document.getElementById('it2c-ref-audio-name');
+        var previewEl = document.getElementById('it2c-audio-preview');
+        var previewAudio = document.getElementById('it2c-preview-audio');
+        if (input.files && input.files.length > 0) {
+            nameEl.textContent = input.files[0].name;
+            var url = URL.createObjectURL(input.files[0]);
+            previewAudio.src = url;
+            previewEl.style.display = 'block';
+        } else {
+            nameEl.textContent = '{{ "supported_formats"|t(lang) }} (5-30s)';
+            previewEl.style.display = 'none';
+        }
+    };
+    window.toggleIt2cDurationMode = function(mode) {
+        document.getElementById('it2c-duration-options').style.display = mode === 'fixed' ? 'block' : 'none';
+    };
+    window.selectIt2cSpeed = function(btn) {
+        document.querySelectorAll('.it2c-duration-btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('it2c-duration-scale').value = btn.dataset.speed;
+    };
+})();
+</script>

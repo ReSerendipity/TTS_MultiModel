@@ -1,0 +1,711 @@
+"""生成路由共享工具模块。
+
+重构说明 (S-R4):
+- S-R4: 统一 history_db 实例 — 移除模块级 _history_db 独立实例，
+        改用全局单例 get_history_db()。修复两个实例操作不同 SQLite 文件
+        的 P0 数据一致性 Bug（生成路由写入 outputs/history.db，但读取
+        页面查询 data/history.db，导致用户看不到刚生成的历史记录）。
+        新增 _migrate_legacy_history_db_if_needed() 在首次写入时执行
+        一次性幂等迁移，将 legacy 数据库记录合并到统一数据库。
+"""
+
+import asyncio
+import html
+import json
+import logging
+import os
+import sqlite3
+import threading
+import time
+from datetime import datetime
+from urllib.parse import quote
+
+import aiofiles
+import numpy as np
+from fastapi import APIRouter, UploadFile
+from fastapi.responses import HTMLResponse
+
+from ...audio_processing import enhance_audio
+from ...config import MAX_UPLOAD_SIZE_BYTES, SAVE_DIR
+from ...exceptions import EngineSwitchError, InsufficientVRAMError, TTSError
+from ...gpu_utils import free_gpu_memory, is_oom_error
+from ...history_db import get_history_db
+from ...model_manager import _time_estimator
+from ...monitor import get_health_monitor
+from ..system import increment_generation, log_operation
+
+router = APIRouter(prefix="/api/generate", tags=["generate"])
+
+logger = logging.getLogger("tts_multimodel")
+
+# S-R4: 移除模块级 _history_db 独立实例，统一使用全局单例 get_history_db()
+_generation_semaphores: dict[str, asyncio.Semaphore] = {}
+_generation_semaphore_lock = asyncio.Lock()
+_generation_retry_counter = {"total": 0, "oom_retries": 0}
+
+# REFACTOR: 集中常量，消除魔法数字
+_MAX_CONCURRENT_GENERATIONS = max(1, int(os.environ.get("TTS_MAX_CONCURRENT_GENERATIONS", "1")))
+# E6-1 SECURITY/ROBUSTNESS: 信号量获取超时 (秒) — 用户排队等待上限
+_SEMAPHORE_ACQUIRE_TIMEOUT_S = float(os.environ.get("TTS_SEMAPHORE_TIMEOUT_S", "120.0"))
+# E6-1 SECURITY/ROBUSTNESS: 单次生成硬超时 (秒) — 防止超长文本耗尽信号量池
+# 默认 600s (10 分钟)，可按硬件调优。生成超时后释放信号量，返回友好错误。
+_GENERATION_HARD_TIMEOUT_S = float(os.environ.get("TTS_GENERATION_TIMEOUT_S", "600.0"))
+
+# S-R4: legacy history.db 迁移控制（幂等，只执行一次）
+_legacy_history_migrated = False
+_legacy_migration_lock = threading.Lock()
+
+# S-R4: legacy history.db 路径（原 create_history_db(SAVE_DIR) 使用的路径）
+_LEGACY_HISTORY_DB_PATH = os.path.join(SAVE_DIR, "history.db")
+
+
+async def _get_generation_semaphore(engine: str) -> asyncio.Semaphore:
+    """Return the per-engine semaphore, creating it lazily if needed."""
+    engine = (engine or "voxcpm2").lower()
+    semaphore = _generation_semaphores.get(engine)
+    if semaphore is None:
+        async with _generation_semaphore_lock:
+            semaphore = _generation_semaphores.get(engine)
+            if semaphore is None:
+                semaphore = asyncio.Semaphore(_MAX_CONCURRENT_GENERATIONS)
+                _generation_semaphores[engine] = semaphore
+    return semaphore
+
+
+ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".wma", ".aac"}
+_DIALECT_NAMES = {"四川话", "粤语", "吴语", "东北话", "河南话", "闽南语", "湖南话", "湖北话", "客家话"}
+
+
+def _migrate_legacy_history_db_if_needed() -> None:
+    """REFACTOR: [S-R4] 一次性迁移 legacy history.db 到统一位置。
+
+    Root Cause:
+        原 _get_history_db() 调用 create_history_db(SAVE_DIR) 创建独立实例，
+        数据库路径为 {SAVE_DIR}/history.db (即 outputs/history.db)。
+        而全局单例 get_history_db() 的路径为 {ROOT_DIR}/data/history.db。
+        两个独立的 HistoryDatabase 实例操作不同的 SQLite 文件，导致：
+        - 生成路由写入 outputs/history.db
+        - 历史/音频页面读取 data/history.db
+        - 用户看不到刚生成的历史记录（P0 数据一致性 Bug）
+
+    Fix:
+        统一使用 get_history_db() 全局单例。首次调用本函数时执行一次性迁移：
+        1. 检查 legacy 路径是否存在 outputs/history.db
+        2. 读取所有记录，用 insert_batch 合并到统一数据库（INSERT OR REPLACE 去重）
+        3. 迁移成功后将 legacy 文件重命名为 .migrated_{timestamp}，防止再次迁移
+        4. 幂等：已迁移则跳过；失败不阻塞应用启动（仅记录警告日志）
+
+    Safety:
+        - threading.Lock 保护，防止多线程并发触发
+        - 双重检查 _legacy_history_migrated 标志位
+        - 所有文件操作包裹 try/except，失败不影响主流程
+    """
+    global _legacy_history_migrated
+    if _legacy_history_migrated:
+        return
+
+    with _legacy_migration_lock:
+        if _legacy_history_migrated:
+            return
+
+        try:
+            if not os.path.exists(_LEGACY_HISTORY_DB_PATH):
+                _legacy_history_migrated = True
+                return
+
+            # 空文件直接重命名，避免后续无谓的读取
+            try:
+                if os.path.getsize(_LEGACY_HISTORY_DB_PATH) == 0:
+                    try:
+                        os.rename(_LEGACY_HISTORY_DB_PATH, f"{_LEGACY_HISTORY_DB_PATH}.empty")
+                        logger.info("[S-R4] 检测到空的 legacy history.db，已重命名为 .empty")
+                    except OSError as rename_err:
+                        logger.debug(f"[S-R4] 重命名空 legacy 文件失败: {rename_err}")
+                    _legacy_history_migrated = True
+                    return
+            except OSError as size_err:
+                logger.debug(f"[S-R4] 获取 legacy 文件大小失败: {size_err}")
+                _legacy_history_migrated = True
+                return
+
+            # 读取 legacy 数据库所有记录
+            legacy_conn = sqlite3.connect(_LEGACY_HISTORY_DB_PATH)
+            legacy_conn.row_factory = sqlite3.Row
+            try:
+                cursor = legacy_conn.execute("SELECT * FROM generation_history")
+                rows = cursor.fetchall()
+            except sqlite3.DatabaseError as read_err:
+                logger.warning(f"[S-R4] 读取 legacy history.db 失败: {read_err}")
+                _legacy_history_migrated = True
+                return
+            finally:
+                with _suppress_os_errors():
+                    legacy_conn.close()
+
+            if not rows:
+                # 空数据库（无记录），直接重命名
+                try:
+                    os.rename(_LEGACY_HISTORY_DB_PATH, f"{_LEGACY_HISTORY_DB_PATH}.migrated")
+                    logger.info("[S-R4] legacy history.db 无记录，已重命名为 .migrated")
+                except OSError as rename_err:
+                    logger.debug(f"[S-R4] 重命名空 legacy 文件失败: {rename_err}")
+                _legacy_history_migrated = True
+                return
+
+            # 转换为 dict 列表（sqlite3.Row 转 dict）
+            records = [dict(row) for row in rows]
+
+            # 写入目标数据库（get_history_db 全局单例）
+            # insert_batch 内部使用 INSERT OR REPLACE，filepath UNIQUE 约束保证去重
+            target_db = get_history_db()
+            count = target_db.insert_batch(records)
+
+            # 迁移成功，重命名旧文件（带时间戳防止冲突）
+            migrated_path = f"{_LEGACY_HISTORY_DB_PATH}.migrated_{int(time.time())}"
+            try:
+                os.rename(_LEGACY_HISTORY_DB_PATH, migrated_path)
+            except OSError as rename_err:
+                logger.debug(f"[S-R4] 重命名 legacy 文件失败（迁移已完成）: {rename_err}")
+
+            logger.info(
+                f"[S-R4] 已迁移 {count} 条历史记录从 legacy history.db "
+                f"({_LEGACY_HISTORY_DB_PATH}) 到统一数据库"
+            )
+        except Exception as migrate_err:
+            # 任何异常都不阻塞应用启动
+            logger.warning(f"[S-R4] 迁移 legacy history.db 失败: {migrate_err}（不影响应用启动）")
+        finally:
+            _legacy_history_migrated = True
+
+
+class _suppress_os_errors:
+    """E4: 上下文管理器，抑制 OSError（用于资源清理的 finally 块）。"""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return exc_type is not None and issubclass(exc_type, OSError)
+
+
+def _check_engine_ready(request, engine_name: str = None):
+    from ...model_registry import registry
+
+    if engine_name is None:
+        engine_name = registry.current_engine
+    if engine_name == "indextts2":
+        if registry.indextts2_engine is None:
+            return _error_html(request, "IndexTTS 2.0 模型未加载，请先点击顶部 IndexTTS 2.0 加载模型", error_type="engine_not_ready")
+    else:
+        if registry.voxcpm_model is None:
+            return _error_html(request, "VoxCPM2 模型未加载，请先点击顶部 VoxCPM2 加载模型", error_type="engine_not_ready")
+    return None
+
+
+def _record_to_history_db(
+    filepath: str,
+    text: str,
+    engine: str,
+    duration: float,
+    model_type: str = None,
+    model_size: str = None,
+    persona_name: str = None,
+    output_format: str = "wav",
+    is_success: bool = True,
+    error_msg: str = None,
+):
+    # S-R4: 首次调用时执行一次性 legacy 数据库迁移（幂等）
+    _migrate_legacy_history_db_if_needed()
+
+    try:
+        # S-R4: 统一使用全局单例 get_history_db()，消除多实例路径不一致问题
+        db = get_history_db()
+        filename = os.path.basename(filepath) if filepath else ""
+        file_size = os.path.getsize(filepath) if filepath and os.path.exists(filepath) else 0
+        db.insert(
+            {
+                "filename": filename,
+                "filepath": filepath or "",
+                "created_at": datetime.now().isoformat(),
+                "file_size_bytes": file_size,
+                "duration_seconds": round(duration, 2),
+                "text_preview": text[:100] if text else "",
+                "engine": engine,
+                "model_type": model_type,
+                "model_size": model_size,
+                "persona_name": persona_name,
+                "output_format": output_format,
+                "is_success": is_success,
+                "error_msg": error_msg,
+            }
+        )
+    except Exception as e:
+        logger.debug(f"历史记录数据库写入失败: {e}")
+
+
+def _safe_error_msg(exc):
+    """Return user-friendly error message based on exception type."""
+    if isinstance(exc, InsufficientVRAMError):
+        return f"显存不足：{str(exc)}"
+    if isinstance(exc, EngineSwitchError):
+        return f"引擎切换失败：{str(exc)}"
+    if isinstance(exc, TTSError):
+        return str(exc)
+    if isinstance(exc, RuntimeError):
+        if "CUDA" in str(exc) or "VRAM" in str(exc) or "out of memory" in str(exc).lower():
+            return "显存不足，请尝试缩短文本、关闭其他GPU程序，或在设置中切换到CPU模式"
+        return f"运行时错误：{str(exc)[:200]}"
+    if isinstance(exc, ValueError):
+        return f"参数错误：{str(exc)[:200]}"
+    if isinstance(exc, FileNotFoundError):
+        return "音频文件不存在或已被删除"
+    if isinstance(exc, TimeoutError):
+        return "请求超时，请稍后重试"
+    if isinstance(exc, ConnectionError):
+        return "网络连接异常，请检查网络"
+    return "生成失败，请稍后重试"
+
+
+def _partial_success_html(filename, message, degraded_note):
+    safe_filename = quote(filename, safe="")
+    return HTMLResponse(
+        f'<div data-audio-filename="{html.escape(filename)}">'
+        f'<audio class="tts-audio-hidden" src="/api/audio/{safe_filename}"></audio>'
+        f'<div class="status-message success">{html.escape(message)}</div>'
+        f'<div class="status-message warning" style="margin-top:8px;color:#f59e0b;">{html.escape(degraded_note)}</div>'
+        f"</div>"
+    )
+
+
+def _log_generation(
+    endpoint_name, text, engine, voice_or_persona, success, duration, is_degraded=False, error_msg=None
+):
+    if success:
+        increment_generation(success=True)
+        details = {
+            "endpoint": endpoint_name,
+            "engine": engine,
+            "voice_persona": voice_or_persona,
+            "text_length": len(text),
+            "duration": round(duration, 2),
+        }
+        if is_degraded:
+            details["degraded"] = True
+        log_operation("generation", f"{endpoint_name} success ({duration:.1f}s)", details)
+    else:
+        increment_generation(success=False)
+        details = {
+            "endpoint": endpoint_name,
+            "engine": engine,
+            "voice_persona": voice_or_persona,
+            "text_length": len(text),
+            "duration": round(duration, 2),
+        }
+        if error_msg:
+            details["error"] = str(error_msg)
+        log_operation("generation", f"{endpoint_name} failed ({duration:.1f}s)", details)
+
+
+def _apply_post_processing_to_file(filename, tempo_factor, voice_enhancement, target_lufs):
+    if tempo_factor == 1.0 and not voice_enhancement and target_lufs == -16.0:
+        return filename
+
+    from scipy.io import wavfile
+
+    audio_path = os.path.join(SAVE_DIR, filename) if not os.path.isabs(filename) else filename
+    if not os.path.isfile(audio_path):
+        logger.warning(f"后处理: 音频文件未找到: {audio_path}")
+        return filename
+
+    try:
+        sr, data = wavfile.read(audio_path)
+        if data.dtype == np.int16:
+            audio = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            audio = data.astype(np.float32) / 2147483648.0
+        elif data.dtype == np.float32:
+            audio = data.copy()
+        else:
+            audio = data.astype(np.float32)
+
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+
+        processed = enhance_audio(
+            audio,
+            sr,
+            normalize=True,
+            tempo_factor=tempo_factor,
+            voice_enhancement=voice_enhancement,
+            target_lufs=target_lufs,
+        )
+
+        base, ext = os.path.splitext(filename)
+        new_filename = f"{base}_pp{ext}"
+        new_path = os.path.join(SAVE_DIR, new_filename) if not os.path.isabs(new_filename) else new_filename
+
+        output = (processed * 32768.0).clip(-32768, 32767).astype(np.int16)
+        wavfile.write(new_path, sr, output)
+
+        logger.info(f"后处理已应用: {filename} -> {new_filename}")
+        return new_filename
+    except Exception as e:
+        logger.error(f"后处理失败 {filename}: {e}")
+        return filename
+
+
+def _error_html(request, error_message, error_type="general"):
+    """渲染 HTML 错误片段；优先使用模板，降级时返回安全字符串。"""
+    try:
+        templates = request.app.state.templates
+        from ...i18n import get_lang
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={
+                "lang": get_lang(request),
+                "error_message": error_message,
+                "error_type": error_type,
+            },
+            status_code=400,
+            headers={
+                "HX-Trigger": json.dumps(
+                    {"tts-toast": {"type": "error", "message": html.escape(error_message)}},
+                    ensure_ascii=False,
+                )
+            },
+        )
+    except Exception:
+        # 极端降级：仍保证转义
+        return HTMLResponse(
+            f'<div class="tts-error-block" data-error-type="{html.escape(error_type)}">'
+            f'<div class="error-title">生成失败</div>'
+            f'<div class="error-message">{html.escape(error_message)}</div>'
+            f"</div>",
+            status_code=400,
+        )
+
+
+async def save_uploaded_audio(request, upload_file, upload_dir=None, max_size_mb=25):
+    """Save an uploaded audio file and return the path, or an error HTML response."""
+    if not upload_file or not upload_file.filename:
+        return None, None
+
+    if upload_dir is None:
+        upload_dir = os.path.join(SAVE_DIR, "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    safe_name = os.path.basename(upload_file.filename)
+    _, ext = os.path.splitext(safe_name)
+    if ext.lower() not in ALLOWED_AUDIO_EXTENSIONS:
+        return None, _error_html(request, f"不支持的音频格式: {ext}")
+
+    upload_path = os.path.join(upload_dir, f"{int(time.time())}_{safe_name}")
+    content = await upload_file.read()
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        return None, _error_html(request, f"上传文件大小超过 {MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)}MB 限制")
+
+    async with aiofiles.open(upload_path, "wb") as f:
+        await f.write(content)
+
+    return upload_path, None
+
+
+async def resolve_persona_ref(request, persona_name):
+    """Resolve a persona name to its reference audio path. Returns (path, error_html)."""
+    if not persona_name:
+        return None, None
+
+    from ...persona_manager import load_persona_embedding
+
+    safe_name = os.path.basename(persona_name)
+    persona_data = load_persona_embedding(safe_name)
+    if persona_data is not None:
+        wav_path, ref_text = persona_data
+        if wav_path and os.path.isfile(wav_path):
+            return wav_path, None
+        else:
+            return None, _error_html(request, f"音色文件不存在: {safe_name}")
+    else:
+        return None, _error_html(request, f"音色不存在: {safe_name}")
+
+
+def pre_validate(request, engine_name, text, max_length=None):
+    """Pre-validate engine readiness and text. Returns error HTML or None if valid."""
+    model_not_ready = _check_engine_ready(request, engine_name)
+    if model_not_ready:
+        return model_not_ready
+    if not text or not text.strip():
+        return _error_html(request, "文本不能为空")
+    if max_length and len(text) > max_length:
+        return _error_html(request, f"文本长度超过限制（最大 {max_length} 字符）")
+    return None
+
+
+def _success_html(filename, status_message):
+    safe_filename = quote(filename, safe="")
+    return HTMLResponse(
+        f'<div data-audio-filename="{html.escape(filename)}">'
+        f'<audio class="tts-audio-hidden" src="/api/audio/{safe_filename}"></audio>'
+        f'<div class="status-message success">{html.escape(status_message)}</div>'
+        f"</div>"
+    )
+
+
+def _run_with_oom_retry(run_fn, endpoint_name, degraded_fn=None, max_retries=2):
+    _generation_retry_counter["total"] += 1
+    degraded_note = None
+    retry_count = 0
+
+    try:
+        result, msg = run_fn()
+        return result, msg, degraded_note
+    except Exception as e:
+        if not is_oom_error(e):
+            logger.error(f"{endpoint_name} failed (non-OOM): {e}")
+            raise
+
+        logger.warning(f"{endpoint_name} hit OOM, attempting degraded retry...")
+        _generation_retry_counter["oom_retries"] += 1
+        free_gpu_memory()
+
+        while retry_count < max_retries:
+            retry_count += 1
+            try:
+                degraded_note = "由于显存限制，已自动降低生成质量参数以完成生成。"
+                if degraded_fn:
+                    result, msg = degraded_fn()
+                else:
+                    result, msg = run_fn()
+                return result, msg, degraded_note
+            except Exception as retry_e:
+                if not is_oom_error(retry_e):
+                    raise
+                logger.warning(f"{endpoint_name} OOM retry {retry_count}/{max_retries} failed")
+                free_gpu_memory()
+
+        raise RuntimeError(
+            "显存不足，已尝试降级重试但仍失败。请尝试缩短文本、关闭其他GPU程序，或在设置中切换到CPU模式"
+        ) from None
+
+
+def _parse_bool_form(value) -> bool:
+    return str(value).lower() in ("true", "1", "yes")
+
+
+def _merge_dialect(instruction: str, dialect: str) -> str:
+    if dialect and dialect in _DIALECT_NAMES:
+        return (dialect + "，" + instruction) if instruction.strip() else dialect
+    return instruction
+
+
+async def _execute_generation(
+    request,
+    text: str,
+    run_fn,
+    endpoint_name: str,
+    voice_or_persona: str = "",
+    model_type: str = "",
+    engine: str = "voxcpm2",
+    tempo_factor: float = 1.0,
+    voice_enhancement: str = "false",
+    target_lufs: float = -16.0,
+    oom_retry: bool = True,
+    degraded_fn=None,
+):
+    semaphore = await _get_generation_semaphore(engine)
+    try:
+        await asyncio.wait_for(
+            semaphore.acquire(),
+            timeout=_SEMAPHORE_ACQUIRE_TIMEOUT_S,
+        )
+    except asyncio.TimeoutError:
+        return _error_html(request, "系统繁忙，请稍后再试（等待超时）")
+    try:
+        # E6-1 ROBUSTNESS: 为生成任务本身加硬超时，防止超长文本/死循环耗尽信号量池。
+        # 注意：底层 torch 推理不响应 asyncio 取消，但 run_in_executor 的 Future
+        # 可被 wait_for 取消（线程仍会跑完，但 HTTP 客户端会立即收到超时响应，
+        # 信号量也会被释放，避免请求堆积）。
+        return await asyncio.wait_for(
+            _execute_generation_impl(
+                request,
+                text,
+                run_fn,
+                endpoint_name,
+                voice_or_persona,
+                model_type,
+                engine,
+                tempo_factor,
+                voice_enhancement,
+                target_lufs,
+                oom_retry,
+                degraded_fn,
+            ),
+            timeout=_GENERATION_HARD_TIMEOUT_S,
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"{endpoint_name} 生成超时 (>{_GENERATION_HARD_TIMEOUT_S}s)，文本长度={len(text)}")
+        _log_generation(
+            endpoint_name, text, engine, voice_or_persona, False, _GENERATION_HARD_TIMEOUT_S,
+            error_msg=f"generation timeout (>{_GENERATION_HARD_TIMEOUT_S}s)",
+        )
+        return _error_html(request, f"生成超时（超过 {_GENERATION_HARD_TIMEOUT_S:.0f} 秒），请尝试缩短文本或减少并发")
+    finally:
+        semaphore.release()
+
+
+async def _execute_generation_impl(
+    request,
+    text: str,
+    run_fn,
+    endpoint_name: str,
+    voice_or_persona: str = "",
+    model_type: str = "",
+    engine: str = "voxcpm2",
+    tempo_factor: float = 1.0,
+    voice_enhancement: str = "false",
+    target_lufs: float = -16.0,
+    oom_retry: bool = True,
+    degraded_fn=None,
+):
+    loop = asyncio.get_running_loop()
+    start_time = time.monotonic()
+    try:
+        if oom_retry:
+            result, msg, degraded_note = await loop.run_in_executor(
+                None, lambda: _run_with_oom_retry(run_fn, endpoint_name, degraded_fn=degraded_fn)
+            )
+        else:
+            result, msg = await loop.run_in_executor(None, run_fn)
+            degraded_note = None
+        duration = time.monotonic() - start_time
+        if result is None:
+            _log_generation(endpoint_name, text, engine, voice_or_persona, False, duration, error_msg=msg)
+            return _error_html(request, msg)
+        is_degraded = degraded_note is not None
+        _log_generation(endpoint_name, text, engine, voice_or_persona, True, duration, is_degraded=is_degraded)
+        _time_estimator.record(len(text), duration, engine, segment_count=1)
+        if isinstance(result, tuple) and len(result) >= 3:
+            audio_path = os.path.join(SAVE_DIR, result[2]) if not os.path.isabs(result[2]) else result[2]
+            await asyncio.to_thread(
+                _record_to_history_db,
+                filepath=audio_path,
+                text=text,
+                engine=engine,
+                duration=duration,
+                model_type=model_type,
+                output_format="wav",
+                is_success=True,
+            )
+        monitor = get_health_monitor()
+        monitor.record_generation(success=True)
+        filename = result[2]
+        pp_voice_enhancement = _parse_bool_form(voice_enhancement)
+        filename = await asyncio.to_thread(
+            _apply_post_processing_to_file, filename, tempo_factor, pp_voice_enhancement, target_lufs
+        )
+        if degraded_note:
+            return _partial_success_html(filename, msg, degraded_note)
+        return _success_html(filename, msg)
+    except Exception as e:
+        duration = time.monotonic() - start_time
+        logger.error(f"{endpoint_name} generation failed: {e}")
+        _log_generation(endpoint_name, text, engine, voice_or_persona, False, duration, error_msg=str(e))
+        error_type = "general"
+        if is_oom_error(e):
+            error_type = "oom"
+        elif isinstance(e, (ValueError,)):
+            error_type = "validation"
+        return _error_html(request, _safe_error_msg(e), error_type=error_type)
+
+
+# ---------------------------------------------------------------------------
+# 共享工具函数：音频上传验证、文本输入验证、参考音频加载
+# ---------------------------------------------------------------------------
+
+# 支持的音频格式（与 ALLOWED_AUDIO_EXTENSIONS 保持一致）
+SUPPORTED_AUDIO_FORMATS = ALLOWED_AUDIO_EXTENSIONS
+MAX_AUDIO_SIZE_MB = 50  # 最大音频文件大小（MB）
+MAX_TEXT_LENGTH_DEFAULT = 5000  # 默认最大文本长度
+
+
+async def validate_audio_upload(
+    file: UploadFile,
+    max_size_mb: int = MAX_AUDIO_SIZE_MB,
+    supported_formats: set = SUPPORTED_AUDIO_FORMATS,
+) -> tuple[bool, str]:
+    """验证上传的音频文件
+
+    Returns:
+        (is_valid, error_message) - 验证通过时 error_message 为空字符串
+    """
+    if not file or not file.filename:
+        return False, "未选择音频文件"
+
+    # 检查文件扩展名
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in supported_formats:
+        return False, f"不支持的音频格式: {ext}，支持: {', '.join(sorted(supported_formats))}"
+
+    # 检查文件大小
+    try:
+        content = await file.read()
+        await file.seek(0)  # 重置文件指针
+        size_mb = len(content) / (1024 * 1024)
+        if size_mb > max_size_mb:
+            return False, f"音频文件过大: {size_mb:.1f}MB，最大支持: {max_size_mb}MB"
+    except Exception as e:
+        logger.warning(f"读取音频文件失败: {e}")
+        return False, f"读取音频文件失败: {e}"
+
+    return True, ""
+
+
+def validate_text_input(
+    text: str,
+    max_length: int = MAX_TEXT_LENGTH_DEFAULT,
+    field_name: str = "文本",
+) -> tuple[bool, str]:
+    """验证文本输入
+
+    Returns:
+        (is_valid, error_message) - 验证通过时 error_message 为空字符串
+    """
+    if not text or not text.strip():
+        return False, f"请输入{field_name}"
+
+    if len(text) > max_length:
+        return False, f"{field_name}过长: {len(text)}字，最大支持: {max_length}字"
+
+    return True, ""
+
+
+async def load_reference_audio(
+    request,
+    file: UploadFile,
+    output_dir: str,
+    prefix: str = "ref",
+) -> tuple[str | None, str]:
+    """加载参考音频文件到指定目录
+
+    Returns:
+        (file_path, error_message) - 成功时 error_message 为空字符串，失败时 file_path 为 None
+    """
+    is_valid, error = await validate_audio_upload(file)
+    if not is_valid:
+        return None, error
+
+    try:
+        content = await file.read()
+        filename = f"{prefix}_{file.filename}"
+        filepath = os.path.join(output_dir, filename)
+
+        os.makedirs(output_dir, exist_ok=True)
+        async with aiofiles.open(filepath, "wb") as f:
+            await f.write(content)
+
+        return filepath, ""
+    except Exception as e:
+        logger.error(f"保存参考音频失败: {e}")
+        return None, f"保存参考音频失败: {e}"

@@ -1,0 +1,318 @@
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
+        <h3 class="card-header-title">{{ "input_settings"|t(lang) }}</h3>
+    </div>
+    <div class="tts-card-desc">{{ "indextts2_desc"|t(lang) }}</div>
+    <form id="it2-form" hx-post="/api/generate/indextts2" hx-target="#it2-result" hx-swap="innerHTML" hx-indicator="#it2-spinner">
+        <input type="hidden" name="mode" value="indextts2">
+        {% with prefix='it2', label='synthesis_text'|t(lang), placeholder='indextts2_default_text'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='it2-auto-resize', textarea_rows=3 %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
+
+        {% with prefix='it2' %}
+        {% include 'partials/language_selector.html' %}
+        {% endwith %}
+
+        <div class="inner-tabs">
+            <div class="sub-tab-nav">
+                <button type="button" class="sub-tab-btn active" onclick="switchIt2InnerTab('clone', this)">{{ "voice_clone"|t(lang) }}</button>
+                <button type="button" class="sub-tab-btn" onclick="switchIt2InnerTab('emotion', this)">{{ "emotion_control"|t(lang) }}</button>
+            </div>
+            <div id="it2-tab-clone" class="inner-tab-panel">
+                <label for="it2-ref-audio">{{ "ref_audio"|t(lang) }}</label>
+                <div class="tts-file-upload" onclick="document.getElementById('it2-ref-audio-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
+                    <input type="file" id="it2-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-name')" aria-label="{{ "ref_audio"|t(lang) }}">
+                    <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div class="tts-upload-text">{{ "upload_ref"|t(lang) }}</div>
+                    <div id="it2-ref-audio-name" class="tts-file-name">{{ "supported_formats"|t(lang) }}</div>
+                </div>
+
+                <div class="tts-form-group">
+                    <label class="tts-form-label" for="it2-ref-text">{{ "ref_text"|t(lang) }} <span class="tts-text-muted">{{ "optional"|t(lang) }}</span></label>
+                    <input type="text" name="ref_text" id="it2-ref-text" placeholder="{{ 'ref_text_placeholder'|t(lang) }}" class="tts-input-textbox tts-full-width">
+                </div>
+
+                <div class="tts-form-group">
+                    <label class="tts-form-label" for="it2-seed">{{ "random_seed"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                    <div class="it2-seed-row">
+                        <input type="number" name="seed" id="it2-seed" min="0" value="0" placeholder="{{ 'seed_placeholder'|t(lang) }}" class="tts-input it2-seed-input">
+                        <label class="tts-checkbox-label">
+                            <input type="checkbox" id="it2-use-random-seed" checked onchange="toggleIt2SeedInput(this)"> {{ "use_random_seed"|t(lang) }}
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn" aria-label="{{ "indextts2_generate"|t(lang) }}"><span class="btn-text">{{ "indextts2_generate"|t(lang) }}</span></button>
+            </div>
+            <div id="it2-tab-emotion" class="inner-tab-panel" style="display:none;">
+                <label for="it2-ref-audio-emo">{{ "ref_audio"|t(lang) }}</label>
+                <div class="tts-file-upload" onclick="document.getElementById('it2-ref-audio-emo-input').click()" aria-label="{{ "upload_ref"|t(lang) }}">
+                    <input type="file" id="it2-ref-audio-emo-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-ref-audio-emo-name')" aria-label="{{ "ref_audio"|t(lang) }}" disabled>
+                    <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div class="tts-upload-text">{{ "upload_ref"|t(lang) }}</div>
+                    <div id="it2-ref-audio-emo-name" class="tts-file-name">{{ "supported_formats"|t(lang) }}</div>
+                </div>
+
+                <div class="it2-emotion-panel">
+                    <div class="tts-panel-title">{{ "emotion_control"|t(lang) }}</div>
+
+                    <!-- Emotion mode tabs -->
+                    <div class="it2-emo-mode-tabs">
+                        <div class="it2-emo-mode-tab it2-emo-mode-active" onclick="switchIt2EmotionMode('vector', this)">{{ "emotion_vector"|t(lang) }}</div>
+                        <div class="it2-emo-mode-tab" onclick="switchIt2EmotionMode('text', this)">{{ "emotion_text"|t(lang) }}</div>
+                        <div class="it2-emo-mode-tab" onclick="switchIt2EmotionMode('audio', this)">{{ "emotion_audio"|t(lang) }}</div>
+                    </div>
+
+                    <!-- Vector mode -->
+                    <div id="it2-emo-vector-mode">
+                        <div class="it2-emotion-grid">
+                            <div class="it2-emotion-item">
+                                <div class="it2-emotion-label"><span>{{ "emotion_happy"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-happy-val">0.0</span></div>
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-happy" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('happy', this.value)">
+                            </div>
+                            <div class="it2-emotion-item">
+                                <div class="it2-emotion-label"><span>{{ "emotion_angry"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-angry-val">0.0</span></div>
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-angry" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('angry', this.value)">
+                            </div>
+                            <div class="it2-emotion-item">
+                                <div class="it2-emotion-label"><span>{{ "emotion_sad"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-sad-val">0.0</span></div>
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-sad" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('sad', this.value)">
+                            </div>
+                            <div class="it2-emotion-item">
+                                <div class="it2-emotion-label"><span>{{ "emotion_afraid"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-afraid-val">0.0</span></div>
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-afraid" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('afraid', this.value)">
+                            </div>
+                            <div class="it2-emotion-item">
+                                <div class="it2-emotion-label"><span>{{ "emotion_disgusted"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-disgusted-val">0.0</span></div>
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-disgusted" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('disgusted', this.value)">
+                            </div>
+                            <div class="it2-emotion-item">
+                                <div class="it2-emotion-label"><span>{{ "emotion_melancholic"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-melancholic-val">0.0</span></div>
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-melancholic" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('melancholic', this.value)">
+                            </div>
+                            <div class="it2-emotion-item">
+                                <div class="it2-emotion-label"><span>{{ "emotion_surprised"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-surprised-val">0.0</span></div>
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-surprised" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('surprised', this.value)">
+                            </div>
+                            <div class="it2-emotion-item">
+                                <div class="it2-emotion-label"><span>{{ "emotion_calm"|t(lang) }}</span><span class="it2-emotion-value" id="it2-emo-calm-val">0.0</span></div>
+                                <input type="range" class="tts-emotion-slider" id="it2-emo-calm" min="0" max="1" step="0.1" value="0" oninput="updateIt2EmotionValue('calm', this.value)">
+                            </div>
+                        </div>
+
+                        <!-- Preset emotions -->
+                        <div class="it2-emotion-presets">
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('neutral', this)" aria-label="{{ "emotion_neutral"|t(lang) }}">{{ "emotion_neutral"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('happy', this)" aria-label="{{ "emotion_happy"|t(lang) }}">{{ "emotion_happy"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('angry', this)" aria-label="{{ "emotion_angry"|t(lang) }}">{{ "emotion_angry"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('sad', this)" aria-label="{{ "emotion_sad"|t(lang) }}">{{ "emotion_sad"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('surprised', this)" aria-label="{{ "emotion_surprised"|t(lang) }}">{{ "emotion_surprised"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('calm', this)" aria-label="{{ "emotion_calm"|t(lang) }}">{{ "emotion_calm"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('melancholic', this)" aria-label="{{ "emotion_melancholic"|t(lang) }}">{{ "emotion_melancholic"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('excited', this)" aria-label="{{ "emotion_excited"|t(lang) }}">{{ "emotion_excited"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('gentle', this)" aria-label="{{ "emotion_gentle"|t(lang) }}">{{ "emotion_gentle"|t(lang) }}</button>
+                            <button type="button" class="tts-preset-tag" onclick="applyIt2PresetEmotion('whisper', this)" aria-label="{{ "emotion_whisper"|t(lang) }}">{{ "emotion_whisper"|t(lang) }}</button>
+                        </div>
+
+                        <!-- Emotion alpha -->
+                        <div class="it2-emotion-alpha">
+                            <label class="tts-form-label">{{ "emotion_alpha"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                            <div class="tts-range-row">
+                                <input type="range" id="it2-emo-alpha" class="tts-range-input" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('it2-emo-alpha-val').textContent = this.value">
+                                <span id="it2-emo-alpha-val" class="tts-range-value">0.8</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Text mode -->
+                    <div id="it2-emo-text-mode" style="display: none;">
+                        <label for="it2-emo-text">{{ "emotion_text_desc"|t(lang) }}</label>
+                        <input type="text" name="emo_text" id="it2-emo-text" class="it2-emo-text-input tts-input-textbox" placeholder="{{ 'emotion_text_placeholder'|t(lang) }}">
+                        <div class="it2-emotion-alpha">
+                            <label class="tts-form-label">{{ "emotion_alpha"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                            <div class="tts-range-row">
+                                <input type="range" id="it2-emo-alpha-text" class="tts-range-input" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('it2-emo-alpha-text-val').textContent = this.value">
+                                <span id="it2-emo-alpha-text-val" class="tts-range-value">0.8</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audio mode -->
+                    <div id="it2-emo-audio-mode" style="display: none;">
+                        <label for="it2-emo-audio-input">{{ "emotion_audio_prompt"|t(lang) }}</label>
+                        <div class="tts-file-upload" onclick="document.getElementById('it2-emo-audio-input').click()">
+                            <input type="file" id="it2-emo-audio-input" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2FileName(this, 'it2-emo-audio-name')">
+                            <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <div class="tts-upload-text">{{ "upload_emotion_audio"|t(lang) }}</div>
+                            <div id="it2-emo-audio-name" class="tts-file-name">{{ "supported_formats"|t(lang) }}</div>
+                        </div>
+                        <div class="it2-emotion-alpha">
+                            <label class="tts-form-label">{{ "emotion_alpha"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                            <div class="tts-range-row">
+                                <input type="range" id="it2-emo-alpha-audio" class="tts-range-input" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('it2-emo-alpha-audio-val').textContent = this.value">
+                                <span id="it2-emo-alpha-audio-val" class="tts-range-value">0.8</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Target duration -->
+                <div class="it2-target-duration">
+                    <label class="tts-form-label" for="it2-target-duration">{{ "target_duration"|t(lang) }} <svg class="tts-help-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></label>
+                            <div class="tts-range-row">
+                                <input type="number" name="target_duration" id="it2-target-duration" class="tts-input it2-target-duration-input" min="0" step="0.5" value="0" placeholder="{{ 'target_duration_placeholder'|t(lang) }}">
+                                <span class="tts-text-muted">{{ "seconds"|t(lang) }}</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn" aria-label="{{ "indextts2_generate"|t(lang) }}"><span class="btn-text">{{ "indextts2_generate"|t(lang) }}</span></button>
+            </div>
+        </div>
+    </form>
+</div>
+{% with prefix='it2', title_key='result_audio' %}
+{% include 'partials/result_card.html' %}
+{% endwith %}
+<script>
+(function(){
+    // Switch inner tabs
+    window.switchIt2InnerTab = function(tab, btn) {
+        document.querySelectorAll('#it2-form .inner-tab-panel').forEach(function(p){ p.style.display = 'none'; });
+        document.querySelectorAll('#it2-form .sub-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.getElementById('it2-tab-' + tab).style.display = '';
+        btn.classList.add('active');
+        // 在切换标签时禁用非激活的 file input，防止字段名冲突
+        var fileInputs = document.querySelectorAll('#it2-form input[type="file"]');
+        fileInputs.forEach(function(input) {
+            var tabPanel = input.closest('.inner-tab-panel');
+            if (tabPanel) {
+                input.disabled = (tabPanel.style.display === 'none');
+            }
+        });
+    };
+
+    // Switch emotion mode
+    window.switchIt2EmotionMode = function(mode, btn) {
+        document.querySelectorAll('.it2-emo-mode-tab').forEach(function(t){ t.classList.remove('it2-emo-mode-active'); });
+        btn.classList.add('it2-emo-mode-active');
+        document.getElementById('it2-emo-vector-mode').style.display = mode === 'vector' ? '' : 'none';
+        document.getElementById('it2-emo-text-mode').style.display = mode === 'text' ? '' : 'none';
+        document.getElementById('it2-emo-audio-mode').style.display = mode === 'audio' ? '' : 'none';
+    };
+
+    // Update emotion value display
+    window.updateIt2EmotionValue = function(emotion, value) {
+        document.getElementById('it2-emo-' + emotion + '-val').textContent = parseFloat(value).toFixed(1);
+    };
+
+    // Apply preset emotion
+    window.applyIt2PresetEmotion = function(preset, btn) {
+        document.querySelectorAll('#it2-form .tts-preset-tag').forEach(function(p){ p.classList.remove('active'); });
+        btn.classList.add('active');
+
+        var presets = {
+            neutral:   { calm: 0.5 },
+            happy:     { happy: 0.8 },
+            angry:     { angry: 0.8 },
+            sad:       { sad: 0.8 },
+            surprised: { surprised: 0.8 },
+            calm:      { calm: 0.8 },
+            melancholic: { melancholic: 0.8 },
+            excited:   { happy: 0.6, surprised: 0.4 },
+            gentle:    { calm: 0.6, happy: 0.3 },
+            whisper:   { calm: 0.9 }
+        };
+
+        var emotions = ['happy', 'angry', 'sad', 'afraid', 'disgusted', 'melancholic', 'surprised', 'calm'];
+        var values = presets[preset] || {};
+
+        // Reset all
+        emotions.forEach(function(e) {
+            document.getElementById('it2-emo-' + e).value = 0;
+            updateIt2EmotionValue(e, 0);
+        });
+
+        // Apply preset
+        Object.keys(values).forEach(function(e) {
+            document.getElementById('it2-emo-' + e).value = values[e];
+            updateIt2EmotionValue(e, values[e]);
+        });
+    };
+
+    // File name update
+    window.updateIt2FileName = function(input, nameElId) {
+        var nameEl = document.getElementById(nameElId);
+        if (input.files && input.files.length > 0) {
+            nameEl.textContent = input.files[0].name;
+        } else {
+            nameEl.textContent = '{{ "supported_formats"|t(lang) }}';
+        }
+    };
+
+    // Toggle seed input
+    window.toggleIt2SeedInput = function(checkbox) {
+        var seedInput = document.getElementById('it2-seed');
+        if (seedInput) {
+            seedInput.disabled = checkbox.checked;
+            if (checkbox.checked) {
+                seedInput.value = 0;
+            }
+        }
+    };
+
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'it2-form',
+        resultId: 'it2-result',
+        statusId: 'it2-status',
+        textareaId: 'it2-text',
+        counterId: 'it2-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'tts-char-counter',
+        validate: function(form) {
+            var refAudioInput = document.getElementById('it2-ref-audio-input');
+            if (refAudioInput && refAudioInput.files.length === 0) {
+                var emoAudioInput = document.getElementById('it2-emo-audio-input');
+                if (emoAudioInput && emoAudioInput.files.length === 0) {
+                    console.warn('[IndexTTS2] No reference audio uploaded, will use default if available');
+                }
+            }
+            return true;
+        }
+    });
+
+    // Add success badge after HTMX settle (auto-play is handled by TTSForm)
+    var form = document.getElementById('it2-form');
+    form.addEventListener('htmx:afterSettle', function(e) {
+        if (e.detail.successful) {
+            try {
+                var resultEl = document.getElementById('it2-result');
+                if (!resultEl) return;
+                var audioSrc = resultEl.querySelector('audio');
+                if (audioSrc) {
+                    var successBadge = document.createElement('div');
+                    successBadge.className = 'micro-success-badge';
+                    successBadge.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + '{{ "gen_success"|t(lang) }}';
+                    resultEl.insertBefore(successBadge, resultEl.firstChild);
+                }
+            } catch(ex) {
+                console.warn('Result badge setup failed:', ex);
+            }
+        }
+    });
+
+    // Initialize seed input
+    toggleIt2SeedInput(document.getElementById('it2-use-random-seed'));
+
+    // 初始化时禁用非激活标签页的 file input
+    var fileInputs = document.querySelectorAll('#it2-form input[type="file"]');
+    fileInputs.forEach(function(input) {
+        var tabPanel = input.closest('.inner-tab-panel');
+        if (tabPanel) {
+            input.disabled = (tabPanel.style.display === 'none');
+        }
+    });
+})();
+</script>
