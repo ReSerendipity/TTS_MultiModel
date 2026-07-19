@@ -1,0 +1,172 @@
+[project]
+name = "tts-multimodel"
+version = "2.0.0"
+description = "TTS MultiModel - Multi-engine Text-to-Speech platform with voice cloning, voice design, and LoRA fine-tuning"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Doro2047" },
+]
+keywords = [
+    "tts",
+    "text-to-speech",
+    "speech-synthesis",
+    "voice-cloning",
+    "voice-design",
+    "voxcpm2",
+    "indextts2",
+    "lora",
+    "fine-tuning",
+    "fastapi",
+    "pytorch",
+    "deep-learning",
+    "audio-generation",
+    "speech",
+    "chinese-tts",
+    "multi-model",
+    "script-dubbing",
+    "streaming-tts",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Multimedia :: Sound/Audio :: Sound Synthesis",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: FastAPI",
+    "Natural Language :: Chinese (Simplified)",
+    "Natural Language :: English",
+    "Natural Language :: Japanese",
+    "Natural Language :: Korean",
+]
+dependencies = [
+    # === 深度学习框架（版本必须匹配：torch 2.5.x -> torchvision 0.20.x -> torchaudio 2.5.x）===
+    "torch>=2.5.1",
+    "torchvision>=0.20.1",
+    "torchaudio>=2.5.1",
+    "transformers>=4.57.0",
+    "tokenizers>=0.19.0",
+    # === AI 生态 ===
+    "funasr>=1.0.0",
+    "modelscope>=1.9.0",
+    # === Web 框架 ===
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+    # === 音频处理 ===
+    "soundfile>=0.12.1",
+    "pydub>=0.25.1",
+    # === 数值计算 ===
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    # === 工具库 ===
+    "pyyaml>=6.0",
+    "httpx>=0.24.0",
+    "aiofiles>=23.0",
+    "cryptography>=41.0.0",
+    # === 数据校验 ===
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21", "pytest-cov>=4.0", "ruff>=0.4", "mypy>=1.0"]
+
+[project.scripts]
+tts-multimodel = "integrated_app.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ReSerendipity/TTS_MultiModel"
+Documentation = "https://github.com/ReSerendipity/TTS_MultiModel/tree/master/docs"
+Repository = "https://github.com/ReSerendipity/TTS_MultiModel"
+Issues = "https://github.com/ReSerendipity/TTS_MultiModel/issues"
+Changelog = "https://github.com/ReSerendipity/TTS_MultiModel/blob/master/CHANGELOG.md"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["bin"]
+
+[tool.setuptools.package-data]
+"integrated_app" = ["templates/**/*", "static/**/*", "locales/*.json"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+src = ["bin/integrated_app", "tests", "scripts"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.git",
+    "dist",
+    "build",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B008", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"bin/clean_launch.py" = ["E402", "I001"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["integrated_app"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+strict = false
+warn_return_any = false
+warn_unused_ignores = true
+no_implicit_optional = false
+show_error_codes = true
+disable_error_code = ["annotation-unchecked"]
+exclude = [
+    "tests/e2e",
+    "node_modules",
+    "build",
+    "dist",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "integration: integration tests requiring GPU",
+    "benchmark: performance benchmark tests",
+]
+
+[tool.coverage.run]
+source = ["bin/integrated_app"]
+omit = ["*/tests/*", "*/templates/*", "*/static/*"]
+
+[tool.coverage.report]
+fail_under = 40
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "pass",
+]

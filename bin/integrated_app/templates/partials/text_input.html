@@ -1,0 +1,17 @@
+{# Text Input Component - Unified for all TTS pages #}
+{#
+   Usage:
+   {% with prefix='vc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4 %}
+   {% include 'partials/text_input.html' %}
+   {% endwith %}
+#}
+<label for="{{ prefix }}-text">{{ label }}</label>
+<textarea name="text" id="{{ prefix }}-text"
+          class="tts-textarea tts-auto-resize {{ textarea_class }}"
+          rows="{{ textarea_rows }}"
+          placeholder="{{ placeholder }}"
+          data-char-counter="{{ prefix }}-char-counter"
+          data-max-chars="{{ max_chars }}"
+          data-segment-max-chars="{{ segment_max_chars }}"
+          data-auto-resize="true"></textarea>
+<div id="{{ prefix }}-char-counter" class="tts-char-counter">0/{{ max_chars }}</div>
