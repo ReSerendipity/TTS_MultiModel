@@ -1,0 +1,108 @@
+# Model files - Download separately (see README.md)
+models/
+pretrained_models/
+cache/
+outputs/
+
+# Temp files
+._____temp/
+temp_indextts/
+torch_compile_cache/
+*.tmp
+*.log
+log.txt
+error.txt
+get-pip.py
+
+# Static generated files
+static/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Trae IDE documents (local development)
+.trae/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Model downloads (large files)
+*.safetensors
+*.bin
+*.ckpt
+*.pth
+*.onnx
+*.gguf
+
+# Allow persona files
+!personas/*.pt
+!personas/*.wav
+
+# HuggingFace cache
+.huggingface/
+
+# Bundled Python environment (too large for Git)
+WPy64-*/
+python/
+
+# Audio outputs
+outputs/
+*.wav
+*.mp3
+*.flac
+
+# LoRA trained models
+lora/
+
+# Database files
+*.db
+*.sqlite
+*.db-shm
+*.db-wal
+
+# Environment variables
+.env
+.env.local
+
+# SSL certificates (generated at runtime)
+bin/cert.pem
+bin/key.pem
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Pytest
+.pytest_cache/
+
+# Coverage
+htmlcov/
+.coverage
+
+# Runtime data (generated at runtime)
+data/generation_times.json
+
+# Server runtime
+.server_port
+
+# Test artifacts
+full_page.png
+indextts2_page.png
+test_screenshot.png
+test_player.html
+test_*.py
+
+# External exports (e.g. Yuanbao / browser snapshots, unrelated to the project)
+yuanbao_html_*.html

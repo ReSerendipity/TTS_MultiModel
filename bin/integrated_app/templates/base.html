@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!-- Immediate theme/language initialization - runs before render to prevent flash -->
+    <script src="/static/js/theme_lang.js?v={{ app_version }}"></script>
+    <script>
+    window.TTS_CONFIG = {
+        audioPlayer: {{ audio_player_config | tojson }},
+        ui: {{ ui_config | tojson }}
+    };
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ "app_title"|t(lang) }}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+    <link rel="stylesheet" href="/static/css/variables.css?v={{ app_version }}">
+    <link rel="stylesheet" href="/static/css/styles.css?v={{ app_version }}">
+    <link rel="stylesheet" href="/static/css/beautify.css?v={{ app_version }}">
+    <script src="/static/js/htmx.min.js?v={{ app_version }}"></script>
+    <script>
+        // CSRF token: auto-attach from cookie to all HTMX requests
+        (function() {
+            function getCsrfToken() {
+                var match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+                return match ? decodeURIComponent(match[1]) : '';
+            }
+            // Attach X-CSRF-Token header to every HTMX request
+            document.addEventListener('htmx:configRequest', function(evt) {
+                evt.detail.headers['X-CSRF-Token'] = getCsrfToken();
+            });
+            // Expose for manual fetch calls
+            window.getCsrfToken = getCsrfToken;
+        })();
+    </script>
+    <script src="/static/js/htmx.ext.sse.js?v={{ app_version }}"></script>
+    <link rel="stylesheet" href="/static/css/main.css?v={{ app_version }}">
+    <link rel="stylesheet" href="/static/css/tabs.css?v={{ app_version }}">
+    <link rel="stylesheet" href="/static/css/components.css?v={{ app_version }}">
+    <!-- Alpine.js for Phase 2 client-side state management -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+    <script defer src="/static/js/alpine_init.js?v={{ app_version }}"></script>
+    <script src="/static/js/char_counter.js?v={{ app_version }}"></script>
+    <script src="/static/js/confirm_dialog.js?v={{ app_version }}"></script>
+    <script src="/static/js/toast.js?v={{ app_version }}"></script>
+    <script src="/static/js/auto_resize.js?v={{ app_version }}"></script>
+    <script src="/static/js/reprocess.js?v={{ app_version }}"></script>
+    <script src="/static/js/tts_form.js?v={{ app_version }}"></script>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">{{ "skip_to_main_content"|t(lang) }}</a>
+    <div class="app-shell">
+        <!-- Sidebar Overlay (mobile) -->
+        <div class="sidebar-overlay" id="sidebar-overlay" onclick="TTSApp.sidebar.close()"></div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="主导航">
+            <!-- Sidebar Edge Toggle Button (visible when collapsed) -->
+            <button class="sidebar-edge-toggle" onclick="TTSApp.sidebar.toggleCollapse()" id="sidebar-edge-toggle" title="{{ "expand_sidebar"|t(lang) }}" aria-label="Expand sidebar"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <span id="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+                </div>
+                <div>
+                    <div class="brand-text">{{ "nav_brand"|t(lang) }}</div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav" aria-label="主导航" role="tablist">
+                <div class="sidebar-nav-section" data-section-model="voxcpm2">
+                    <div class="sidebar-nav-label">VoxCPM2 · {{ "core_section"|t(lang) }}</div>
+                    <!-- VoxCPM2 核心功能 -->
+                    <button class="sidebar-item" data-tab="voice_design" data-model="voxcpm2"
+                            hx-get="/tab/voice_design?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_voice_design'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5" fill="none"/><circle cx="8.5" cy="7.5" r="2.5" fill="none"/><circle cx="6.5" cy="12.5" r="2.5" fill="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_voice_design" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="voice_clone" data-model="voxcpm2"
+                            hx-get="/tab/voice_clone?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_voice_clone'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_voice_clone" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="ultimate_clone" data-model="voxcpm2"
+                            hx-get="/tab/ultimate_clone?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_ultimate_clone'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_ultimate_clone" | t(lang) }}</span>
+                    </button>
+                </div>
+                <div class="sidebar-nav-section" data-section-model="voxcpm2">
+                    <div class="sidebar-nav-label">VoxCPM2 · {{ "advanced_section"|t(lang) }}</div>
+                    <!-- VoxCPM2 高级功能 -->
+                    <button class="sidebar-item" data-tab="script" data-model="voxcpm2"
+                            hx-get="/tab/script?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_script'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_script" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="prompt_continue" data-model="voxcpm2"
+                            hx-get="/tab/prompt_continue?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_prompt_continue'|t(lang) }}"
+                            role="tab" aria-selected="false" aria-controls="tab-content">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 3l14 9-14 9V3z"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_prompt_continue" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="lora" data-model="voxcpm2"
+                            hx-get="/tab/lora?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_lora'|t(lang) }}"
+                            role="tab" aria-selected="false" aria-controls="tab-content">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_lora" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="lora_training" data-model="voxcpm2"
+                            hx-get="/tab/lora_training?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_lora_training'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_lora_training" | t(lang) }}</span>
+                    </button>
+                </div>
+                <div class="sidebar-nav-section" data-section-model="indextts2">
+                    <div class="sidebar-nav-label">IndexTTS 2.0 · {{ "indextts2_section"|t(lang) }}</div>
+                    <button class="sidebar-item" data-tab="indextts2_clone" data-model="indextts2"
+                            hx-get="/tab/indextts2_clone?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_indextts2_clone'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_indextts2_clone" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="indextts2_emotion" data-model="indextts2"
+                            hx-get="/tab/indextts2_emotion?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_indextts2_emotion'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_indextts2_emotion" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="indextts2_duration" data-model="indextts2"
+                            hx-get="/tab/indextts2_duration?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_indextts2_duration'|t(lang) }}"
+                            role="tab" aria-selected="false" aria-controls="tab-content">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_indextts2_duration" | t(lang) }}</span>
+                    </button>
+                </div>
+                <div class="sidebar-nav-section sidebar-tools-section">
+                    <div class="sidebar-nav-label">{{ "tools_section" | t(lang) }}</div>
+                    <!-- 通用菜单 — 全部整合到"工具"区域 -->
+                    <button class="sidebar-item" data-tab="settings" data-model="all"
+                            hx-get="/tab/settings?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_settings'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_settings" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="history" data-model="all"
+                            hx-get="/tab/history?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_history'|t(lang) }}"
+                            role="tab" aria-selected="false" aria-controls="tab-content">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_history" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="persona" data-model="all"
+                            hx-get="/tab/persona?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_persona'|t(lang) }}"
+                            role="tab" aria-selected="false" aria-controls="tab-content">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/><path d="M2 20s4-4 10-4 10 4 10 4"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_persona" | t(lang) }}</span>
+                    </button>
+                    <button class="sidebar-item" data-tab="help" data-model="all"
+                            hx-get="/tab/help?lang={{ lang }}" hx-target="#tab-content" hx-swap="innerHTML" hx-trigger="click throttle:300ms" hx-indicator="#tab-loading"
+                            onclick="TTSApp.sidebar.activateTab(this)"
+                            title="{{ 'tab_help'|t(lang) }}">
+                        <svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span class="sidebar-label-text">{{ "tab_help" | t(lang) }}</span>
+                    </button>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-footer-row">
+                    <button class="sidebar-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="{{ "theme_toggle"|t(lang) }}" aria-label="Toggle theme">
+                        <svg id="theme-icon-sun" class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                        <svg id="theme-icon-moon" class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    </button>
+                    <button class="sidebar-toggle-btn" id="lang-toggle-btn" onclick="toggleLang()" title="{{ "switch_lang"|t(lang) }}" aria-label="Switch language">
+                        <span id="lang-current-label">{{ '中' if lang.startswith('zh') else ('EN' if lang == 'en' else ('日' if lang == 'ja' else '한')) }}</span>
+                    </button>
+                    <button class="sidebar-help-btn" onclick="toggleHelpDrawer()" title="{{ "help_with_shortcut"|t(lang) }}" aria-label="{{ "help"|t(lang) }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        {{ "help"|t(lang) }}
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content" role="main">
+            <div class="top-bar">
+                <button class="sidebar-toggle-desktop" onclick="TTSApp.sidebar.toggleCollapse()" id="sidebar-toggle-btn" title="{{ "collapse_sidebar"|t(lang) }}" aria-label="Toggle sidebar"><svg id="sidebar-toggle-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+                <button class="top-bar-mobile-toggle" onclick="toggleSidebar()" id="mobile-menu-btn" aria-label="Open menu"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+                <span class="top-bar-title" id="top-page-title">{{ "top_bar_title"|t(lang) }}</span>
+                <!-- 合并状态显示：引擎选择器 + 状态 -->
+                <!-- 顶部模型标签栏 -->
+                <div class="model-tabs-group" id="model-tabs" role="tablist">
+                    <button class="model-tab" data-model="voxcpm2" onclick="window.switchModel('voxcpm2')" role="tab" aria-selected="false" title="{{ "load_model_with_shortcut"|t(lang) }}">
+                        <svg class="model-tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                        <span class="model-tab-label">VoxCPM2</span>
+                    </button>
+                    <button class="model-tab" data-model="indextts2" onclick="window.switchModel('indextts2')" role="tab" aria-selected="false" title="{{ "load_model_with_shortcut"|t(lang) }}">
+                        <svg class="model-tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                        <span class="model-tab-label">IndexTTS 2.0</span>
+                    </button>
+                    <button class="model-tab active" data-model="none" onclick="window.switchModel('none')" role="tab" aria-selected="true" title="{{ "unload_model_with_shortcut"|t(lang) }}">
+                        <svg class="model-tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>
+                        <span class="model-tab-label">{{ "model_none"|t(lang) }}</span>
+                    </button>
+                </div>
+                <!-- 引擎状态指示器 -->
+                <span class="engine-status" id="engine-status" aria-live="polite">
+                    <span class="engine-status-dot" id="engine-status-dot"></span>
+                    <span class="engine-status-icon tts-hidden" id="engine-status-icon"></span>
+                    <span class="engine-status-text" id="engine-status-text">{{ "model_none"|t(lang) }}</span>
+                </span>
+                <!-- Mini System Monitor Widget -->
+                <div class="mini-monitor" id="mini-monitor" onclick="openHealthPanel()" title="{{ "click_for_details"|t(lang) }}">
+                    <div class="mini-monitor-item">
+                        <svg class="mini-monitor-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></svg>
+                        <span class="mini-monitor-label">{{ "gpu_short"|t(lang) }}</span>
+                        <span class="mini-monitor-value" id="mini-gpu-util">--%</span>
+                    </div>
+                    <div class="mini-monitor-divider"></div>
+                    <div class="mini-monitor-item">
+                        <svg class="mini-monitor-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
+                        <span class="mini-monitor-label">{{ "vram_short"|t(lang) }}</span>
+                        <span class="mini-monitor-value" id="mini-vram-text">--/--</span>
+                    </div>
+                    <div class="mini-monitor-divider"></div>
+                    <div class="mini-monitor-item">
+                        <svg class="mini-monitor-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/></svg>
+                        <span class="mini-monitor-label">{{ "ram_short"|t(lang) }}</span>
+                        <span class="mini-monitor-value" id="mini-ram">--.--%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-content-inner">
+                <!-- Global tab-loading indicator -->
+                <div id="tab-loading" class="htmx-indicator tts-tab-loading" aria-live="polite" aria-busy="true">
+                    <div class="tts-loading-spinner tts-spinner-sm"></div>
+                    <span>{{ "loading_tab"|t(lang) }}</span>
+                </div>
+
+                <!-- Progress -->
+                <div class="progress-container" id="progress-container">
+                    <div class="progress-wrapper">
+                        <div class="progress-main-row">
+                            <div class="progress-bar-area" id="progress-bar"></div>
+                            <button class="progress-cancel-btn" id="progress-cancel-btn" onclick="cancelGeneration()" title="{{ "cancel_generation"|t(lang) }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                <span>{{ "cancel"|t(lang) }}</span>
+                            </button>
+                        </div>
+                        <div class="progress-detail" id="progress-detail">
+                            <div class="progress-detail-inner" id="progress-detail-content">
+                                <div class="progress-detail-row">
+                                    <div class="progress-detail-item">
+                                        <span class="progress-detail-label">{{ "stage"|t(lang) }}:</span>
+                                        <span class="progress-detail-value" id="detail-phase">-</span>
+                                    </div>
+                                    <div class="progress-detail-item">
+                                        <span class="progress-detail-label">{{ "progress"|t(lang) }}:</span>
+                                        <span class="progress-detail-value" id="detail-progress">-</span>
+                                    </div>
+                                    <div class="progress-detail-item">
+                                        <span class="progress-detail-label">{{ "speed"|t(lang) }}:</span>
+                                        <span class="progress-detail-value" id="detail-speed">-</span>
+                                    </div>
+                                    <div class="progress-detail-item">
+                                        <span class="progress-detail-label">{{ "eta"|t(lang) }}:</span>
+                                        <span class="progress-detail-value" id="detail-remaining">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Format Selector (compact, inline with tab content) -->
+                <div class="format-selector format-selector-compact">
+                    <label>{{ "output_format"|t(lang) }}</label>
+                    <div class="format-radio-group">
+                        <label><input type="radio" name="output_format" value="wav" checked><span>wav</span></label>
+                        <label><input type="radio" name="output_format" value="mp3"><span>mp3</span></label>
+                    </div>
+                </div>
+
+                <!-- Tab Content Area -->
+                <div id="tab-content"
+                     role="tabpanel" aria-label="内容区域" aria-live="polite"
+                     hx-swap="innerHTML"
+                     data-loading-text="{{ "loading_tab"|t(lang) }}">
+
+                <!-- ARIA Live Region for dynamic status updates -->
+                <div id="aria-live-status" class="aria-live-region" aria-live="polite" aria-atomic="true"></div>
+                    <!-- Initial Page Load Skeleton -->
+                    <div class="skeleton-screen active" id="page-initial-skeleton">
+                        <div class="skeleton-initial">
+                            <div class="skeleton-line h-36 w-80 skeleton-block"></div>
+                            <div class="skeleton-line h-24 w-60 skeleton-block"></div>
+                            <div class="skeleton-line h-48 w-full skeleton-block"></div>
+                            <div class="skeleton-line h-24 w-40 skeleton-block"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Shortcut Help Panel -->
+    <div class="shortcut-help-overlay" id="shortcut-help-overlay" onclick="hideShortcutHelp(event)">
+        <div class="shortcut-help-panel" id="shortcut-help-panel" onclick="event.stopPropagation()">
+            <div class="shortcut-help-header">
+                <h3>{{ "shortcut_help"|t(lang) }}</h3>
+                <button class="shortcut-help-close" onclick="hideShortcutHelp()" title="{{ "close"|t(lang) }}" aria-label="Close shortcut help"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div class="shortcut-help-body" id="shortcut-help-body">
+                <!-- Populated dynamically by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Floating Popup -->
+    <div class="help-popup-overlay" id="help-popup-overlay" onclick="closeHelpDrawer()" role="none"></div>
+    <div class="help-popup" id="help-drawer" role="dialog" aria-modal="true" aria-labelledby="help-popup-title">
+        <div class="help-popup-header" id="help-popup-header">
+            <h3 class="help-popup-title" id="help-popup-title">{{ "help_title"|t(lang) }}</h3>
+            <button class="help-popup-close" onclick="closeHelpDrawer()" title="{{ "close"|t(lang) }}" aria-label="Close help"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="help-popup-body">
+            <div class="help-section">
+                <div class="help-section-title"><svg class="help-section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg> {{ "help_voice_design"|t(lang) }}</div>
+                <ol class="step-list">
+                    <li><span class="step-badge">1</span>{{ "help_step_vd1"|t(lang) }}</li>
+                    <li><span class="step-badge">2</span>{{ "help_step_vd2"|t(lang) }}</li>
+                    <li><span class="step-badge">3</span>{{ "help_step_vd3"|t(lang) }}</li>
+                    <li><span class="step-badge">4</span>{{ "help_step_vd4"|t(lang) }}</li>
+                    <li><span class="step-badge">5</span>{{ "help_step_vd5"|t(lang) }}</li>
+                </ol>
+            </div>
+            <div class="help-section">
+                <div class="help-section-title"><svg class="help-section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> {{ "help_voice_clone"|t(lang) }}</div>
+                <ol class="step-list">
+                    <li><span class="step-badge">1</span>{{ "help_step_vc1"|t(lang) }}</li>
+                    <li><span class="step-badge">2</span>{{ "help_step_vc2"|t(lang) }}</li>
+                    <li><span class="step-badge">3</span>{{ "help_step_vc3"|t(lang) }}</li>
+                    <li><span class="step-badge">4</span>{{ "help_step_vc4"|t(lang) }}</li>
+                    <li><span class="step-badge">5</span>{{ "help_step_vc5"|t(lang) }}</li>
+                </ol>
+            </div>
+            <div class="help-section">
+                <div class="help-section-title"><svg class="help-section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> {{ "help_ultimate_clone"|t(lang) }}</div>
+                <ol class="step-list">
+                    <li><span class="step-badge">1</span>{{ "help_step_uc1"|t(lang) }}</li>
+                    <li><span class="step-badge">2</span>{{ "help_step_uc2"|t(lang) }}</li>
+                    <li><span class="step-badge">3</span>{{ "help_step_uc3"|t(lang) }}</li>
+                    <li><span class="step-badge">4</span>{{ "help_step_uc4"|t(lang) }}</li>
+                    <li><span class="step-badge">5</span>{{ "help_step_uc5"|t(lang) }}</li>
+                </ol>
+            </div>
+            <div class="help-section">
+                <div class="help-section-title"><svg class="help-section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> {{ "help_settings"|t(lang) }}</div>
+                <ol class="step-list">
+                    <li><span class="step-badge">1</span>{{ "help_step_s1"|t(lang) }}</li>
+                    <li><span class="step-badge">2</span>{{ "help_step_s2"|t(lang) }}</li>
+                    <li><span class="step-badge">3</span>{{ "help_step_s3"|t(lang) }}</li>
+                    <li><span class="step-badge">4</span>{{ "help_step_s4"|t(lang) }}</li>
+                </ol>
+            </div>
+            <div class="help-section help-section--divider">
+                <div class="help-section-title"><svg class="help-section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> {{ "help_gpu_notes"|t(lang) }}</div>
+                <ul class="step-list help-note-list">
+                    <li class="help-note-item">
+                        <svg class="help-note-icon help-note-icon--warning" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span>{{ "help_gpu_note1"|t(lang) }}</span>
+                    </li>
+                    <li class="help-note-item">
+                        <svg class="help-note-icon help-note-icon--warning" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span>{{ "help_gpu_note2"|t(lang) }}</span>
+                    </li>
+                    <li class="help-note-item">
+                        <svg class="help-note-icon help-note-icon--success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>{{ "help_gpu_note3"|t(lang) }}</span>
+                    </li>
+                    <li class="help-note-item">
+                        <svg class="help-note-icon help-note-icon--info" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>
+                        <span>{{ "help_gpu_note4"|t(lang) }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Panel Modal -->
+    <div class="health-panel-overlay" id="health-panel-overlay" onclick="closeHealthPanel(event)">
+        <div class="health-panel" id="health-panel" onclick="event.stopPropagation()">
+            <div class="health-panel-header">
+                <h3>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>
+                    {{ "system_monitor"|t(lang) }}
+                </h3>
+                <button class="health-panel-close" onclick="closeHealthPanel()" title="{{ "close"|t(lang) }}" aria-label="Close system monitor"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div class="health-panel-body" id="health-panel-body">
+                <!-- GPU Section -->
+                <div class="health-section">
+                    <div class="health-section-title">{{ "gpu_vram_section"|t(lang) }}</div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "vram_usage"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-gpu-used">--</span>
+                    </div>
+                    <div class="health-progress-bar">
+                        <div class="health-progress-fill health-green" id="health-gpu-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="health-metric-row health-metric-row--spaced">
+                        <span class="health-metric-label">{{ "vram_total"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-gpu-total">--</span>
+                    </div>
+                </div>
+
+                <!-- Memory Section -->
+                <div class="health-section">
+                    <div class="health-section-title">{{ "system_memory"|t(lang) }}</div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "memory_usage"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-cpu-used">--</span>
+                    </div>
+                    <div class="health-progress-bar">
+                        <div class="health-progress-fill health-green" id="health-cpu-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="health-metric-row health-metric-row--spaced">
+                        <span class="health-metric-label">{{ "memory_total"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-cpu-total">--</span>
+                    </div>
+                </div>
+
+                <!-- Model Status Section -->
+                <div class="health-section">
+                    <div class="health-section-title">{{ "current_model"|t(lang) }}</div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "engine"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-model-engine">--</span>
+                    </div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "model_size"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-model-size">--</span>
+                    </div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "status"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-model-status">--</span>
+                    </div>
+                </div>
+
+                <!-- Stats Section -->
+                <div class="health-section">
+                    <div class="health-section-title">{{ "generation_stats"|t(lang) }}</div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "total_generations"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-stats-total">--</span>
+                    </div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "avg_time"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-stats-avg">--</span>
+                    </div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "success_rate"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-stats-rate">--</span>
+                    </div>
+                    <div class="health-metric-row">
+                        <span class="health-metric-label">{{ "session_start"|t(lang) }}</span>
+                        <span class="health-metric-value" id="health-stats-start">--</span>
+                    </div>
+                </div>
+
+                <!-- Operation Logs Section -->
+                <div class="health-section">
+                    <div class="health-section-title health-section-title--flex">
+                        {{ "operation_logs"|t(lang) }}
+                        <button class="health-refresh-btn" id="health-logs-refresh" onclick="refreshHealthLogs()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                            {{ "refresh"|t(lang) }}
+                        </button>
+                    </div>
+                    <div class="health-log-filter" id="health-log-filter">
+                        <button class="health-log-filter-btn active" data-filter="all" onclick="filterHealthLogs('all', this)">{{ "filter_all"|t(lang) }}</button>
+                        <button class="health-log-filter-btn" data-filter="generation" onclick="filterHealthLogs('generation', this)">{{ "log_generation"|t(lang) }}</button>
+                        <button class="health-log-filter-btn" data-filter="model" onclick="filterHealthLogs('model', this)">{{ "log_model"|t(lang) }}</button>
+                        <button class="health-log-filter-btn" data-filter="config" onclick="filterHealthLogs('config', this)">{{ "log_config"|t(lang) }}</button>
+                    </div>
+                    <div class="health-log-list" id="health-log-list">
+                        <div class="health-empty-logs">{{ "no_logs"|t(lang) }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- All JS logic is inlined below -->
+    <script>
+        // Global i18n translations for JavaScript (Jinja2 template - must remain inline)
+        window.I18N = {{ i18n_json|tojson }};
+        window.CURRENT_LANG = '{{ lang }}';
+    </script>
+
+    <!-- Modular JS files (loaded in dependency order) -->
+    <script src="/static/js/namespace.js?v={{ app_version }}"></script>
+    <script src="/static/js/audio_player.js?v={{ app_version }}"></script>
+    <script src="/static/js/keyboard_manager.js?v={{ app_version }}"></script>
+    <script src="/static/js/icon_converter.js?v={{ app_version }}"></script>
+    <script src="/static/js/micro_interactions.js?v={{ app_version }}"></script>
+    <script src="/static/js/model_switcher.js?v={{ app_version }}"></script>
+    <script src="/static/js/health_monitor.js?v={{ app_version }}"></script>
+    <script src="/static/js/sidebar.js?v={{ app_version }}"></script>
+    <script src="/static/js/help_drawer.js?v={{ app_version }}"></script>
+    <script src="/static/js/sse_manager.js?v={{ app_version }}"></script>
+    <script src="/static/js/app_init.js?v={{ app_version }}"></script>
+    <script src="/static/js/waveform_preview.js?v=19"></script>
+    <script src="/static/js/main.js?v={{ app_version }}"></script>
+
+    <!-- Global Persistent Audio Player -->
+    <div class="global-audio-player" id="global-audio-player" role="region" aria-label="音频播放器">
+        <!-- Row 1: Main controls -->
+        <div class="gap-row-controls">
+            <div class="gap-left">
+                <button class="gap-icon" id="gap-play-btn" title="播放/暂停" aria-label="Play/Pause"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                <div class="gap-info">
+                    <div class="gap-title" id="gap-title">{{ "no_audio_playing"|t(lang) }}</div>
+                </div>
+            </div>
+            <div class="gap-right">
+                <div class="gap-volume-inline">
+                    <span class="gap-volume-icon" id="gap-volume-icon" title="静音" aria-label="Volume"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></span>
+                    <input type="range" class="gap-volume-slider" id="gap-volume-slider" min="0" max="1" step="0.05" value="1">
+                </div>
+                <div class="gap-speed">
+                    <button class="gap-speed-current" id="gap-speed-current" title="倍速" aria-label="Playback speed">1x</button>
+                    <div class="gap-speed-dropdown" id="gap-speed-dropdown">
+                        <button class="gap-speed-option" data-speed="0.25">0.25x</button>
+                        <button class="gap-speed-option" data-speed="0.5">0.5x</button>
+                        <button class="gap-speed-option" data-speed="0.75">0.75x</button>
+                        <button class="gap-speed-option active" data-speed="1">1x</button>
+                        <button class="gap-speed-option" data-speed="1.25">1.25x</button>
+                        <button class="gap-speed-option" data-speed="1.5">1.5x</button>
+                        <button class="gap-speed-option" data-speed="1.75">1.75x</button>
+                        <button class="gap-speed-option" data-speed="2">2x</button>
+                        <button class="gap-speed-option" data-speed="2.5">2.5x</button>
+                        <button class="gap-speed-option" data-speed="3">3x</button>
+                    </div>
+                </div>
+                <button class="gap-clip-btn" id="gap-clip-btn" title="{{ 'clip_fragment'|t(lang) }}" aria-label="Clip audio"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></button>
+                <button class="gap-control-btn" id="gap-download-btn" title="{{ 'download'|t(lang) }}" aria-label="Download audio"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                <button class="gap-close" id="gap-close-btn" title="{{ 'close'|t(lang) }}" aria-label="Close player"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+        </div>
+        <!-- Row 2: Progress bar + waveform overlay -->
+        <div class="gap-row-progress">
+            <span class="gap-time-label" id="gap-time-current">00:00</span>
+            <div class="gap-progress-bar" id="gap-progress-bar">
+                <!-- Waveform overlay -->
+                <div class="gap-wave-container" id="gap-wave-container">
+                    <canvas id="gap-waveform" width="600" height="40"></canvas>
+                </div>
+                <!-- Progress fill on top of waveform -->
+                <div class="gap-progress-fill" id="gap-progress-fill">
+                    <div class="gap-progress-thumb" id="gap-progress-thumb"></div>
+                </div>
+            </div>
+            <span class="gap-time-label" id="gap-time-duration">00:00</span>
+        </div>
+        <div class="gap-wave-tooltip tts-hidden" id="gap-wave-tooltip"></div>
+        <audio id="global-audio-element" preload="auto"></audio>
+        <span id="gap-i18n-clip-title" class="tts-visually-hidden">{{ 'clip_fragment'|t(lang) }}</span>
+        <span id="gap-i18n-export" class="tts-visually-hidden">{{ 'export'|t(lang) }}</span>
+        <span id="gap-i18n-cancel" class="tts-visually-hidden">{{ 'cancel'|t(lang) }}</span>
+        <span id="gap-i18n-exporting" class="tts-visually-hidden">{{ 'exporting'|t(lang) }}</span>
+    </div>
+
+    <!-- Global Toast Container -->
+    <div id="toast-container" class="tts-toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="/static/js/command_palette.js?v={{ app_version }}"></script>
+</body>
+</html>

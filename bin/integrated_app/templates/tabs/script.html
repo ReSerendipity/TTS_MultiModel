@@ -1,0 +1,80 @@
+{% from 'partials/advanced_params.html' import advanced_params %}
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
+        <h3 class="card-header-title">{{ "script_workshop"|t(lang) }}</h3>
+        <span class="card-header-badge">{{ "multi_dialogue"|t(lang) }}</span>
+    </div>
+    <div class="tts-card-desc">{{ "script_desc"|t(lang) }}</div>
+    <form id="script-form" hx-post="/api/generate/voxcpm_script" hx-target="#sc-result" hx-swap="innerHTML" hx-indicator="#sc-spinner">
+        <div class="format-hint">
+            <strong>{{ "format_desc"|t(lang) }}：</strong>{{ "script_example"|t(lang) }}
+            <ul>
+                <li>[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}</li>
+                <li>[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}</li>
+            </ul>
+        </div>
+        {% with prefix='sc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=8, textarea_style='style="min-height:200px; font-family:monospace; font-size:14px;"' %}
+        {% include 'partials/text_input.html' %}
+        {% endwith %}
+
+        <div class="tts-form-group">
+            <label class="tts-form-label">{{ "control_instruction"|t(lang) }}（{{ 'optional'|t(lang) }}）</label>
+            <input type="text" name="instruction" class="tts-input-text tts-full-width" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
+        </div>
+
+        {{ advanced_params(prefix='sc', lang=lang) }}
+
+        <button type="submit" id="script-submit-btn" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "generate_dialogue"|t(lang) }}</span></button>
+    </form>
+</div>
+{% with prefix='sc', title_key='result_audio' %}
+{% include 'partials/result_card.html' %}
+{% endwith %}
+{% with prefix='sc' %}
+{% include 'partials/post_processing.html' %}
+{% endwith %}
+<script>
+(function(){
+    // Initialize shared TTS form utilities
+    TTSForm.init({
+        formId: 'script-form',
+        statusId: 'sc-status',
+        resultId: 'sc-result',
+        textareaId: 'sc-text',
+        counterId: 'sc-char-counter',
+        maxChars: {{ engine_max_total_chars }},
+        segmentMaxChars: {{ gen_split_max_chars }},
+        counterClass: 'sc-char-counter'
+    });
+
+    // Show post-processing section when audio is available
+    document.getElementById('script-form').addEventListener('htmx:afterSettle', function(e){
+        if (e.detail.successful) {
+            var wrapper = document.querySelector('#sc-result [data-audio-filename]');
+            var ppSection = document.getElementById('sc-pp-section');
+            if (wrapper && ppSection) {
+                ppSection.style.display = '';
+            }
+        }
+    });
+
+    // Post-processing reprocess using Reprocess factory
+    window.scReprocess = function() {
+        var resultEl = document.getElementById('sc-result');
+        if (!resultEl) return;
+        var wrapper = resultEl.querySelector('[data-audio-filename]');
+        if (!wrapper) return;
+        var audioPath = wrapper.getAttribute('data-audio-filename');
+        var tempo = document.getElementById('sc-pp-tempo').value;
+        var enhance = document.getElementById('sc-pp-enhance').checked ? 'true' : 'false';
+        Reprocess.execute({
+            resultId: 'sc-result',
+            statusId: 'sc-status',
+            audioElementId: 'sc-audio',
+            audioPath: audioPath,
+            params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
+        });
+    };
+})();
+</script>
