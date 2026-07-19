@@ -1,552 +1,291 @@
-<div class="help-page">
-    <h1>{{ "help_title"|t(lang) }}</h1>
+<div class="pv-theme">
+    <div class="full-width">
+        <div class="page-title">{{ "help_title"|t(lang) }}</div>
 
-    <div class="help-section">
-        <h2>{{ "help_about_project"|t(lang) }}</h2>
-        <div class="about-project-card">
-            <div class="about-header">
-                <div class="about-icon">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        <!-- 关于项目 -->
+        <div class="section-title">
+            <svg class="section-title-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+            {{ "help_about_project"|t(lang) }}
+        </div>
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-body" style="padding:16px">
+                <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:12px">
+                    <div style="width:44px;height:44px;background:var(--p50);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--p600);flex-shrink:0">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                            <polyline points="2 17 12 22 22 17"/>
+                            <polyline points="2 12 12 17 22 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style="font-size:16px;font-weight:700;color:var(--t1)">TTS MultiModel</div>
+                        <div style="font-size:12px;color:var(--t2)">{{ "help_about_subtitle"|t(lang) }}</div>
+                    </div>
+                </div>
+                <p style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:12px">{{ "help_about_desc"|t(lang) }}</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:12px">
+                    <div>
+                        <div style="font-size:11px;color:var(--t3)">{{ "help_author"|t(lang) }}</div>
+                        <div style="font-size:13px;font-weight:500;color:var(--t1)">ReSerendipity</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;color:var(--t3)">{{ "help_version"|t(lang) }}</div>
+                        <div style="font-size:13px;font-weight:500;color:var(--t1)">v2.0</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;color:var(--t3)">{{ "help_license"|t(lang) }}</div>
+                        <div style="font-size:13px;font-weight:500;color:var(--t1)">MIT License</div>
+                    </div>
+                </div>
+                <a href="https://github.com/ReSerendipity/TTS_MultiModel" target="_blank" rel="noopener" class="btn btn-o btn-sm" style="gap:6px;display:inline-flex;align-items:center;text-decoration:none">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                     </svg>
-                </div>
-                <div>
-                    <h3>TTS MultiModel</h3>
-                    <p class="about-subtitle">{{ "help_about_subtitle"|t(lang) }}</p>
-                </div>
-            </div>
-            <p>{{ "help_about_desc"|t(lang) }}</p>
-            <div class="about-info">
-                <div class="info-item">
-                    <span class="info-label">{{ "help_author"|t(lang) }}</span>
-                    <span class="info-value">ReSerendipity</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">{{ "help_version"|t(lang) }}</span>
-                    <span class="info-value">v2.0</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">{{ "help_license"|t(lang) }}</span>
-                    <span class="info-value">MIT License</span>
-                </div>
-            </div>
-            <div class="about-links">
-                <a href="https://github.com/ReSerendipity/TTS_MultiModel" target="_blank" class="btn-link">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
                     {{ "help_github_repo"|t(lang) }}
                 </a>
             </div>
         </div>
-    </div>
 
-    <div class="help-section">
-        <h2>{{ "help_models_title"|t(lang) }}</h2>
+        <!-- 支持的模型 -->
+        <div class="section-title">
+            <svg class="section-title-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></svg>
+            {{ "help_models_title"|t(lang) }}
+        </div>
 
-        <div class="model-card voxcpm2">
-            <div class="model-header">
-                <div class="model-icon">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                        <line x1="12" y1="19" x2="12" y2="23"/>
-                        <line x1="8" y1="23" x2="16" y2="23"/>
-                    </svg>
+        <div class="card" style="border-left:4px solid var(--green);margin-bottom:12px">
+            <div class="card-body" style="padding:16px">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                    <div style="width:36px;height:36px;background:rgba(16,185,129,.1);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--green)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                    </div>
+                    <span style="font-size:15px;font-weight:700;color:var(--t1)">VoxCPM2</span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:#dcfce7;color:#166534">{{ "help_voxcpm2_badge"|t(lang) }}</span>
                 </div>
-                <h3>VoxCPM2</h3>
-                <span class="model-badge">{{ "help_voxcpm2_badge"|t(lang) }}</span>
-            </div>
-            <p>{{ "help_voxcpm2_desc"|t(lang) }}</p>
-            <div class="model-features">
-                <h4>{{ "help_voxcpm2_features"|t(lang) }}</h4>
-                <ul>
+                <p style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:12px">{{ "help_voxcpm2_desc"|t(lang) }}</p>
+                <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--t1)">{{ "help_voxcpm2_features"|t(lang) }}</div>
+                <ul style="list-style:disc inside;font-size:13px;color:var(--t2);line-height:2;margin-bottom:12px;padding-left:4px">
                     <li>{{ "help_voxcpm2_feature1"|t(lang) }}</li>
                     <li>{{ "help_voxcpm2_feature2"|t(lang) }}</li>
                     <li>{{ "help_voxcpm2_feature3"|t(lang) }}</li>
                     <li>{{ "help_voxcpm2_feature4"|t(lang) }}</li>
                     <li>{{ "help_voxcpm2_feature5"|t(lang) }}</li>
                 </ul>
-            </div>
-            <div class="model-requirements">
-                <h4>{{ "help_voxcpm2_min_req"|t(lang) }}</h4>
-                <ul>
+                <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--t1)">{{ "help_voxcpm2_min_req"|t(lang) }}</div>
+                <ul style="list-style:disc inside;font-size:13px;color:var(--t2);line-height:2;padding-left:4px">
                     <li>{{ "help_voxcpm2_vram"|t(lang) }}</li>
                     <li>{{ "help_voxcpm2_ram"|t(lang) }}</li>
                 </ul>
             </div>
         </div>
 
-        <div class="model-card indextts2">
-            <div class="model-header">
-                <div class="model-icon">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-                    </svg>
+        <div class="card" style="border-left:4px solid var(--blue);margin-bottom:16px">
+            <div class="card-body" style="padding:16px">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                    <div style="width:36px;height:36px;background:rgba(59,130,246,.1);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--blue)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                        </svg>
+                    </div>
+                    <span style="font-size:15px;font-weight:700;color:var(--t1)">IndexTTS 2.0</span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1e40af">{{ "help_indextts2_badge"|t(lang) }}</span>
                 </div>
-                <h3>IndexTTS 2.0</h3>
-                <span class="model-badge">{{ "help_indextts2_badge"|t(lang) }}</span>
-            </div>
-            <p>{{ "help_indextts2_desc"|t(lang) }}</p>
-            <div class="model-features">
-                <h4>{{ "help_indextts2_features"|t(lang) }}</h4>
-                <ul>
+                <p style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:12px">{{ "help_indextts2_desc"|t(lang) }}</p>
+                <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--t1)">{{ "help_indextts2_features"|t(lang) }}</div>
+                <ul style="list-style:disc inside;font-size:13px;color:var(--t2);line-height:2;margin-bottom:12px;padding-left:4px">
                     <li>{{ "help_indextts2_feature1"|t(lang) }}</li>
                     <li>{{ "help_indextts2_feature2"|t(lang) }}</li>
                     <li>{{ "help_indextts2_feature3"|t(lang) }}</li>
                 </ul>
-            </div>
-            <div class="model-requirements">
-                <h4>{{ "help_indextts2_min_req"|t(lang) }}</h4>
-                <ul>
+                <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--t1)">{{ "help_indextts2_min_req"|t(lang) }}</div>
+                <ul style="list-style:disc inside;font-size:13px;color:var(--t2);line-height:2;padding-left:4px">
                     <li>{{ "help_indextts2_vram"|t(lang) }}</li>
                     <li>{{ "help_indextts2_ram"|t(lang) }}</li>
                 </ul>
             </div>
         </div>
-    </div>
 
-    <div class="help-section">
-        <h2>{{ "help_gpu_support"|t(lang) }}</h2>
-        <p>{{ "help_gpu_desc"|t(lang) }}</p>
+        <!-- GPU 支持 -->
+        <div class="section-title">
+            <svg class="section-title-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M7 21v-3M17 21v-3M2 9h20M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/></svg>
+            {{ "help_gpu_support"|t(lang) }}
+        </div>
+        <p style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:12px">{{ "help_gpu_desc"|t(lang) }}</p>
 
-        <div class="gpu-cards">
-            <div class="gpu-card nvidia">
-                <div class="gpu-icon">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                    </svg>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px" class="gpu-cards-grid">
+            <div class="card" style="border-top:3px solid var(--green)">
+                <div class="card-body" style="padding:14px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                        <div style="width:28px;height:28px;background:rgba(16,185,129,.1);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--green)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 11c-.6-4.5-3.8-8-8-8.5v3c2.5.4 4.5 2.4 4.9 4.9l3.1.6zm-4.3 1.8c-.4-1.8-1.8-3.2-3.6-3.6v7.4l3.6-3.8z"/><path d="M13.5 6.5V3C9.3 3.5 6 7 5.5 11.5l3.1.6c.4-2.5 2.4-4.5 4.9-4.9z"/><path d="M5.5 13.5c.6 2.3 2.5 4 4.9 4.3v-3c-1-.2-1.9-.9-2.3-1.9H5.5z"/></svg>
+                        </div>
+                        <span style="font-size:13px;font-weight:700;color:var(--t1)">NVIDIA GPU</span>
+                    </div>
+                    <p style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px">{{ "help_nvidia_desc"|t(lang) }}</p>
+                    <ul style="list-style:disc inside;font-size:12px;color:var(--t2);line-height:1.8;padding-left:2px">
+                        <li>{{ "help_nvidia_req1"|t(lang) }}</li>
+                        <li>{{ "help_nvidia_req2"|t(lang) }}</li>
+                        <li>{{ "help_nvidia_req3"|t(lang) }}</li>
+                    </ul>
                 </div>
-                <h3>NVIDIA GPU</h3>
-                <p>{{ "help_nvidia_desc"|t(lang) }}</p>
-                <ul>
-                    <li>{{ "help_nvidia_req1"|t(lang) }}</li>
-                    <li>{{ "help_nvidia_req2"|t(lang) }}</li>
-                    <li>{{ "help_nvidia_req3"|t(lang) }}</li>
-                </ul>
             </div>
 
-            <div class="gpu-card apple">
-                <div class="gpu-icon">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                    </svg>
+            <div class="card" style="border-top:3px solid var(--t2)">
+                <div class="card-body" style="padding:14px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                        <div style="width:28px;height:28px;background:rgba(100,116,139,.15);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--t2)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.7 8.8c-.8-.4-1.7-.6-2.6-.6-1.4 0-2.9.5-3.8 1.4-.9.9-1.3 2.1-1.1 3.3 0 .3.1.6.2.9-1.3.2-2.5-.2-3.6-.8-1.1-.6-2-1.5-2.6-2.6-.3 1.5.1 3 1.1 4.1-.5.1-1.1 0-1.6-.2v.1c0 1.6 1.1 3 2.7 3.4-.3.1-.6.1-.9.1-.2 0-.5 0-.7-.1.4 1.3 1.6 2.2 3 2.3-1.1.9-2.5 1.4-4 1.4-.3 0-.5 0-.8-.1 1.5 1 3.3 1.5 5.1 1.5 5.4 0 8.8-4.3 8.8-8.8v-.4c.6-.4 1.1-1 1.5-1.6-.5.2-1.1.4-1.7.5.6-.4 1.1-1 1.3-1.7-.6.4-1.3.6-2 .8z"/></svg>
+                        </div>
+                        <span style="font-size:13px;font-weight:700;color:var(--t1)">Apple Silicon</span>
+                    </div>
+                    <p style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px">{{ "help_apple_desc"|t(lang) }}</p>
+                    <ul style="list-style:disc inside;font-size:12px;color:var(--t2);line-height:1.8;padding-left:2px">
+                        <li>{{ "help_apple_req1"|t(lang) }}</li>
+                        <li>{{ "help_apple_req2"|t(lang) }}</li>
+                    </ul>
                 </div>
-                <h3>Apple Silicon</h3>
-                <p>{{ "help_apple_desc"|t(lang) }}</p>
-                <ul>
-                    <li>{{ "help_apple_req1"|t(lang) }}</li>
-                    <li>{{ "help_apple_req2"|t(lang) }}</li>
-                </ul>
             </div>
 
-            <div class="gpu-card cpu">
-                <div class="gpu-icon">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                    </svg>
+            <div class="card" style="border-top:3px solid var(--orange)">
+                <div class="card-body" style="padding:14px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                        <div style="width:28px;height:28px;background:rgba(249,115,22,.1);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--orange)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg>
+                        </div>
+                        <span style="font-size:13px;font-weight:700;color:var(--t1)">CPU Mode</span>
+                    </div>
+                    <p style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px">{{ "help_cpu_desc"|t(lang) }}</p>
+                    <ul style="list-style:disc inside;font-size:12px;color:var(--t2);line-height:1.8;padding-left:2px">
+                        <li>{{ "help_cpu_req1"|t(lang) }}</li>
+                        <li>{{ "help_cpu_req2"|t(lang) }}</li>
+                    </ul>
                 </div>
-                <h3>CPU Mode</h3>
-                <p>{{ "help_cpu_desc"|t(lang) }}</p>
-                <ul>
-                    <li>{{ "help_cpu_req1"|t(lang) }}</li>
-                    <li>{{ "help_cpu_req2"|t(lang) }}</li>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="section-title">
+            <svg class="section-title-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ "help_faq_title"|t(lang) }}
+        </div>
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-body" style="padding:0">
+                {% for q_key, a_key in [("help_faq_q1", "help_faq_a1"), ("help_faq_q2", "help_faq_a2"), ("help_faq_q3", "help_faq_a3"), ("help_faq_q4", "help_faq_a4")] %}
+                <details class="faq-item-pv" style="border-bottom:1px solid var(--border-lt);padding:14px 16px">
+                    <summary style="font-size:13px;font-weight:600;color:var(--t1);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron" style="transition:transform .2s;color:var(--p600);flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
+                        {{ q_key|t(lang) }}
+                    </summary>
+                    <p style="font-size:12px;color:var(--t2);line-height:1.6;margin-top:10px;margin-bottom:0;padding-left:22px">{{ a_key|t(lang) }}</p>
+                </details>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 相关链接 -->
+        <div class="section-title">
+            <svg class="section-title-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            {{ "help_links_title"|t(lang) }}
+        </div>
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-body" style="padding:14px 16px">
+                <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+                    <li>
+                        <a href="https://github.com/ReSerendipity/TTS_MultiModel" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--p600);text-decoration:none">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                            TTS MultiModel GitHub
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/index-tts/index-tts" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--p600);text-decoration:none">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                            IndexTTS GitHub
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://huggingface.co/IndexTeam/IndexTTS-2" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--p600);text-decoration:none">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 13h2v6h-2zm0-8h2v6h-2z"/></svg>
+                            IndexTTS-2 HuggingFace
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://index-tts.github.io/index-tts2.github.io/" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--p600);text-decoration:none">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            IndexTTS-2 Demo
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
-    </div>
 
-    <div class="help-section">
-        <h2>{{ "help_faq_title"|t(lang) }}</h2>
-
-        <div class="faq-item">
-            <h3>{{ "help_faq_q1"|t(lang) }}</h3>
-            <p>{{ "help_faq_a1"|t(lang) }}</p>
+        <!-- 版权信息 -->
+        <div class="section-title">
+            <svg class="section-title-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M14.83 14.83a4 4 0 1 1 0-5.66"/></svg>
+            {{ "help_copyright_title"|t(lang) }}
         </div>
-
-        <div class="faq-item">
-            <h3>{{ "help_faq_q2"|t(lang) }}</h3>
-            <p>{{ "help_faq_a2"|t(lang) }}</p>
-        </div>
-
-        <div class="faq-item">
-            <h3>{{ "help_faq_q3"|t(lang) }}</h3>
-            <p>{{ "help_faq_a3"|t(lang) }}</p>
-        </div>
-
-        <div class="faq-item">
-            <h3>{{ "help_faq_q4"|t(lang) }}</h3>
-            <p>{{ "help_faq_a4"|t(lang) }}</p>
-        </div>
-    </div>
-
-    <div class="help-section">
-        <h2>{{ "help_links_title"|t(lang) }}</h2>
-        <ul class="help-links">
-            <li><a href="https://github.com/ReSerendipity/TTS_MultiModel" target="_blank">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                TTS MultiModel GitHub
-            </a></li>
-            <li><a href="https://github.com/index-tts/index-tts" target="_blank">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                IndexTTS GitHub
-            </a></li>
-            <li><a href="https://huggingface.co/IndexTeam/IndexTTS-2" target="_blank">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
-                IndexTTS-2 HuggingFace
-            </a></li>
-            <li><a href="https://index-tts.github.io/index-tts2.github.io/" target="_blank">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="16" height="16" style="vertical-align: middle; margin-right: 6px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
-                IndexTTS-2 Demo
-            </a></li>
-        </ul>
-    </div>
-
-    <div class="help-section copyright-section">
-        <h2>{{ "help_copyright_title"|t(lang) }}</h2>
-        <div class="copyright-content">
-            <p>{{ "help_copyright_desc"|t(lang) }}</p>
-            <p class="copyright-notice">{{ "help_copyright_notice"|t(lang) }}</p>
-            <p class="copyright-license">{{ "help_copyright_license"|t(lang) }}</p>
+        <div class="card">
+            <div class="card-body" style="padding:14px 16px">
+                <p style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:8px">{{ "help_copyright_desc"|t(lang) }}</p>
+                <p style="font-size:12px;color:var(--t3);line-height:1.6;margin-bottom:4px">{{ "help_copyright_notice"|t(lang) }}</p>
+                <p style="font-size:12px;color:var(--t3);line-height:1.6;margin-bottom:0">{{ "help_copyright_license"|t(lang) }}</p>
+            </div>
         </div>
     </div>
 </div>
 
 <style>
-.help-page {
-    padding: 24px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.help-page h1 {
-    font-size: 28px;
-    font-weight: 700;
-    margin-bottom: 24px;
-    color: var(--text-primary);
-}
-
-.help-page h2 {
+/* help.html 板块标题样式（限定在 .pv-theme 作用域内） */
+.pv-theme .page-title {
     font-size: 20px;
-    font-weight: 600;
-    margin: 32px 0 16px;
-    color: var(--text-primary);
-    border-bottom: 2px solid var(--primary);
-    padding-bottom: 8px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--t1);
 }
-
-.help-page h3 {
+.pv-theme .section-title {
     font-size: 16px;
     font-weight: 600;
-    margin: 16px 0 8px;
-    color: var(--text-primary);
-}
-
-.help-page h4 {
-    font-size: 14px;
-    font-weight: 600;
-    margin: 12px 0 8px;
-    color: var(--text-secondary);
-}
-
-.help-page p {
-    color: var(--text-secondary);
-    line-height: 1.6;
     margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    color: var(--t1);
 }
-
-.help-page ul {
-    color: var(--text-secondary);
-    line-height: 1.8;
-    padding-left: 24px;
+.pv-theme .faq-item-pv[open] .faq-chevron {
+    transform: rotate(180deg);
 }
-
-.help-page li {
-    margin-bottom: 4px;
+.pv-theme .faq-item-pv summary::-webkit-details-marker {
+    display: none;
 }
-
-/* About Project Card */
-.about-project-card {
-    padding: 20px;
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    border: 1px solid var(--border-subtle);
-    margin-bottom: 16px;
-}
-
-.about-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 16px;
-}
-
-.about-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background: var(--gradient-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-on-primary);
-    flex-shrink: 0;
-}
-
-.about-icon svg {
-    width: 28px;
-    height: 28px;
-}
-
-.about-header h3 {
-    font-size: 22px;
-    margin: 0;
-    color: var(--text-primary);
-}
-
-.about-subtitle {
-    font-size: 14px;
-    color: var(--text-muted);
-    margin: 4px 0 0;
-}
-
-.about-info {
+.pv-theme .gpu-cards-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
-    margin: 16px 0;
 }
-
-.info-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.info-label {
-    font-size: 12px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.info-value {
-    font-size: 14px;
-    color: var(--text-primary);
-    font-weight: 500;
-}
-
-.about-links {
-    margin-top: 16px;
-}
-
-.btn-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: var(--primary-bg);
-    color: var(--primary);
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all var(--duration-fast) var(--ease-standard);
-}
-
-.btn-link:hover {
-    background: var(--primary);
-    color: var(--text-on-primary);
-}
-
-/* Model Cards */
-.model-card {
-    padding: 20px;
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    border: 1px solid var(--border-subtle);
-    margin-bottom: 16px;
-    transition: all var(--duration-fast) var(--ease-standard);
-}
-
-.model-card:hover {
-    border-color: var(--primary);
-}
-
-.model-card.voxcpm2 {
-    border-left: 4px solid var(--accent-success);
-}
-
-.model-card.indextts2 {
-    border-left: 4px solid var(--accent-primary);
-}
-
-.model-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.model-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.model-card.voxcpm2 .model-icon {
-    background: var(--success-bg);
-    color: var(--color-success);
-}
-
-.model-card.indextts2 .model-icon {
-    background: var(--primary-bg);
-    color: var(--primary);
-}
-
-.model-icon svg {
-    width: 24px;
-    height: 24px;
-}
-
-.model-header h3 {
-    font-size: 18px;
-    margin: 0;
-    color: var(--text-primary);
-}
-
-.model-badge {
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.model-card.voxcpm2 .model-badge {
-    background: var(--success-bg);
-    color: var(--color-success);
-}
-
-.model-card.indextts2 .model-badge {
-    background: var(--primary-bg);
-    color: var(--primary);
-}
-
-.model-features, .model-requirements {
-    margin-top: 16px;
-}
-
-.model-features ul, .model-requirements ul {
-    margin: 8px 0;
-}
-
-/* GPU Cards */
-.gpu-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
-    margin: 20px 0;
-}
-
-.gpu-card {
-    padding: 20px;
-    border-radius: 12px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    transition: all var(--duration-fast) var(--ease-standard);
-}
-
-.gpu-card:hover {
-    border-color: var(--primary);
-}
-
-.gpu-card .gpu-icon {
-    margin-bottom: 12px;
-}
-
-.gpu-card.nvidia .gpu-icon { color: var(--brand-nvidia); }
-.gpu-card.amd .gpu-icon { color: var(--brand-amd); }
-.gpu-card.intel .gpu-icon { color: var(--brand-intel); }
-.gpu-card.apple .gpu-icon { color: var(--brand-apple); }
-.gpu-card.cpu .gpu-icon { color: var(--text-muted); }
-
-.gpu-card h3 {
-    margin-top: 0;
-    margin-bottom: 8px;
-}
-
-.help-subsection {
-    margin: 20px 0;
-    padding: 16px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border-left: 4px solid var(--primary);
-}
-
-.faq-item {
-    margin: 16px 0;
-    padding: 16px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border-subtle);
-}
-
-.faq-item h3 {
-    margin-top: 0;
-    color: var(--primary-light);
-}
-
-.help-links {
-    list-style: none;
-    padding: 0;
-}
-
-.help-links li {
-    margin: 8px 0;
-}
-
-.help-links a {
-    color: var(--primary-light);
-    text-decoration: none;
-    transition: color var(--duration-fast) var(--ease-standard);
-    display: inline-flex;
-    align-items: center;
-}
-
-.help-links a:hover {
-    color: var(--primary);
-    text-decoration: underline;
-}
-
-/* Copyright Section */
-.copyright-section {
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    padding: 20px;
-    border: 1px solid var(--border-subtle);
-}
-
-.copyright-content {
-    padding: 16px;
-    background: var(--bg-tertiary);
-    border-radius: 8px;
-}
-
-.copyright-notice {
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin: 12px 0;
-}
-
-.copyright-license {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin: 0;
+@media (max-width: 900px) {
+    .pv-theme .gpu-cards-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
+
+<script>
+// FAQ 折叠交互（details/summary 原生支持，无需 JS）
+// 此脚本仅用于兼容性回退
+(function(){
+    if (!('open' in document.createElement('details'))) {
+        // 旧浏览器回退
+        document.querySelectorAll('.pv-theme .faq-item-pv summary').forEach(function(s){
+            s.addEventListener('click', function(e){
+                e.preventDefault();
+                var parent = this.parentElement;
+                parent.toggleAttribute('open');
+            });
+        });
+    }
+})();
+</script>

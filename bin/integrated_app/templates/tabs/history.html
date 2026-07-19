@@ -1,401 +1,304 @@
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>
-        <h3 class="card-header-title">{{ "history"|t(lang) }}</h3>
-    </div>
-    
-    <!-- 空状态容器，在 history_count == 0 时默认显示 -->
-    <div id="history-empty-state" style="{{ 'display:block;' if history_count == 0 else 'display:none;' }}" aria-live="polite" aria-atomic="true">
-        </div>
-    </div>
-    
-    <!-- 统计卡片，始终渲染但根据数量显示 -->
-    <div class="stat-card" id="history-stat-card" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
-        <span class="stat-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg></span>
-        <div>
-            <div class="stat-card-value">{{ history_count }}</div>
-            <div class="stat-card-label">{{ "records_count"|t(lang) }}</div>
-        </div>
-    </div>
-    
-    <!-- 搜索栏和过滤器，始终渲染 -->
-    <div class="history-filters" id="history-filters" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
-        <span class="filter-bar-label">{{ "time"|t(lang) }}:</span>
-        <span class="time-filter-chip active" data-time="all" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('all')">{{ "all"|t(lang) }}</span>
-        <span class="time-filter-chip" data-time="today" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('today')">{{ "today"|t(lang) }}</span>
-        <span class="time-filter-chip" data-time="week" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('week')">{{ "week"|t(lang) }}</span>
-        <span class="time-filter-chip" data-time="month" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('month')">{{ "month"|t(lang) }}</span>
-        <span class="filter-bar-label" style="margin-left:12px;">{{ "duration_filter"|t(lang) }}</span>
-        <span class="time-filter-chip active" data-duration="all" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('all')">{{ "duration_all"|t(lang) }}</span>
-        <span class="time-filter-chip" data-duration="lt5" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('lt5')">{{ "duration_lt5"|t(lang) }}</span>
-        <span class="time-filter-chip" data-duration="5to10" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('5to10')">{{ "duration_5to10"|t(lang) }}</span>
-        <span class="time-filter-chip" data-duration="gt10" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('gt10')">{{ "duration_gt10"|t(lang) }}</span>
-        <label class="hidden-toggle-label" style="margin-left:12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
-            <input type="checkbox" id="show-hidden-checkbox" onchange="toggleHiddenRecords()">
-            <span id="show-hidden-label-text">{{ "show_hidden"|t(lang, default="显示隐藏记录") }}</span>
-        </label>
-    </div>
-    <div class="history-search-bar" id="history-search-bar" style="{{ 'display:none;' if history_count == 0 else 'display:flex;' }}">
-        <input type="text" id="hist-search" class="history-search-input" placeholder="{{ 'keyword_search'|t(lang) }}">
-        <input type="hidden" id="hist-time-filter" value="all">
-        <input type="hidden" id="hist-duration-filter" value="all">
-        <div class="history-search-actions">
-            <button class="tts-btn tts-btn-secondary history-search-btn" onclick="refreshHistory()">{{ "refresh_records"|t(lang) }}</button>
-            <button class="tts-btn tts-btn-danger history-search-btn" onclick="clearHistorySearch()">
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                {{ "clear_search"|t(lang) }}
-            </button>
-        </div>
-    </div>
-    <div id="hist-info" class="history-info-bar">
-        {% if history_count > 0 %}
-        {{ "total"|t(lang) }} <strong>{{ history_count }}</strong> {{ "records"|t(lang) }}, {{ "loaded"|t(lang) }} <strong>{{ history_loaded }}</strong> {{ "records"|t(lang) }}
-        {% endif %}
-    </div>
-    <!-- History Table Skeleton -->
-    <div class="skeleton-screen" id="history-skeleton">
-        <div class="skeleton-table">
-            <div class="skeleton-table-header">
-                <div class="skeleton-block skeleton-col-check"></div>
-                <div class="skeleton-block skeleton-col-name"></div>
-                <div class="skeleton-block skeleton-col-time"></div>
-                <div class="skeleton-block skeleton-col-dur"></div>
-                <div class="skeleton-block skeleton-col-size"></div>
+<div class="pv-theme">
+    <div class="full-width">
+        <!-- 顶部：统计 + 搜索 + 过滤器 -->
+        <div class="card" style="margin-bottom:12px">
+            <div class="card-body" style="padding:12px 14px">
+                <!-- 统计行 -->
+                <div id="history-stat-card" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+                    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+                        <span style="font-size:14px;font-weight:600;color:var(--t1)">{{ "history"|t(lang) }}: <span id="hist-total-count">{{ history_count | default(0) }}</span></span>
+                        <span style="font-size:11px;color:var(--t3)">|</span>
+                        <span id="hist-info" style="font-size:12px;color:var(--t2)">
+                            {% if history_count > 0 %}
+                            {{ "total"|t(lang) }} <strong>{{ history_count }}</strong> {{ "records"|t(lang) }}, {{ "loaded"|t(lang) }} <strong>{{ history_loaded }}</strong> {{ "records"|t(lang) }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div style="display:flex;gap:6px">
+                        <button class="btn btn-o btn-sm" onclick="refreshHistory()" aria-label="{{ 'refresh_records'|t(lang) }}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                            {{ "refresh_records"|t(lang) }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 过滤器行（时间 + 时长 + 隐藏记录） -->
+                <div class="history-filters" id="history-filters" style="{{ 'display:none;' if history_count == 0 else 'display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap' }}">
+                    <span class="filter-bar-label" style="font-size:12px;color:var(--t2)">{{ "time"|t(lang) }}:</span>
+                    <span class="time-filter-chip active" data-time="all" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('all')">{{ "all"|t(lang) }}</span>
+                    <span class="time-filter-chip" data-time="today" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('today')">{{ "today"|t(lang) }}</span>
+                    <span class="time-filter-chip" data-time="week" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('week')">{{ "week"|t(lang) }}</span>
+                    <span class="time-filter-chip" data-time="month" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryTime('month')">{{ "month"|t(lang) }}</span>
+                    <span class="filter-bar-label" style="margin-left:8px;font-size:12px;color:var(--t2)">{{ "duration_filter"|t(lang) }}</span>
+                    <span class="time-filter-chip active" data-duration="all" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('all')">{{ "duration_all"|t(lang) }}</span>
+                    <span class="time-filter-chip" data-duration="lt5" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('lt5')">{{ "duration_lt5"|t(lang) }}</span>
+                    <span class="time-filter-chip" data-duration="5to10" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('5to10')">{{ "duration_5to10"|t(lang) }}</span>
+                    <span class="time-filter-chip" data-duration="gt10" tabindex="0" role="button" onkeydown="if(event.key==='Enter')this.click()" onclick="filterHistoryDuration('gt10')">{{ "duration_gt10"|t(lang) }}</span>
+                    <label style="margin-left:8px;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);cursor:pointer">
+                        <input type="checkbox" id="show-hidden-checkbox" onchange="toggleHiddenRecords()">
+                        <span id="show-hidden-label-text">{{ "show_hidden"|t(lang, default="显示隐藏记录") }}</span>
+                    </label>
+                </div>
+
+                <!-- 搜索行 -->
+                <div class="history-search-bar" id="history-search-bar" style="{{ 'display:none;' if history_count == 0 else 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' }}">
+                    <input type="text" id="hist-search" class="fi" placeholder="{{ 'keyword_search'|t(lang) }}" style="flex:1;min-width:200px">
+                    <input type="hidden" id="hist-time-filter" value="all">
+                    <input type="hidden" id="hist-duration-filter" value="all">
+                    <button class="btn btn-o btn-sm" onclick="clearHistorySearch()" aria-label="{{ 'clear_search'|t(lang) }}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        {{ "clear_search"|t(lang) }}
+                    </button>
+                </div>
             </div>
-            <div class="skeleton-table-row skeleton-stagger-1"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
-            <div class="skeleton-table-row skeleton-stagger-2"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
-            <div class="skeleton-table-row skeleton-stagger-3"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
-            <div class="skeleton-table-row skeleton-stagger-4"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
-            <div class="skeleton-table-row skeleton-stagger-5"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
-            <div class="skeleton-table-row skeleton-stagger-6"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
-            <div class="skeleton-table-row skeleton-stagger-7"><div class="skeleton-block skeleton-col-check"></div><div class="skeleton-block skeleton-col-name"></div><div class="skeleton-block skeleton-col-time"></div><div class="skeleton-block skeleton-col-dur"></div><div class="skeleton-block skeleton-col-size"></div></div>
         </div>
-    </div>
-    <div class="dataframe-container skeleton-content hidden" id="hist-table-container">
-        <style>
-        /* === History Table Styles === */
-        .history-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            background: var(--bg-card);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        .history-table thead th {
-            background: var(--primary-bg);
-            color: var(--text-primary);
-            font-weight: 600;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 10px 12px;
-            text-align: left;
-            border-bottom: 2px solid var(--border-subtle);
-        }
-        .history-table thead th:nth-child(1) {
-            width: 40px;
-            text-align: center;
-        }
-        .history-table tbody tr {
-            transition: background 0.15s ease, transform 0.15s ease;
-            border-bottom: 1px solid var(--border-subtle);
-            cursor: default;
-        }
-        .history-table tbody tr:last-child { border-bottom: none; }
-        .history-table tbody tr:hover {
-            background: var(--bg-tertiary);
-        }
-        .history-table tbody td {
-            padding: 8px 12px;
-            font-size: 14px;
-            color: var(--text-secondary);
-            vertical-align: middle;
-        }
-        .history-table tbody td:nth-child(1) {
-            text-align: center;
-            width: 40px;
-        }
-        .history-table tbody td:nth-child(4),
-        .history-table tbody td:nth-child(5) {
-            white-space: nowrap;
-        }
-        .history-table .history-duration {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--text-muted);
-        }
 
-        /* === History Search Bar === */
-        .history-search-bar {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-        .history-search-input {
-            flex: 4;
-            min-width: 200px;
-        }
-        .history-search-actions {
-            flex: 1;
-            min-width: 200px;
-            display: flex;
-            gap: 8px;
-        }
-        .history-search-btn {
-            flex: 1;
-        }
-        .history-info-bar {
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-        }
-
-        /* === Skeleton Column Widths === */
-        .skeleton-col-check { width: 40px; }
-        .skeleton-col-name { flex: 3; }
-        .skeleton-col-time { flex: 1.5; }
-        .skeleton-col-dur { flex: 0.8; }
-        .skeleton-col-size { flex: 0.8; }
-        .skeleton-stagger-1 { animation-delay: 0s; }
-        .skeleton-stagger-2 { animation-delay: 0.08s; }
-        .skeleton-stagger-3 { animation-delay: 0.16s; }
-        .skeleton-stagger-4 { animation-delay: 0.24s; }
-        .skeleton-stagger-5 { animation-delay: 0.32s; }
-        .skeleton-stagger-6 { animation-delay: 0.4s; }
-        .skeleton-stagger-7 { animation-delay: 0.48s; }
-
-        /* === Empty State Hierarchy === */
-        .empty-state-hint {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-bottom: 16px;
-            line-height: 1.5;
-        }
-
-        /* === Load More / No More Indicators === */
-        .history-load-indicator {
-            text-align: center;
-            padding: 16px;
-            color: var(--text-muted);
-            font-size: var(--text-sm);
-        }
-        .history-load-indicator .spinner-icon {
-            display: inline-block;
-            animation: tts-spin 1s linear infinite;
-            vertical-align: middle;
-            margin-right: 6px;
-        }
-
-        /* === Batch Action Bar === */
-        .history-batch-bar {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            padding: 10px 14px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-subtle);
-            border-radius: 10px;
-            margin-top: 12px;
-        }
-        .history-batch-bar .batch-hint {
-            font-size: 12px;
-            color: var(--text-muted);
-            white-space: nowrap;
-        }
-        .history-batch-bar .batch-spacer {
-            flex: 1;
-        }
-        .history-batch-bar .batch-btn {
-            font-size: 11px;
-            padding: 4px 8px;
-            white-space: nowrap;
-        }
-
-        /* === Pagination Styles === */
-        .history-pagination {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 16px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-subtle);
-            border-radius: 10px;
-            margin-top: 16px;
-        }
-        .pagination-info {
-            font-size: 13px;
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-        .pagination-controls {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .pagination-btn {
-            font-size: 12px;
-            padding: 6px 12px;
-            min-width: 60px;
-        }
-        .pagination-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-        .pagination-pages {
-            display: flex;
-            gap: 4px;
-            margin: 0 8px;
-        }
-        .pagination-page-btn {
-            font-size: 12px;
-            padding: 6px 10px;
-            min-width: 32px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-medium);
-            border-radius: 6px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .pagination-page-btn:hover {
-            background: var(--primary-bg);
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-        .pagination-page-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: var(--text-on-primary);
-        }
-        .pagination-size {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-        .pagination-size select {
-            padding: 6px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--border-medium);
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-size: 13px;
-            cursor: pointer;
-        }
-        @media (max-width: 768px) {
-            .history-pagination {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .pagination-controls {
-                order: -1;
-            }
-        }
-        </style>
-        <div class="table-scroll-wrapper">
-        <table class="history-table">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" class="history-header-checkbox" onclick="toggleAllHistory(this.checked)" aria-label="{{ 'select_all'|t(lang) }}"></th>
-                    <th>{{ "filename"|t(lang) }}</th>
-                    <th>{{ "gen_time"|t(lang) }}</th>
-                    <th>{{ "duration"|t(lang) }}</th>
-                    <th>{{ "size"|t(lang) }}</th>
-                </tr>
-            </thead>
-            <tbody id="hist-table-body" role="rowgroup">
-                {% for row in history_records %}
-                <tr class="history-record-row" role="row">
-                    <td><input type="checkbox" class="history-row-checkbox" data-history-id="{{ row[0] }}"></td>
-                    <td data-label="{{ 'filename'|t(lang) }}">{{ row[0] }}</td>
-                    <td data-label="{{ 'gen_time'|t(lang) }}">{{ row[1] }}</td>
-                    <td data-label="{{ 'duration'|t(lang) }}"><span class="history-duration">{{ row[2] }}</span></td>
-                    <td data-label="{{ 'size'|t(lang) }}">{{ row[3] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- 空状态容器 -->
+        <div id="history-empty-state" style="{{ 'display:block;' if history_count == 0 else 'display:none;' }}" aria-live="polite" aria-atomic="true">
+            <div class="empty-state" style="text-align:center;padding:48px 20px;background:var(--bg2);border:1px dashed var(--border);border-radius:var(--radius-md)">
+                <div style="width:56px;height:56px;margin:0 auto 12px;background:var(--p50);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--p600)">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div id="history-empty-title" style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px">{{ "no_records"|t(lang) }}</div>
+                <div id="history-empty-desc" style="font-size:12px;color:var(--t2);margin-bottom:16px">{{ "records_auto_show"|t(lang) }}</div>
+                <button id="history-empty-action" class="btn btn-p btn-sm" onclick="TTSApp.sidebar.activateTab('voice_design')">{{ "start_first"|t(lang) }}</button>
+            </div>
         </div>
-    </div>
-    <!-- Pagination Controls -->
-    <div class="history-pagination" id="history-pagination" style="display:none;">
-        <div class="pagination-info">
-            <span id="pagination-text">{{ "page"|t(lang) }} 1 / 1</span>
-        </div>
-        <div class="pagination-controls">
-            <button class="tts-btn tts-btn-secondary pagination-btn" id="pagination-first" onclick="goToPage(1)" disabled>{{ "first_page"|t(lang) }}</button>
-            <button class="tts-btn tts-btn-secondary pagination-btn" id="pagination-prev" onclick="goToPrevPage()" disabled>{{ "prev_page"|t(lang) }}</button>
-            <div class="pagination-pages" id="pagination-pages"></div>
-            <button class="tts-btn tts-btn-secondary pagination-btn" id="pagination-next" onclick="goToNextPage()" disabled>{{ "next_page"|t(lang) }}</button>
-            <button class="tts-btn tts-btn-secondary pagination-btn" id="pagination-last" onclick="goToLastPage()" disabled>{{ "last_page"|t(lang) }}</button>
-        </div>
-        <div class="pagination-size">
-            <label>{{ "per_page"|t(lang) }}:</label>
-            <select id="pagination-size" onchange="changePageSize(this.value)">
-                <option value="20" selected>20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-    </div>
 
-    <!-- Loading indicator for infinite scroll -->
-    <div id="hist-load-more-indicator" class="history-load-indicator" style="display:none;">
-        <span class="spinner-icon">⟳</span>
-        {{ "loading_more"|t(lang) }}
-    </div>
-    <div id="hist-no-more-indicator" class="history-load-indicator" style="display:none;">
-        {{ "all_loaded"|t(lang) }}
-    </div>
-    <div class="history-batch-bar skeleton-content hidden" id="history-batch-actions">
-        <span class="batch-hint">{{ "select_rows_hint"|t(lang) }}</span>
-        <span class="batch-spacer"></span>
-        <button class="tts-btn tts-btn-secondary batch-btn" onclick="batchExportHistory()">{{ "batch_export"|t(lang) }}</button>
-        <button class="tts-btn tts-btn-danger batch-btn" onclick="batchDeleteHistory()">{{ "batch_delete"|t(lang) }}</button>
-        <button class="tts-btn tts-btn-secondary batch-btn" onclick="batchShowHistory()" id="show-selected-btn" style="display:none;">{{ "show_selected"|t(lang) }}</button>
-        <button class="tts-btn tts-btn-secondary batch-btn" onclick="showAllHistory()" id="show-all-btn" style="display:none;">{{ "show_all"|t(lang) }}</button>
+        <!-- Skeleton Screen -->
+        <div class="skeleton-screen" id="history-skeleton" style="display:none">
+            <div class="card">
+                <div class="card-body" style="padding:0">
+                    <div style="padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border)">
+                        <div class="skeleton-block" style="height:14px;width:60%;border-radius:4px;background:var(--bg2)"></div>
+                    </div>
+                    {% for i in range(1, 8) %}
+                    <div class="skeleton-table-row skeleton-stagger-{{ i }}" style="display:flex;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border-lt)">
+                        <div class="skeleton-block" style="height:14px;flex:3;border-radius:4px;background:var(--bg3)"></div>
+                        <div class="skeleton-block" style="height:14px;width:80px;border-radius:4px;background:var(--bg3)"></div>
+                        <div class="skeleton-block" style="height:14px;flex:1.5;border-radius:4px;background:var(--bg3)"></div>
+                        <div class="skeleton-block" style="height:14px;width:60px;border-radius:4px;background:var(--bg3)"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 历史记录表格 -->
+        <div class="card" id="hist-table-container" style="{{ 'display:none;' if history_count == 0 else 'display:block' }}">
+            <div class="card-hdr">
+                <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                {{ "history"|t(lang) }}
+                <span id="hist-list-count" style="margin-left:auto;font-size:11px;color:var(--t3)"></span>
+            </div>
+            <div class="card-body" style="padding:0">
+                <div style="overflow-x:auto">
+                    <table class="pv-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;text-align:center"><input type="checkbox" class="history-header-checkbox" onclick="toggleAllHistory(this.checked)" aria-label="{{ 'select_all'|t(lang) }}"></th>
+                                <th>{{ "filename"|t(lang) }}</th>
+                                <th style="width:120px">{{ "engine"|t(lang, default="引擎") }}</th>
+                                <th>{{ "gen_time"|t(lang) }}</th>
+                                <th style="width:90px">{{ "duration"|t(lang) }}</th>
+                                <th style="width:90px">{{ "size"|t(lang) }}</th>
+                                <th style="width:120px;text-align:right">{{ "actions"|t(lang, default="操作") }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hist-table-body" role="rowgroup">
+                            {% for row in history_records %}
+                            <tr class="history-record-row" role="row">
+                                <td style="text-align:center"><input type="checkbox" class="history-row-checkbox" data-history-id="{{ row[0] }}"></td>
+                                <td data-label="{{ 'filename'|t(lang) }}" style="color:var(--t1);font-family:var(--mono);font-size:11px">{{ row[0] }}</td>
+                                <td data-label="{{ 'engine'|t(lang, default='引擎') }}"><span class="engine-badge" data-engine="voxcpm2">VoxCPM2</span></td>
+                                <td data-label="{{ 'gen_time'|t(lang) }}" style="color:var(--t2)">{{ row[1] }}</td>
+                                <td data-label="{{ 'duration'|t(lang) }}"><span class="history-duration">{{ row[2] }}</span></td>
+                                <td data-label="{{ 'size'|t(lang) }}" style="color:var(--t2);font-family:var(--mono)">{{ row[3] }}</td>
+                                <td data-label="{{ 'actions'|t(lang, default='操作') }}" style="text-align:right">
+                                    <div style="display:inline-flex;gap:4px">
+                                        <button class="btn-icon" title="{{ 'play'|t(lang) }}" onclick="playHistoryAudio('{{ row[0] }}', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                                        <button class="btn-icon" title="{{ 'download'|t(lang, default='下载') }}" onclick="downloadHistoryAudio('{{ row[0] }}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                                        <button class="btn-icon" title="{{ 'delete'|t(lang) }}" style="color:var(--red)" onclick="deleteHistoryAudio('{{ row[0] }}', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页控件 -->
+                <div class="history-pagination" id="history-pagination" style="display:none;padding:10px 14px;border-top:1px solid var(--border-lt);flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center">
+                    <div class="pagination-info" style="font-size:11px;color:var(--t3)">
+                        <span id="pagination-text">{{ "page"|t(lang) }} 1 / 1</span>
+                    </div>
+                    <div class="pagination-controls" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center">
+                        <button class="btn btn-o btn-sm" id="pagination-first" onclick="goToPage(1)" disabled style="opacity:.5;cursor:not-allowed">{{ "first_page"|t(lang) }}</button>
+                        <button class="btn btn-o btn-sm" id="pagination-prev" onclick="goToPrevPage()" disabled style="opacity:.5;cursor:not-allowed">{{ "prev_page"|t(lang) }}</button>
+                        <div class="pagination-pages" id="pagination-pages" style="display:flex;gap:4px;margin:0 6px"></div>
+                        <button class="btn btn-o btn-sm" id="pagination-next" onclick="goToNextPage()" disabled style="opacity:.5;cursor:not-allowed">{{ "next_page"|t(lang) }}</button>
+                        <button class="btn btn-o btn-sm" id="pagination-last" onclick="goToLastPage()" disabled style="opacity:.5;cursor:not-allowed">{{ "last_page"|t(lang) }}</button>
+                    </div>
+                    <div class="pagination-size" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)">
+                        <label>{{ "per_page"|t(lang) }}:</label>
+                        <select id="pagination-size" onchange="changePageSize(this.value)" class="sinput" style="width:auto;padding:4px 8px">
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载指示器 -->
+        <div id="hist-load-more-indicator" class="history-load-indicator" style="display:none;text-align:center;padding:16px;color:var(--t3);font-size:12px">
+            <span class="spinner-icon" style="display:inline-block;animation:tts-spin 1s linear infinite;vertical-align:middle;margin-right:6px">⟳</span>
+            {{ "loading_more"|t(lang) }}
+        </div>
+        <div id="hist-no-more-indicator" class="history-load-indicator" style="display:none;text-align:center;padding:16px;color:var(--t3);font-size:12px">
+            {{ "all_loaded"|t(lang) }}
+        </div>
+
+        <!-- 批量操作栏 -->
+        <div class="history-batch-bar" id="history-batch-actions" style="display:none;gap:8px;align-items:center;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:12px">
+            <span class="batch-hint" style="font-size:12px;color:var(--t3);white-space:nowrap">{{ "select_rows_hint"|t(lang) }}</span>
+            <span class="batch-spacer" style="flex:1"></span>
+            <button class="btn btn-o btn-sm" onclick="batchExportHistory()">{{ "batch_export"|t(lang) }}</button>
+            <button class="btn btn-sm" style="background:var(--red);color:#fff;border:none" onclick="batchDeleteHistory()">{{ "batch_delete"|t(lang) }}</button>
+            <button class="btn btn-o btn-sm" onclick="batchShowHistory()" id="show-selected-btn" style="display:none">{{ "show_selected"|t(lang) }}</button>
+            <button class="btn btn-o btn-sm" onclick="showAllHistory()" id="show-all-btn" style="display:none">{{ "show_all"|t(lang) }}</button>
+        </div>
     </div>
 </div>
+
+<style>
+/* history.html 表格与组件样式（限定在 .pv-theme 作用域内） */
+.pv-theme .pv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.pv-theme .pv-table thead th {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--t2);
+    white-space: nowrap;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+}
+.pv-theme .pv-table tbody tr {
+    border-bottom: 1px solid var(--border-lt);
+    transition: background 0.15s;
+}
+.pv-theme .pv-table tbody tr:last-child {
+    border-bottom: none;
+}
+.pv-theme .pv-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+.pv-theme .pv-table tbody td {
+    padding: 8px 12px;
+    color: var(--t2);
+    vertical-align: middle;
+}
+.pv-theme .pv-table tbody td:nth-child(1) {
+    text-align: center;
+    width: 40px;
+}
+.pv-theme .history-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: var(--bg3);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--t2);
+    font-family: var(--mono);
+}
+.pv-theme .engine-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: var(--p50);
+    color: var(--p700);
+    border: 1px solid var(--p200);
+    white-space: nowrap;
+}
+.pv-theme .engine-badge[data-engine="indextts2"] {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #86efac;
+}
+.pv-theme .time-filter-chip {
+    display: inline-block;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: var(--bg3);
+    color: var(--t2);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+}
+.pv-theme .time-filter-chip:hover {
+    background: var(--bg-hover);
+}
+.pv-theme .time-filter-chip.active {
+    background: var(--p600);
+    color: #fff;
+}
+.pv-theme .skeleton-stagger-1 { animation-delay: 0s; }
+.pv-theme .skeleton-stagger-2 { animation-delay: 0.08s; }
+.pv-theme .skeleton-stagger-3 { animation-delay: 0.16s; }
+.pv-theme .skeleton-stagger-4 { animation-delay: 0.24s; }
+.pv-theme .skeleton-stagger-5 { animation-delay: 0.32s; }
+.pv-theme .skeleton-stagger-6 { animation-delay: 0.4s; }
+.pv-theme .skeleton-stagger-7 { animation-delay: 0.48s; }
+
+@media (max-width: 768px) {
+    .pv-theme .history-pagination {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .pv-theme .pagination-controls {
+        order: -1;
+    }
+}
+</style>
+
 <script>
 (function(){
     var skeleton = document.getElementById('history-skeleton');
-    var contentEls = document.querySelectorAll('#history-batch-actions, #hist-table-container');
+    var tableContainer = document.getElementById('hist-table-container');
+    var batchActions = document.getElementById('history-batch-actions');
     var emptyState = document.getElementById('history-empty-state');
     var filterBar = document.getElementById('history-filters');
     var searchBar = document.getElementById('history-search-bar');
     var statCard = document.getElementById('history-stat-card');
-    var batchActions = document.getElementById('history-batch-actions');
-    // Pagination state
     var totalRecords = {{ history_count | default(0) }};
     var hasMore = {{ 'true' if history_has_more else 'false' }};
     var loadedRecords = {{ history_loaded | default(0) }};
     var isLoading = false;
     var PAGE_SIZE = 20;
 
-    // Update info text
     function updateInfoText() {
         var infoEl = document.getElementById('hist-info');
         if (infoEl && totalRecords > 0) {
             var keyword = document.getElementById('hist-search').value;
-            if (keyword) return; // Don't override during search
+            if (keyword) return;
             infoEl.innerHTML = '{{ "total"|t(lang) }} <strong>' + totalRecords + '</strong> {{ "records"|t(lang) }}, {{ "loaded"|t(lang) }} <strong>' + loadedRecords + '</strong> {{ "records"|t(lang) }}';
         }
+        var countEl = document.getElementById('hist-total-count');
+        if (countEl) countEl.textContent = totalRecords;
+        var listCountEl = document.getElementById('hist-list-count');
+        if (listCountEl) listCountEl.textContent = totalRecords > 0 ? '{{ "total"|t(lang) }} ' + totalRecords : '';
     }
 
-    // 显示搜索相关UI（过滤器、搜索栏、统计卡片、批量操作）
     function showSearchUI() {
         if (filterBar) filterBar.style.display = 'flex';
         if (searchBar) searchBar.style.display = 'flex';
@@ -403,7 +306,6 @@
         if (batchActions) batchActions.style.display = 'flex';
     }
 
-    // 隐藏搜索相关UI
     function hideSearchUI() {
         if (filterBar) filterBar.style.display = 'none';
         if (searchBar) searchBar.style.display = 'none';
@@ -411,16 +313,14 @@
         if (batchActions) batchActions.style.display = 'none';
     }
 
-    // 显示空状态（区分首次无数据和搜索无结果）
     function showEmptyState(isSearchNoResult) {
         if (emptyState) emptyState.style.display = 'block';
         hideSearchUI();
-        // 根据场景切换文案和按钮
+        if (tableContainer) tableContainer.style.display = 'none';
         var titleEl = document.getElementById('history-empty-title');
         var descEl = document.getElementById('history-empty-desc');
         var actionEl = document.getElementById('history-empty-action');
         if (isSearchNoResult) {
-            // 搜索无结果
             if (titleEl) titleEl.textContent = '{{ "no_matches"|t(lang) }}';
             if (descEl) descEl.textContent = '{{ "try_other_keyword"|t(lang, default="换个关键词试试？") }}';
             if (actionEl) {
@@ -428,7 +328,6 @@
                 actionEl.setAttribute('onclick', 'clearHistorySearch()');
             }
         } else {
-            // 首次无数据
             if (titleEl) titleEl.textContent = '{{ "no_records"|t(lang) }}';
             if (descEl) descEl.textContent = '{{ "records_auto_show"|t(lang) }}';
             if (actionEl) {
@@ -438,26 +337,17 @@
         }
     }
 
-    // 隐藏空状态
     function hideEmptyState() {
         if (emptyState) emptyState.style.display = 'none';
         showSearchUI();
+        if (tableContainer) tableContainer.style.display = 'block';
     }
 
-    // Helper: show content elements and clean up skeleton artifacts
     function showContent() {
-        if (skeleton) skeleton.classList.remove('active');
-        contentEls.forEach(function(el) {
-            el.classList.remove('hidden');
-            el.classList.remove('skeleton-content');
-            el.getAnimations().forEach(function(a) { a.cancel(); });
-            el.style.transform = 'none';
-            el.style.background = '';
-            el.style.animation = 'none';
-        });
+        if (skeleton) skeleton.style.display = 'none';
+        if (tableContainer) tableContainer.style.display = 'block';
     }
 
-    // Robust initialization: ensure content is visible when data exists
     function ensureContentVisible() {
         var hasContent = document.querySelectorAll('#hist-table-body tr').length > 0;
         var initialCount = {{ 'true' if history_count > 0 else 'false' }};
@@ -466,12 +356,10 @@
             updateInfoText();
         }
     }
-    // Run immediately and also after a short delay for HTMX settling
     ensureContentVisible();
     setTimeout(ensureContentVisible, 100);
     setTimeout(ensureContentVisible, 500);
 
-    // Apply staggered entrance animation to list items
     function applyListItemAnimation(container, itemSelector) {
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         var items = container.querySelectorAll(itemSelector);
@@ -482,26 +370,38 @@
         }
     }
 
-    // Render rows helper
     var currentSearchKeyword = '';
 
     function highlightText(text, keyword) {
         if (!keyword) return text;
         var escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         var regex = new RegExp('(' + escaped + ')', 'gi');
-        return text.replace(regex, '<mark style="background:var(--accent-warning);color:var(--text-primary);padding:0 2px;border-radius:2px;">$1</mark>');
+        return text.replace(regex, '<mark style="background:var(--orange);color:var(--t1);padding:0 2px;border-radius:2px">$1</mark>');
+    }
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // 根据 filename 推断引擎
+    function inferEngine(filename) {
+        if (!filename) return 'voxcpm2';
+        var lower = filename.toLowerCase();
+        if (lower.indexOf('idx') === 0 || lower.indexOf('it2') === 0 || lower.indexOf('dur') === 0) return 'indextts2';
+        return 'voxcpm2';
     }
 
     function renderRows(records, append) {
         var tbody = document.getElementById('hist-table-body');
-        if (!append) {
-            tbody.innerHTML = '';
-        }
+        if (!append) tbody.innerHTML = '';
         records.forEach(function(r){
             var tr = document.createElement('tr');
             tr.className = 'history-record-row';
 
             var tdCheck = document.createElement('td');
+            tdCheck.style.textAlign = 'center';
             var checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.className = 'history-row-checkbox';
@@ -509,33 +409,59 @@
             tdCheck.appendChild(checkbox);
 
             var tdName = document.createElement('td');
-            tdName.setAttribute('data-label', t('filename'));
+            tdName.setAttribute('data-label', '{{ "filename"|t(lang) }}');
+            tdName.style.color = 'var(--t1)';
+            tdName.style.fontFamily = 'var(--mono)';
+            tdName.style.fontSize = '11px';
             if (currentSearchKeyword) {
-                tdName.innerHTML = highlightText(r[0], currentSearchKeyword);
+                tdName.innerHTML = highlightText(escapeHtml(r[0]), currentSearchKeyword);
             } else {
                 tdName.textContent = r[0];
             }
 
+            var tdEngine = document.createElement('td');
+            tdEngine.setAttribute('data-label', '{{ "engine"|t(lang, default="引擎") }}');
+            var engine = inferEngine(r[0]);
+            var engineSpan = document.createElement('span');
+            engineSpan.className = 'engine-badge';
+            engineSpan.setAttribute('data-engine', engine);
+            engineSpan.textContent = engine === 'indextts2' ? 'IndexTTS 2.0' : 'VoxCPM2';
+            tdEngine.appendChild(engineSpan);
+
             var tdTime = document.createElement('td');
-            tdTime.setAttribute('data-label', t('gen_time'));
-            tdTime.textContent = r[1];  // Safe: uses textContent
+            tdTime.setAttribute('data-label', '{{ "gen_time"|t(lang) }}');
+            tdTime.style.color = 'var(--t2)';
+            tdTime.textContent = r[1];
 
             var tdDuration = document.createElement('td');
-            tdDuration.setAttribute('data-label', t('duration'));
+            tdDuration.setAttribute('data-label', '{{ "duration"|t(lang) }}');
             var durationSpan = document.createElement('span');
             durationSpan.className = 'history-duration';
             durationSpan.textContent = r[2];
             tdDuration.appendChild(durationSpan);
 
             var tdSize = document.createElement('td');
-            tdSize.setAttribute('data-label', t('size'));
-            tdSize.textContent = r[3];  // Safe: uses textContent
+            tdSize.setAttribute('data-label', '{{ "size"|t(lang) }}');
+            tdSize.style.color = 'var(--t2)';
+            tdSize.style.fontFamily = 'var(--mono)';
+            tdSize.textContent = r[3];
+
+            var tdActions = document.createElement('td');
+            tdActions.setAttribute('data-label', '{{ "actions"|t(lang, default="操作") }}');
+            tdActions.style.textAlign = 'right';
+            tdActions.innerHTML = '<div style="display:inline-flex;gap:4px">' +
+                '<button class="btn-icon" title="{{ "play"|t(lang) }}" onclick="playHistoryAudio(\'' + r[0].replace(/'/g, "\\'") + '\', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>' +
+                '<button class="btn-icon" title="{{ "download"|t(lang, default="下载") }}" onclick="downloadHistoryAudio(\'' + r[0].replace(/'/g, "\\'") + '\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>' +
+                '<button class="btn-icon" title="{{ "delete"|t(lang) }}" style="color:var(--red)" onclick="deleteHistoryAudio(\'' + r[0].replace(/'/g, "\\'") + '\', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+            '</div>';
 
             tr.appendChild(tdCheck);
             tr.appendChild(tdName);
+            tr.appendChild(tdEngine);
             tr.appendChild(tdTime);
             tr.appendChild(tdDuration);
             tr.appendChild(tdSize);
+            tr.appendChild(tdActions);
             tbody.appendChild(tr);
         });
         applyListItemAnimation(tbody, '.history-record-row');
@@ -559,7 +485,6 @@
         if (el) el.style.display = 'block';
     }
 
-    // Load next page
     function loadMoreHistory() {
         if (isLoading || !hasMore) return;
         var searchEl = document.getElementById('hist-search');
@@ -589,9 +514,7 @@
                     totalRecords = data.total;
                     hasMore = data.hasMore;
                     updateInfoText();
-                    if (!hasMore) {
-                        showNoMore();
-                    }
+                    if (!hasMore) showNoMore();
                 } else {
                     hasMore = false;
                     showNoMore();
@@ -609,7 +532,6 @@
         var timeFilter = document.getElementById('hist-time-filter').value;
         var durationEl = document.getElementById('hist-duration-filter');
         var durationFilter = durationEl ? durationEl.value : 'all';
-        // Reset pagination state
         loadedRecords = 0;
         hasMore = true;
         totalRecords = 0;
@@ -617,13 +539,12 @@
         var noMore = document.getElementById('hist-no-more-indicator');
         if (noMore) noMore.style.display = 'none';
 
-        if (skeleton) skeleton.classList.add('active');
-        contentEls.forEach(function(el) { el.classList.add('hidden'); });
+        if (skeleton) skeleton.style.display = 'block';
+        if (tableContainer) tableContainer.style.display = 'none';
         fetch('/api/history/table?keyword=' + encodeURIComponent(keyword) + '&time_filter=' + encodeURIComponent(timeFilter) + '&duration_filter=' + encodeURIComponent(durationFilter) + '&limit=' + PAGE_SIZE + '&offset=0')
             .then(function(r){ return r.json(); })
             .then(function(data){
                 if (data.records && data.records.length > 0) {
-                    // 有搜索结果，隐藏空状态，显示表格
                     hideEmptyState();
                     renderRows(data.records, false);
                     totalRecords = data.total;
@@ -632,54 +553,51 @@
                     updateInfoText();
                     showContent();
                 } else {
-                    // 搜索无结果，显示空状态（区分首次无数据和搜索无结果）
                     var isSearchNoResult = !!keyword || timeFilter !== 'all' || durationFilter !== 'all';
                     showEmptyState(isSearchNoResult);
                     var tbody = document.getElementById('hist-table-body');
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">{{ "no_records"|t(lang) }}</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--t3)">{{ "no_records"|t(lang) }}</td></tr>';
                     var infoEl = document.getElementById('hist-info');
                     infoEl.innerHTML = keyword ? '{{ "no_matches"|t(lang) }}' : '';
-                    if (skeleton) skeleton.classList.remove('active');
-                    // 确保表格容器隐藏
-                    var tableContainer = document.getElementById('hist-table-container');
-                    if (tableContainer) tableContainer.classList.add('hidden');
+                    if (skeleton) skeleton.style.display = 'none';
                 }
             }).catch(function(){
-                if (skeleton) skeleton.classList.remove('active');
+                if (skeleton) skeleton.style.display = 'none';
                 showContent();
             });
     };
+
     window.clearHistorySearch = function() {
         document.getElementById('hist-search').value = '';
         document.getElementById('hist-time-filter').value = 'all';
-        document.getElementById('hist-duration-filter').value = 'all';
+        var durEl = document.getElementById('hist-duration-filter');
+        if (durEl) durEl.value = 'all';
         document.querySelectorAll('.time-filter-chip').forEach(function(c){ c.classList.remove('active'); });
-        document.querySelector('.time-filter-chip[data-time="all"]').classList.add('active');
-        document.querySelector('.time-filter-chip[data-duration="all"]').classList.add('active');
+        var allTime = document.querySelector('.time-filter-chip[data-time="all"]');
+        if (allTime) allTime.classList.add('active');
+        var allDur = document.querySelector('.time-filter-chip[data-duration="all"]');
+        if (allDur) allDur.classList.add('active');
         refreshHistory();
     };
 
-    // Infinite scroll: detect when user scrolls near bottom of history table container
+    // Infinite scroll
     var scrollContainer = null;
     function findScrollContainer() {
         if (scrollContainer) return;
-        // Try to find the scrollable parent of the history table
         var tableContainer = document.getElementById('hist-table-container');
         if (!tableContainer) return;
-        // Check if any ancestor has overflow:scroll/auto
         var el = tableContainer.parentElement;
         while (el) {
             var overflow = getComputedStyle(el).overflowY;
             if (overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') {
                 var height = el.scrollHeight || el.clientHeight;
-                if (height > 300) { // Only consider containers with meaningful height
+                if (height > 300) {
                     scrollContainer = el;
                     return;
                 }
             }
             el = el.parentElement;
         }
-        // Fallback to window
         scrollContainer = window;
     }
 
@@ -687,7 +605,6 @@
         if (isLoading || !hasMore) return;
         findScrollContainer();
         if (!scrollContainer) return;
-
         var scrollTop, clientHeight, scrollHeight;
         if (scrollContainer === window) {
             scrollTop = window.pageYOffset || document.documentElement.scrollTop;
@@ -698,14 +615,11 @@
             clientHeight = scrollContainer.clientHeight;
             scrollHeight = scrollContainer.scrollHeight;
         }
-
-        // Trigger load when within 200px of bottom
         if (scrollTop + clientHeight >= scrollHeight - 200) {
             loadMoreHistory();
         }
     }
 
-    // Attach scroll listener after a short delay to ensure DOM is ready
     setTimeout(function() {
         findScrollContainer();
         if (scrollContainer) {
@@ -722,67 +636,70 @@
             _searchDebounceTimer = setTimeout(function() { refreshHistory(); }, 300);
         });
     })();
+
     window.filterHistoryTime = function(filter) {
-        document.querySelectorAll('.time-filter-chip').forEach(function(c){ c.classList.remove('active'); });
-        document.querySelector('.time-filter-chip[data-time="' + filter + '"]').classList.add('active');
+        document.querySelectorAll('.time-filter-chip[data-time]').forEach(function(c){ c.classList.remove('active'); });
+        var target = document.querySelector('.time-filter-chip[data-time="' + filter + '"]');
+        if (target) target.classList.add('active');
         document.getElementById('hist-time-filter').value = filter;
         refreshHistory();
     };
+
     window.filterHistoryDuration = function(duration) {
         document.querySelectorAll('.time-filter-chip[data-duration]').forEach(function(c){ c.classList.remove('active'); });
-        document.querySelector('.time-filter-chip[data-duration="' + duration + '"]').classList.add('active');
-        document.getElementById('hist-duration-filter').value = duration;
+        var target = document.querySelector('.time-filter-chip[data-duration="' + duration + '"]');
+        if (target) target.classList.add('active');
+        var durEl = document.getElementById('hist-duration-filter');
+        if (durEl) durEl.value = duration;
         refreshHistory();
     };
 
-    // Pagination functions
+    // Pagination
     var currentPage = 1;
     var totalPages = 1;
-    var paginationEnabled = false;
 
     function updatePagination() {
         var paginationEl = document.getElementById('history-pagination');
         if (!paginationEl) return;
-
-        // Show pagination only when we have data
         if (totalRecords <= 0) {
             paginationEl.style.display = 'none';
             return;
         }
-
         paginationEl.style.display = 'flex';
         totalPages = Math.ceil(totalRecords / PAGE_SIZE) || 1;
 
-        // Update info text
         var infoText = document.getElementById('pagination-text');
         if (infoText) {
             infoText.textContent = '{{ "page"|t(lang) }} ' + currentPage + ' / ' + totalPages + ' ({{ "total"|t(lang) }} ' + totalRecords + ' {{ "records"|t(lang) }})';
         }
 
-        // Update button states
         var firstBtn = document.getElementById('pagination-first');
         var prevBtn = document.getElementById('pagination-prev');
         var nextBtn = document.getElementById('pagination-next');
         var lastBtn = document.getElementById('pagination-last');
 
-        if (firstBtn) firstBtn.disabled = currentPage <= 1;
-        if (prevBtn) prevBtn.disabled = currentPage <= 1;
-        if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
-        if (lastBtn) lastBtn.disabled = currentPage >= totalPages;
+        function updateBtnState(btn, disabled) {
+            if (btn) {
+                btn.disabled = disabled;
+                btn.style.opacity = disabled ? '.5' : '1';
+                btn.style.cursor = disabled ? 'not-allowed' : 'pointer';
+            }
+        }
+        updateBtnState(firstBtn, currentPage <= 1);
+        updateBtnState(prevBtn, currentPage <= 1);
+        updateBtnState(nextBtn, currentPage >= totalPages);
+        updateBtnState(lastBtn, currentPage >= totalPages);
 
-        // Update page number buttons
         var pagesContainer = document.getElementById('pagination-pages');
         if (pagesContainer) {
             var pagesHtml = '';
             var startPage = Math.max(1, currentPage - 2);
             var endPage = Math.min(totalPages, startPage + 4);
-            if (endPage - startPage < 4) {
-                startPage = Math.max(1, endPage - 4);
-            }
-
+            if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
             for (var i = startPage; i <= endPage; i++) {
                 var activeClass = i === currentPage ? 'active' : '';
-                pagesHtml += '<button class="pagination-page-btn ' + activeClass + '" onclick="goToPage(' + i + ')">' + i + '</button>';
+                var bgStyle = i === currentPage ? 'background:var(--p700);color:#fff;border:none' : '';
+                pagesHtml += '<button class="btn btn-sm ' + activeClass + '" style="' + bgStyle + '" onclick="goToPage(' + i + ')">' + i + '</button>';
             }
             pagesContainer.innerHTML = pagesHtml;
         }
@@ -794,28 +711,13 @@
         loadedRecords = (currentPage - 1) * PAGE_SIZE;
         loadMoreHistory();
         updatePagination();
-        // Scroll to top of table
-        var tableContainer = document.getElementById('hist-table-container');
-        if (tableContainer) {
-            tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        var tc = document.getElementById('hist-table-container');
+        if (tc) tc.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    window.goToPrevPage = function() {
-        if (currentPage > 1) {
-            goToPage(currentPage - 1);
-        }
-    };
-
-    window.goToNextPage = function() {
-        if (currentPage < totalPages) {
-            goToPage(currentPage + 1);
-        }
-    };
-
-    window.goToLastPage = function() {
-        goToPage(totalPages);
-    };
+    window.goToPrevPage = function() { if (currentPage > 1) goToPage(currentPage - 1); };
+    window.goToNextPage = function() { if (currentPage < totalPages) goToPage(currentPage + 1); };
+    window.goToLastPage = function() { goToPage(totalPages); };
 
     window.changePageSize = function(size) {
         PAGE_SIZE = parseInt(size);
@@ -824,27 +726,21 @@
         refreshHistory();
     };
 
-    // Override updateInfoText to also update pagination
     var originalUpdateInfoText = updateInfoText;
     updateInfoText = function() {
         originalUpdateInfoText();
         updatePagination();
     };
 
-    // === Hidden Records Management ===
+    // Hidden records management
     var includeHidden = false;
 
     window.toggleHiddenRecords = function() {
         var checkbox = document.getElementById('show-hidden-checkbox');
         if (!checkbox) return;
-        
         includeHidden = checkbox.checked;
         var showAllBtn = document.getElementById('show-all-btn');
-        if (showAllBtn) {
-            showAllBtn.style.display = includeHidden ? 'inline-block' : 'none';
-        }
-        
-        // Refresh history data with new include_hidden setting
+        if (showAllBtn) showAllBtn.style.display = includeHidden ? 'inline-block' : 'none';
         refreshHistoryWithHidden(includeHidden);
     };
 
@@ -859,9 +755,8 @@
         hideLoading();
         var noMore = document.getElementById('hist-no-more-indicator');
         if (noMore) noMore.style.display = 'none';
-
-        if (skeleton) skeleton.classList.add('active');
-        contentEls.forEach(function(el) { el.classList.add('hidden'); });
+        if (skeleton) skeleton.style.display = 'block';
+        if (tableContainer) tableContainer.style.display = 'none';
 
         var url = '/api/history/table?keyword=' + encodeURIComponent(keyword) +
             '&time_filter=' + encodeURIComponent(timeFilter) +
@@ -881,14 +776,14 @@
                     updateInfoText();
                 } else {
                     var tbody = document.getElementById('hist-table-body');
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">{{ "no_records"|t(lang) }}</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--t3)">{{ "no_records"|t(lang) }}</td></tr>';
                     var infoEl = document.getElementById('hist-info');
                     infoEl.innerHTML = keyword ? '{{ "no_matches"|t(lang) }}' : '';
                 }
-                if (skeleton) skeleton.classList.remove('active');
+                if (skeleton) skeleton.style.display = 'none';
                 showContent();
             }).catch(function(){
-                if (skeleton) skeleton.classList.remove('active');
+                if (skeleton) skeleton.style.display = 'none';
                 showContent();
             });
     }
@@ -896,14 +791,11 @@
     window.batchShowHistory = function() {
         var selected = document.querySelectorAll('.history-row-checkbox:checked');
         if (selected.length === 0) {
-            Toast.show('{{ "select_rows_alert"|t(lang, default="请先选择要恢复显示的记录") }}', 'error');
+            if (window.Toast) Toast.show('{{ "select_rows_alert"|t(lang, default="请先选择要恢复显示的记录") }}', 'error');
             return;
         }
-
         var ids = [];
-        selected.forEach(function(cb) {
-            ids.push(cb.getAttribute('data-history-id'));
-        });
+        selected.forEach(function(cb) { ids.push(cb.getAttribute('data-history-id')); });
 
         fetch('/api/history/show', {
             method: 'POST',
@@ -913,34 +805,23 @@
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (data.status === 'ok') {
-                Toast.show(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
-                // Uncheck all checkboxes
-                document.querySelectorAll('.history-row-checkbox').forEach(function(cb) {
-                    cb.checked = false;
-                });
+                if (window.Toast) Toast.show(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
+                document.querySelectorAll('.history-row-checkbox').forEach(function(cb) { cb.checked = false; });
                 var headerCheckbox = document.querySelector('.history-header-checkbox');
                 if (headerCheckbox) headerCheckbox.checked = false;
-                
-                // Refresh current view
-                if (includeHidden) {
-                    refreshHistoryWithHidden(true);
-                } else {
-                    refreshHistory();
-                }
+                if (includeHidden) refreshHistoryWithHidden(true);
+                else refreshHistory();
             } else {
-                Toast.show(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
+                if (window.Toast) Toast.show(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
             }
         })
         .catch(function(){
-            Toast.show('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
+            if (window.Toast) Toast.show('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
         });
     };
 
     window.showAllHistory = function() {
-        if (!confirm('{{ "confirm_show_all"|t(lang, default="确定要恢复显示所有被隐藏的记录吗？") }}')) {
-            return;
-        }
-
+        if (!confirm('{{ "confirm_show_all"|t(lang, default="确定要恢复显示所有被隐藏的记录吗？") }}')) return;
         fetch('/api/history/show_all', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
@@ -948,20 +829,123 @@
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (data.status === 'ok') {
-                Toast.show(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
-                // Refresh current view
-                if (includeHidden) {
-                    refreshHistoryWithHidden(true);
-                } else {
-                    refreshHistory();
-                }
+                if (window.Toast) Toast.show(data.count + ' {{ "records_shown"|t(lang, default="条记录已恢复显示") }}', 'success');
+                if (includeHidden) refreshHistoryWithHidden(true);
+                else refreshHistory();
             } else {
-                Toast.show(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
+                if (window.Toast) Toast.show(data.error || '{{ "operation_failed"|t(lang, default="操作失败") }}', 'error');
             }
         })
         .catch(function(){
-            Toast.show('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
+            if (window.Toast) Toast.show('{{ "network_error"|t(lang, default="网络错误，请重试") }}', 'error');
         });
+    };
+
+    // 全选/取消全选
+    window.toggleAllHistory = function(checked) {
+        document.querySelectorAll('.history-row-checkbox').forEach(function(cb) { cb.checked = checked; });
+    };
+
+    // 批量导出（占位：调用现有 API 或提示）
+    window.batchExportHistory = function() {
+        var selected = document.querySelectorAll('.history-row-checkbox:checked');
+        if (selected.length === 0) {
+            if (window.Toast) Toast.show('{{ "select_rows_alert"|t(lang, default="请先选择要导出的记录") }}', 'error');
+            return;
+        }
+        var ids = [];
+        selected.forEach(function(cb) { ids.push(cb.getAttribute('data-history-id')); });
+        // 触发下载（简化实现）
+        ids.forEach(function(id) { downloadHistoryAudio(id); });
+    };
+
+    // 批量删除：调用 /api/audio/batch_delete_history 真正删除记录及文件
+    window.batchDeleteHistory = function() {
+        var selected = document.querySelectorAll('.history-row-checkbox:checked');
+        if (selected.length === 0) {
+            if (window.Toast) Toast.show('{{ "select_rows_alert"|t(lang, default="请先选择要删除的记录") }}', 'error');
+            return;
+        }
+        if (!confirm('{{ "confirm_batch_delete"|t(lang, default="确定要删除选中的记录吗？此操作不可撤销。") }}')) return;
+        var ids = [];
+        selected.forEach(function(cb) { ids.push(cb.getAttribute('data-history-id')); });
+
+        var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
+        var headers = { 'Content-Type': 'application/json' };
+        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+        fetch('/api/audio/batch_delete_history', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ ids: ids, delete_files: true })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+            if (data.status === 'ok') {
+                if (window.Toast) Toast.show(ids.length + ' {{ "records_deleted"|t(lang, default="条记录已删除") }}', 'success');
+                document.querySelectorAll('.history-row-checkbox').forEach(function(cb) { cb.checked = false; });
+                var headerCheckbox = document.querySelector('.history-header-checkbox');
+                if (headerCheckbox) headerCheckbox.checked = false;
+                refreshHistory();
+            } else {
+                if (window.Toast) Toast.show(data.message || '{{ "delete_failed"|t(lang, default="删除失败") }}', 'error');
+            }
+        }).catch(function() {
+            if (window.Toast) Toast.show('{{ "delete_failed"|t(lang, default="删除失败") }}', 'error');
+        });
+    };
+
+    // 播放历史音频
+    window.playHistoryAudio = function(filename, btn) {
+        if (!filename) return;
+        var audioSrc = '/api/audio/history/' + encodeURIComponent(filename);
+        if (window.globalAudioPlayer) {
+            window.globalAudioPlayer.play(audioSrc, filename);
+        } else {
+            var audio = new Audio(audioSrc);
+            audio.play().catch(function(){
+                if (window.Toast) Toast.show('{{ "play_failed"|t(lang) }}', 'error');
+            });
+        }
+    };
+
+    // 下载历史音频
+    window.downloadHistoryAudio = function(filename) {
+        if (!filename) return;
+        var a = document.createElement('a');
+        a.href = '/api/audio/history/' + encodeURIComponent(filename) + '?download=1';
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    // 删除历史音频：调用 /api/audio/batch_delete_history 真正删除记录及文件
+    window.deleteHistoryAudio = function(filename, btn) {
+        if (!filename) return;
+        if (!confirm('{{ "confirm_delete"|t(lang) }}: ' + filename + '?')) return;
+
+        var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
+        var headers = { 'Content-Type': 'application/json' };
+        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+        fetch('/api/audio/batch_delete_history', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ ids: [filename], delete_files: true })
+        })
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if (data.status === 'ok') {
+                    if (window.Toast) Toast.show('{{ "delete_success"|t(lang, default="删除成功") }}', 'success');
+                    refreshHistory();
+                } else {
+                    if (window.Toast) Toast.show(data.message || '{{ "delete_failed"|t(lang, default="删除失败") }}', 'error');
+                }
+            })
+            .catch(function(){
+                if (window.Toast) Toast.show('{{ "delete_failed"|t(lang, default="删除失败") }}', 'error');
+            });
     };
 })();
 </script>

@@ -1,73 +1,154 @@
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg></span>
-        <h3 class="card-header-title">{{ "tab_prompt_continue"|t(lang) }}</h3>
-    </div>
-    <div class="tts-card-desc">{{ "prompt_continue_desc"|t(lang) }}</div>
-    <form id="pc-form" hx-post="/api/generate/voxcpm_prompt_continue" hx-target="#pc-result" hx-swap="innerHTML" hx-indicator="#pc-spinner" hx-encoding="multipart/form-data">
-        {% with prefix='pc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
-        {% include 'partials/text_input.html' %}
-        {% endwith %}
-        <label class="tts-form-label">{{ "language"|t(lang) }}</label>
-        <select name="lang" class="tts-input-dropdown tts-full-width">
-            {% for l in langs %}
-            <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
-            {% endfor %}
-            <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
-                {% for dialect in dialects %}
-                <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
-                {% endfor %}
-            </optgroup>
-        </select>
+{# Prompt Continue tab - rewritten with prototype_v4 visual design
+   Two-column layout: form (left 65%) + result (right 35%).
+   All element IDs, form field names, JS function names preserved. #}
+<div class="pv-theme">
+    <div class="two-col">
+        <!-- ============ Form Column (65%) ============ -->
+        <div class="col-form">
+            <form id="pc-form" hx-post="/api/generate/voxcpm_prompt_continue" hx-target="#pc-result" hx-swap="innerHTML" hx-indicator="#pc-spinner" hx-encoding="multipart/form-data" x-data="{}">
+                <input type="hidden" name="mode" value="voxcpm_prompt_continue">
 
-        <div class="tts-form-group">
-            <label class="tts-form-label">{{ "prompt_audio"|t(lang) }}</label>
-            <input type="file" name="prompt_wav" class="tts-input-file tts-full-width" accept=".wav,.mp3,.ogg,.flac" required>
+                <!-- Card: 提示词前缀 -->
+                <div class="card">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                        {{ "tab_prompt_continue"|t(lang) }}
+                    </div>
+                    <div class="card-body">
+                        <div class="fg">
+                            <label class="fl" for="pc-text">{{ "prompt_prefix"|t(lang) }}</label>
+                            <textarea name="text" id="pc-text"
+                                      class="ft tts-textarea tts-auto-resize"
+                                      rows="3"
+                                      placeholder="{{ 'prompt_prefix_placeholder'|t(lang) }}"
+                                      data-char-counter="pc-char-counter"
+                                      data-max-chars="{{ engine_max_total_chars }}"
+                                      data-segment-max-chars="{{ gen_split_max_chars }}"
+                                      data-auto-resize="true"></textarea>
+                            <div class="cc" id="pc-char-counter">0/{{ engine_max_total_chars }} | {{ "per_segment"|t(lang) }} {{ gen_split_max_chars }}{{ "chars"|t(lang) }}</div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="fl" for="pc-lang-select">{{ "language"|t(lang) }}</label>
+                                <select name="lang" id="pc-lang-select" class="fs">
+                                    {% for l in langs %}
+                                    <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
+                                    {% endfor %}
+                                    {% if dialects %}
+                                    <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
+                                        {% for dialect in dialects %}
+                                        <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="form-col">
+                                <label class="fl" for="pc-target-length">{{ "target_length"|t(lang) }}</label>
+                                <select id="pc-target-length" name="target_length" class="fs">
+                                    <option value="auto" selected>Auto</option>
+                                    <option value="short">{{ "length_short"|t(lang) }} (1-3s)</option>
+                                    <option value="medium">{{ "length_medium"|t(lang) }} (3-8s)</option>
+                                    <option value="long">{{ "length_long"|t(lang) }} (8-15s)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card: 提示音频 -->
+                <div class="card">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+                        {{ "prompt_audio"|t(lang) }}
+                    </div>
+                    <div class="card-body">
+                        <div class="fg">
+                            <label class="fl">{{ "ref_audio"|t(lang) }}</label>
+                            <div class="upload-zone" onclick="this.querySelector('input').click()">
+                                <input type="file" name="prompt_wav" accept=".wav,.mp3,.flac,.ogg,.m4a,audio/*" style="display:none" required>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <p><span id="pc-selected-filename">{{ "no_file_selected"|t(lang) }}</span></p>
+                                <p style="font-size:10px;margin-top:2px">{{ "supported_formats"|t(lang) }} (5-30s)</p>
+                            </div>
+                        </div>
+                        <div class="fg">
+                            <label class="fl" for="pc-prompt-text">{{ "prompt_text_label"|t(lang) }}</label>
+                            <input type="text" name="prompt_text" id="pc-prompt-text" class="fi" placeholder="{{ 'ref_text_placeholder'|t(lang) }}" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <button type="submit" id="pc-submit-btn" class="btn-generate">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    {{ "generate_prompt_continue"|t(lang) }}
+                </button>
+                <div class="gen-hint">Ctrl+Enter</div>
+            </form>
         </div>
 
-        <div class="tts-form-group">
-            <label class="tts-form-label">{{ "prompt_text_label"|t(lang) }}</label>
-            <input type="text" name="prompt_text" class="tts-input-textbox tts-full-width" placeholder="{{ 'ref_text_placeholder'|t(lang) }}" required>
-        </div>
-
-        <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "generate_prompt_continue"|t(lang) }}</span></button>
-    </form>
-</div>
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
-        <h3 class="card-header-title">{{ "result_audio"|t(lang) }}</h3>
-    </div>
-    <div id="pc-result">
-        <div id="pc-spinner" class="htmx-indicator tts-result-spinner tts-spinner-center">
-            <div class="tts-loading-spinner tts-spinner-center"></div>
-            <div class="tts-loading-text">{{ "generating"|t(lang) }}</div>
-        </div>
-        <div class="status-message" id="pc-status" aria-live="polite"></div>
-    </div>
-    <audio class="tts-audio-player tts-audio-hidden" id="pc-audio" controls></audio>
-    <details class="pp-section tts-hidden" id="pc-pp-section">
-        <summary>{{ "post_processing"|t(lang) }}</summary>
-        <div class="pp-grid">
-            <div>
-                <label class="pp-tempo-label">{{ "speed_factor"|t(lang) }}</label>
-                <div class="pp-tempo-row">
-                    <input type="range" id="pc-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('pc-pp-tempo-val').textContent=this.value">
-                    <span id="pc-pp-tempo-val" class="pp-tempo-val">1.0</span>
+        <!-- ============ Result Column (35%) ============ -->
+        <div class="col-result">
+            <!-- Card: 生成结果 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span>
+                    {{ "result_audio"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <div id="pc-result" aria-live="polite">
+                        <div id="pc-spinner" class="htmx-indicator" style="display:none">
+                            <div class="hint-text">{{ "generating"|t(lang) }}</div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+                        </div>
+                        <div class="status-message" id="pc-status" aria-live="polite"></div>
+                        <div class="empty-state" id="pc-empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
+                            <p>{{ "no_result_yet"|t(lang) }}</p>
+                            <p style="font-size:10px;color:var(--t3);margin-top:2px">{{ "fill_form_then_generate"|t(lang) }}</p>
+                        </div>
+                    </div>
+                    <audio class="tts-audio-hidden" id="pc-audio" controls></audio>
                 </div>
             </div>
-            <div>
-                <label class="pp-enhance-label">
-                    <input type="checkbox" id="pc-pp-enhance">
-                    {{ "voice_enhancement"|t(lang) }}
-                </label>
+
+            <!-- Card: 后处理 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+                    {{ "post_processing"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <div id="pc-pp-section" style="display:none">
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="fl" for="pc-pp-tempo">{{ "speed_factor"|t(lang) }}</label>
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <input type="range" id="pc-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1" oninput="document.getElementById('pc-pp-tempo-val').textContent=this.value">
+                                    <span id="pc-pp-tempo-val" style="font-size:12px;min-width:28px;text-align:center">1.0</span>
+                                </div>
+                            </div>
+                            <div class="form-col">
+                                <label class="fl" for="pc-pp-enhance">{{ "voice_enhancement"|t(lang) }}</label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)">
+                                    <input type="checkbox" id="pc-pp-enhance" style="accent-color:var(--p500)">
+                                    {{ "enable"|t(lang) }}
+                                </label>
+                            </div>
+                        </div>
+                        <div style="text-align:right;margin-top:8px">
+                            <button type="button" class="btn btn-o btn-sm" onclick="pcReprocess()">{{ "reprocess"|t(lang) }}</button>
+                        </div>
+                    </div>
+                    <div id="pc-pp-empty" class="hint-text">{{ "post_processing_hint"|t(lang) }}</div>
+                </div>
             </div>
         </div>
-        <div class="pp-actions">
-            <button type="button" class="tts-btn tts-btn-secondary" onclick="pcReprocess()">{{ "reprocess"|t(lang) }}</button>
-        </div>
-    </details>
+    </div>
 </div>
+
 <script>
 (function(){
     // Initialize shared TTS form utilities
@@ -81,6 +162,17 @@
         segmentMaxChars: {{ gen_split_max_chars }},
         counterClass: 'tts-char-counter'
     });
+
+    // File picker feedback
+    var fileInput = document.querySelector('#pc-form input[name=prompt_wav]');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            var filenameEl = document.getElementById('pc-selected-filename');
+            if (filenameEl) {
+                filenameEl.textContent = this.files.length ? this.files[0].name : '{{ "no_file_selected"|t(lang) }}';
+            }
+        });
+    }
 
     window.getPcSegmentInfo = function() {
         var textarea = document.querySelector('#pc-form textarea[name=text]');
@@ -135,6 +227,7 @@
             if (!confirmed) return false;
         }
     });
+
     document.getElementById('pc-form').addEventListener('htmx:afterSettle', function(e){
         if (e.detail.successful) {
             var audioEl = document.getElementById('pc-audio');
@@ -145,8 +238,10 @@
             // Show post-processing section when audio is available
             var wrapper = document.querySelector('#pc-result [data-audio-filename]');
             var ppSection = document.getElementById('pc-pp-section');
+            var ppEmpty = document.getElementById('pc-pp-empty');
             if (wrapper && ppSection) {
                 ppSection.style.display = '';
+                if (ppEmpty) ppEmpty.style.display = 'none';
             }
         }
     });
@@ -161,7 +256,7 @@
         var tempo = document.getElementById('pc-pp-tempo').value;
         var enhance = document.getElementById('pc-pp-enhance').checked ? 'true' : 'false';
         var statusEl = document.getElementById('pc-status');
-        statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">' + ((window.I18N && window.I18N['processing']) || 'Processing...') + '</div>';
+        statusEl.innerHTML = '<div style="color:var(--t3);font-size:13px;">' + ((window.I18N && window.I18N['processing']) || 'Processing...') + '</div>';
         try {
             var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
             var fetchHeaders = {'Content-Type': 'application/x-www-form-urlencoded'};
@@ -174,9 +269,9 @@
             if (!resp.ok) {
                 var errMsg = 'HTTP ' + resp.status;
                 if (resp.status === 403) {
-                    errMsg = (window.I18N && window.I18N['csrf_error']) || '安全验证失败，请刷新页面后重试';
+                    errMsg = (window.I18N && window.I18N['csrf_error']) || '{{ "csrf_error"|t(lang) }}';
                 }
-                statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + errMsg + '</div></div>';
+                statusEl.innerHTML = '<div class="error-message">' + errMsg + '</div>';
                 if (window.Toast) Toast.show(errMsg, 'error');
                 return;
             }
@@ -192,8 +287,16 @@
                 audioEl.style.display = '';
             }
         } catch(err) {
-            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-message">' + err.message + '</div></div>';
+            statusEl.innerHTML = '<div class="error-message">' + err.message + '</div>';
         }
     };
+
+    // Ctrl+Enter to submit
+    document.getElementById('pc-text').addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('pc-form').requestSubmit();
+        }
+    });
 })();
 </script>
