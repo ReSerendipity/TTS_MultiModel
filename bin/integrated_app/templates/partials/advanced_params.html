@@ -1,0 +1,54 @@
+{# Advanced Parameters Panel - Shared macro for VoxCPM2 and IndexTTS2 tabs #}
+{# Usage: from 'partials/advanced_params.html' import advanced_params #}
+{# Then: advanced_params(prefix='vc', lang=lang, show_cfg=true, ...) #}
+
+{% macro advanced_params(prefix, lang, show_cfg=true, show_steps=true, show_denoise=true, show_text_norm=true, show_seed=true, cfg_default=2.0, steps_default=10) %}
+<details class="advanced-params" id="{{ prefix }}-advanced-params" x-data="{ cfg: {{ cfg_default|tojson }}, steps: {{ steps_default|tojson }}, randomSeed: true }" style="margin-top:8px;border:1px solid var(--border-subtle,var(--border-medium));border-radius:10px;background:var(--bg-secondary,var(--bg-primary));">
+    <summary style="padding:10px 14px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text-secondary);">{{ "advanced_params"|t(lang) }}</summary>
+    <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">
+        {% if show_cfg %}
+        <div>
+            <label for="{{ prefix }}-cfg-value" style="font-size:12px;color:var(--text-secondary);">CFG Value</label>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <input type="range" id="{{ prefix }}-cfg-value" name="cfg" min="0.1" max="10" step="0.1" x-model.number="cfg" style="flex:1;">
+                <span id="{{ prefix }}-cfg-val" style="font-size:12px;min-width:28px;text-align:center;" x-text="Number(cfg).toFixed(1)">{{ cfg_default }}</span>
+            </div>
+        </div>
+        {% endif %}
+        {% if show_steps %}
+        <div>
+            <label for="{{ prefix }}-inference-steps" style="font-size:12px;color:var(--text-secondary);">{{ "inference_steps"|t(lang) }}</label>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <input type="range" id="{{ prefix }}-inference-steps" name="steps" min="1" max="30" step="1" x-model.number="steps" style="flex:1;">
+                <span id="{{ prefix }}-steps-val" style="font-size:12px;min-width:28px;text-align:center;" x-text="parseInt(steps, 10)">{{ steps_default }}</span>
+            </div>
+        </div>
+        {% endif %}
+        {% if show_denoise %}
+        <div>
+            <label for="{{ prefix }}-denoise" style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="{{ prefix }}-denoise" name="denoise" checked>
+                {{ "denoise"|t(lang) }}
+            </label>
+        </div>
+        {% endif %}
+        {% if show_text_norm %}
+        <div>
+            <label for="{{ prefix }}-text-norm" style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="{{ prefix }}-text-norm" name="text_norm" checked>
+                {{ "text_normalization"|t(lang) }}
+            </label>
+        </div>
+        {% endif %}
+        {% if show_seed %}
+        <div style="grid-column:1/-1;">
+            <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="{{ prefix }}-random-seed" name="random_seed" x-model="randomSeed">
+                {{ "random_seed"|t(lang) }}
+            </label>
+            <input type="number" id="{{ prefix }}-seed-input" name="seed" value="42" :disabled="randomSeed" style="width:100%;margin-top:4px;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:13px;">
+        </div>
+        {% endif %}
+    </div>
+</details>
+{% endmacro %}
