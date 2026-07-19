@@ -1,52 +1,152 @@
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
-        <h3 class="card-header-title">{{ "tab_indextts2_clone"|t(lang) }}</h3>
-    </div>
-    <div class="tts-card-desc">{{ "indextts2_clone_desc"|t(lang) }}</div>
-    <form id="it2c-form" hx-post="/api/generate/indextts2/clone" hx-target="#it2c-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
-        <input type="hidden" name="mode" value="clone">
-        <label for="it2c-ref-audio">{{ "ref_audio"|t(lang) }}</label>
-        <div class="tts-file-upload" onclick="document.getElementById('it2c-ref-audio-input').click()">
-            <input type="file" id="it2c-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg" onchange="updateIt2cFileName(this)">
-            <svg class="tts-upload-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div class="tts-upload-text">{{ "upload_clone_ref"|t(lang) }}</div>
-            <div id="it2c-ref-audio-name" class="it2c-file-name">{{ "supported_formats"|t(lang) }} (5-30s)</div>
+{# IndexTTS2 Voice Clone tab - rewritten with prototype_v4 visual design
+   Two-column layout: form (left 65%) + result (right 35%).
+   All element IDs, form field names, JS function names preserved. #}
+<div class="pv-theme">
+    <div class="two-col">
+        <!-- ============ Form Column (65%) ============ -->
+        <div class="col-form">
+            <form id="it2c-form" hx-post="/api/generate/indextts2/clone" hx-target="#it2c-result" hx-swap="innerHTML" hx-indicator="#it2c-spinner" hx-encoding="multipart/form-data" x-data="{ durationMode: 'free' }">
+                <input type="hidden" name="mode" value="clone">
+
+                <!-- Card: 参考音频 -->
+                <div class="card">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span>
+                        {{ "tab_indextts2_clone"|t(lang) }}
+                    </div>
+                    <div class="card-body">
+                        <div class="hint-text" style="margin-bottom:10px">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            {{ "indextts2_clone_desc"|t(lang) }}
+                        </div>
+
+                        <div class="fg">
+                            <label class="fl">{{ "ref_audio"|t(lang) }}</label>
+                            <div class="upload-zone" onclick="this.querySelector('input').click()">
+                                <input type="file" id="it2c-ref-audio-input" name="ref_audio" accept=".wav,.mp3,.flac,.ogg,.m4a,audio/*" style="display:none" onchange="updateIt2cFileName(this)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <p><span id="it2c-ref-audio-name">{{ "upload_clone_ref"|t(lang) }}</span></p>
+                                <p style="font-size:10px;margin-top:2px">{{ "supported_formats"|t(lang) }} (5-30s)</p>
+                            </div>
+                        </div>
+
+                        <div class="fg" id="it2c-audio-preview" style="display:none">
+                            <label class="fl">{{ "audio_preview"|t(lang) }}</label>
+                            <audio id="it2c-preview-audio" controls style="width:100%"></audio>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card: 合成文本 -->
+                <div class="card">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+                        {{ "synthesis_text"|t(lang) }}
+                    </div>
+                    <div class="card-body">
+                        <div class="fg">
+                            <label class="fl" for="it2c-text">{{ "synthesis_text"|t(lang) }}</label>
+                            <textarea name="text" id="it2c-text"
+                                      class="ft tts-textarea tts-auto-resize"
+                                      rows="3"
+                                      placeholder="{{ 'enter_text_placeholder'|t(lang) }}"
+                                      data-char-counter="it2c-char-counter"
+                                      data-max-chars="{{ engine_max_total_chars }}"
+                                      data-segment-max-chars="{{ gen_split_max_chars }}"
+                                      data-auto-resize="true"></textarea>
+                            <div class="cc" id="it2c-char-counter">0/{{ engine_max_total_chars }} | {{ "per_segment"|t(lang) }} {{ gen_split_max_chars }}{{ "chars"|t(lang) }}</div>
+                        </div>
+                        <div class="fg">
+                            <label class="fl" for="it2c-lang-select">{{ "language"|t(lang) }}</label>
+                            <select name="lang" id="it2c-lang-select" class="fs">
+                                {% for l in langs %}
+                                <option value="{{ l }}" {% if l == 'Auto' %}selected{% endif %}>{{ l }}</option>
+                                {% endfor %}
+                                {% if dialects %}
+                                <optgroup label="{{ 'chinese_dialects'|t(lang) }}">
+                                    {% for dialect in dialects %}
+                                    <option value="{{ dialect[0] }}">{{ dialect[1] }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card: 时长模式 -->
+                <div class="card">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                        {{ "duration_mode"|t(lang) }}
+                    </div>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--t2)">
+                                    <input type="radio" name="duration_mode" value="free" checked style="accent-color:var(--p500)" @change="durationMode='free'; document.getElementById('it2c-duration-options').style.display='none'">
+                                    {{ "duration_free"|t(lang) }}
+                                </label>
+                                <div class="fh">{{ "duration_free_hint"|t(lang) }}</div>
+                            </div>
+                            <div class="form-col">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--t2)">
+                                    <input type="radio" name="duration_mode" value="fixed" style="accent-color:var(--p500)" @change="durationMode='fixed'; document.getElementById('it2c-duration-options').style.display=''">
+                                    {{ "duration_specified"|t(lang) }}
+                                </label>
+                                <div class="fh">{{ "duration_fixed_hint"|t(lang) }}</div>
+                            </div>
+                        </div>
+                        <div id="it2c-duration-options" style="display:none;margin-top:8px">
+                            <label class="fl">{{ "speed_factor"|t(lang) }}</label>
+                            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+                                <button type="button" class="btn btn-o btn-sm it2c-duration-btn" data-speed="0.75" onclick="selectIt2cSpeed(this)">0.75x</button>
+                                <button type="button" class="btn btn-p btn-sm it2c-duration-btn active" data-speed="1.0" onclick="selectIt2cSpeed(this)">1.0x</button>
+                                <button type="button" class="btn btn-o btn-sm it2c-duration-btn" data-speed="1.25" onclick="selectIt2cSpeed(this)">1.25x</button>
+                                <button type="button" class="btn btn-o btn-sm it2c-duration-btn" data-speed="1.5" onclick="selectIt2cSpeed(this)">1.5x</button>
+                            </div>
+                            <input type="hidden" name="duration_scale" id="it2c-duration-scale" value="1.0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <button type="submit" class="btn-generate">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                    {{ "indextts2_generate"|t(lang) }}
+                </button>
+                <div class="gen-hint">Ctrl+Enter</div>
+            </form>
         </div>
-        <div class="it2c-audio-preview" id="it2c-audio-preview">
-            <audio id="it2c-preview-audio" controls></audio>
-        </div>
-        {% with prefix='it2c', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=4, textarea_style='style="min-height:80px"' %}
-        {% include 'partials/text_input.html' %}
-        {% endwith %}
-        {% with prefix='it2c' %}
-        {% include 'partials/language_selector.html' %}
-        {% endwith %}
-        <div class="tts-form-group">
-            <label class="tts-form-label">{{ "duration_mode"|t(lang) }}</label>
-            <label class="tts-checkbox-label">
-                <input type="radio" name="duration_mode" value="free" checked onchange="toggleIt2cDurationMode('free')">
-                {{ "duration_free"|t(lang) }}
-            </label>
-            <label class="tts-checkbox-label">
-                <input type="radio" name="duration_mode" value="fixed" onchange="toggleIt2cDurationMode('fixed')">
-                {{ "duration_specified"|t(lang) }}
-            </label>
-        </div>
-        <div id="it2c-duration-options" style="display:none;">
-            <div class="it2c-duration-selector">
-                <button type="button" class="it2c-duration-btn" data-speed="0.75" onclick="selectIt2cSpeed(this)">0.75x</button>
-                <button type="button" class="it2c-duration-btn active" data-speed="1.0" onclick="selectIt2cSpeed(this)">1.0x</button>
-                <button type="button" class="it2c-duration-btn" data-speed="1.25" onclick="selectIt2cSpeed(this)">1.25x</button>
+
+        <!-- ============ Result Column (35%) ============ -->
+        <div class="col-result">
+            <!-- Card: 生成结果 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+                    {{ "result_audio"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <div id="it2c-result" aria-live="polite">
+                        <div id="it2c-spinner" class="htmx-indicator" style="display:none">
+                            <div class="hint-text">{{ "generating"|t(lang) }}</div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+                        </div>
+                        <div class="status-message" id="it2c-status" aria-live="polite"></div>
+                        <div class="empty-state" id="it2c-empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
+                            <p>{{ "no_result_yet"|t(lang) }}</p>
+                            <p style="font-size:10px;color:var(--t3);margin-top:2px">{{ "upload_ref_then_generate"|t(lang) }}</p>
+                        </div>
+                    </div>
+                    <audio class="tts-audio-hidden" id="it2c-audio"></audio>
+                </div>
             </div>
-            <input type="hidden" name="duration_scale" id="it2c-duration-scale" value="1.0">
         </div>
-        <button type="submit" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "indextts2_generate"|t(lang) }}</span></button>
-    </form>
+    </div>
 </div>
-{% with prefix='it2c', title_key='result_audio' %}
-{% include 'partials/result_card.html' %}
-{% endwith %}
+
 <script>
 (function(){
     // Initialize shared TTS form utilities
@@ -69,19 +169,35 @@
             nameEl.textContent = input.files[0].name;
             var url = URL.createObjectURL(input.files[0]);
             previewAudio.src = url;
-            previewEl.style.display = 'block';
+            previewEl.style.display = '';
         } else {
-            nameEl.textContent = '{{ "supported_formats"|t(lang) }} (5-30s)';
+            nameEl.textContent = '{{ "upload_clone_ref"|t(lang) }}';
             previewEl.style.display = 'none';
         }
     };
+
     window.toggleIt2cDurationMode = function(mode) {
-        document.getElementById('it2c-duration-options').style.display = mode === 'fixed' ? 'block' : 'none';
+        document.getElementById('it2c-duration-options').style.display = mode === 'fixed' ? '' : 'none';
     };
+
     window.selectIt2cSpeed = function(btn) {
-        document.querySelectorAll('.it2c-duration-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.querySelectorAll('.it2c-duration-btn').forEach(function(b){
+            b.classList.remove('active');
+            b.classList.remove('btn-p');
+            b.classList.add('btn-o');
+        });
         btn.classList.add('active');
+        btn.classList.remove('btn-o');
+        btn.classList.add('btn-p');
         document.getElementById('it2c-duration-scale').value = btn.dataset.speed;
     };
+
+    // Ctrl+Enter to submit
+    document.getElementById('it2c-text').addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('it2c-form').requestSubmit();
+        }
+    });
 })();
 </script>

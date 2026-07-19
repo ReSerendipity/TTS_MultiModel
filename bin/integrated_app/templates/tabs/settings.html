@@ -1,274 +1,462 @@
-<div class="settings-grid-layout">
-    <!-- Settings Table of Contents -->
-    <div class="settings-toc" style="grid-column: 1 / -1;">
-        <div class="settings-toc-title">{{ "quick_nav"|t(lang) }}</div>
-        <div class="settings-toc-links">
-            <a href="#settings-hardware" class="settings-toc-link">{{ "engine_info"|t(lang) }}</a>
-            <a href="#settings-gpu" class="settings-toc-link">{{ "gpu_vram"|t(lang) }}</a>
-            <a href="#settings-advanced" class="settings-toc-link">{{ "advanced_gen_params"|t(lang) }}</a>
-            <a href="#settings-defaults" class="settings-toc-link">{{ "generation_defaults"|t(lang) }}</a>
-            <a href="#settings-general" class="settings-toc-link">{{ "general_settings"|t(lang) }}</a>
+<div class="pv-theme">
+    <div class="full-width">
+        <!-- 快速导航 -->
+        <div class="quick-nav">
+            <a href="#settings-hardware">{{ "engine_info"|t(lang) }}</a>
+            <a href="#settings-gpu">{{ "gpu_vram"|t(lang) }}</a>
+            <a href="#settings-advanced">{{ "advanced_gen_params"|t(lang) }}</a>
+            <a href="#settings-defaults">{{ "generation_defaults"|t(lang) }}</a>
+            <a href="#settings-general">{{ "general_settings"|t(lang) }}</a>
         </div>
-    </div>
 
-    <!-- Left Column: System Monitor -->
-    <div style="display:flex;flex-direction:column;gap:16px;">
-    <div class="card" id="settings-hardware">
-        <div class="card-header settings-section-header collapsed" onclick="toggleSettingsSection('section-hardware-body', this)">
-            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
-            <h3 class="card-header-title">{{ "engine_info"|t(lang) }}</h3>
-        </div>
-        <div class="settings-section-body collapsed" id="section-hardware-body" style="display:none;">
-            <div id="settings-engine-info">
-                <div class="settings-stack">
-                    <div class="settings-row-bordered">
-                        <span class="settings-label">{{ "engine_version"|t(lang) }}</span>
-                        <span id="settings-engine-version" class="settings-value">{{ version }}</span>
+        <div class="settings-grid">
+            <!-- 左列：系统监控 -->
+            <div class="settings-col">
+                <!-- 引擎信息 -->
+                <div class="card" id="settings-hardware">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                        {{ "engine_info"|t(lang) }}
                     </div>
-                    <div class="settings-row-bordered">
-                        <span class="settings-label">{{ "model_path"|t(lang) }}</span>
-                        <span id="settings-model-path" class="settings-value" style="max-width:200px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ "loading"|t(lang) }}</span>
-                    </div>
-                    <div class="settings-row-bordered settings-row-group-end">
-                        <span class="settings-label">{{ "running_status"|t(lang) }}</span>
-                        <span id="settings-engine-status" class="settings-value" aria-live="polite">
-                            <span class="health-status-badge ready">{{ "ready"|t(lang) }}</span>
-                        </span>
-                    </div>
-                    <div class="settings-row">
-                        <span class="settings-label">{{ "device"|t(lang) }}</span>
-                        <span id="settings-device" class="settings-value">{{ "loading"|t(lang) }}</span>
+                    <div class="card-body" id="section-hardware-body">
+                        <div class="srow">
+                            <div class="sinfo">
+                                <div class="sname">{{ "engine_version"|t(lang) }}</div>
+                                <div class="sdesc" id="settings-engine-version">{{ version }}</div>
+                            </div>
+                        </div>
+                        <div class="srow">
+                            <div class="sinfo">
+                                <div class="sname">{{ "model_path"|t(lang) }}</div>
+                                <div class="sdesc" id="settings-model-path" style="font-family:var(--mono);font-size:10px;word-break:break-all">{{ "loading"|t(lang) }}</div>
+                            </div>
+                        </div>
+                        <div class="srow">
+                            <div class="sinfo">
+                                <div class="sname">{{ "running_status"|t(lang) }}</div>
+                                <div class="sdesc" id="settings-engine-status" aria-live="polite">
+                                    <span class="status-badge firm">{{ "ready"|t(lang) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="srow">
+                            <div class="sinfo">
+                                <div class="sname">{{ "device"|t(lang) }}</div>
+                                <div class="sdesc" id="settings-device">{{ "loading"|t(lang) }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <div class="card" id="settings-gpu">
-        <div class="card-header settings-section-header collapsed" onclick="toggleSettingsSection('section-gpu-body', this)">
-            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg></span>
-            <h3 class="card-header-title">{{ "gpu_vram"|t(lang) }}</h3>
-        </div>
-        <div class="settings-section-body collapsed" id="section-gpu-body" style="display:none;">
-            <div id="settings-vram-section">
-                <div style="margin-bottom:16px;">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                        <span class="vram-label" style="color:var(--text-secondary);font-size:13px;">{{ "vram_usage"|t(lang) }}</span>
-                        <span id="settings-vram-used" style="font-weight:600;font-size:13px;">--</span>
+                <!-- GPU VRAM -->
+                <div class="card" id="settings-gpu">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg></span>
+                        <span id="settings-gpu-title">{{ "gpu_vram"|t(lang) }}</span>
                     </div>
-                    <div style="width:100%;height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;">
-                        <div id="settings-vram-bar" style="width:0%;height:100%;background:var(--accent-success);transition:width 0.5s ease,background-color 0.5s ease;"></div>
+                    <div class="card-body" id="section-gpu-body">
+                        <div id="settings-vram-section">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                                <span class="vram-label" style="color:var(--t2)">{{ "vram_usage"|t(lang) }}</span>
+                                <span id="settings-vram-used" style="font-family:var(--mono);font-size:11px;color:var(--t1)">--</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div id="settings-vram-bar" class="progress-fill" style="width:0%"></div>
+                            </div>
+                            <div class="srow" style="margin-top:8px">
+                                <div class="sinfo">
+                                    <div class="sname vram-label">{{ "vram_total"|t(lang) }}</div>
+                                    <div class="sdesc" id="settings-vram-total">--</div>
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname vram-label">{{ "vram_free"|t(lang) }}</div>
+                                    <div class="sdesc" id="settings-vram-free">--</div>
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname vram-label">{{ "gpu_util"|t(lang) }}</div>
+                                    <div class="sdesc" id="settings-gpu-util">--</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="settings-stack">
-                    <div class="settings-row-bordered">
-                        <span class="vram-label settings-label">{{ "vram_total"|t(lang) }}</span>
-                        <span id="settings-vram-total" class="settings-value">--</span>
-                    </div>
-                    <div class="settings-row-bordered settings-row-group-end">
-                        <span class="vram-label settings-label">{{ "vram_free"|t(lang) }}</span>
-                        <span id="settings-vram-free" class="settings-value">--</span>
-                    </div>
-                    <div class="settings-row">
-                        <span class="vram-label settings-label">{{ "gpu_util"|t(lang) }}</span>
-                        <span id="settings-gpu-util" class="settings-value">--</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    </div><!-- End Left Column: System Monitor -->
 
-    <!-- Right Column: Parameter Config -->
-    <div style="display:flex;flex-direction:column;gap:16px;">
-    <div class="card" id="settings-advanced">
-        <div class="card-header settings-section-header" onclick="toggleSettingsSection('section-advanced-body', this)">
-            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-            <h3 class="card-header-title">{{ "advanced_gen_params"|t(lang) }}</h3>
-        </div>
-        <div class="settings-section-body" id="section-advanced-body">
-            <div id="settings-advanced-params">
-            <div class="settings-stack">
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "retry_badcase"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "retry_badcase_hint"|t(lang) }}</div>
+                <!-- 默认生成参数 -->
+                <div class="card" id="settings-defaults">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><circle cx="4" cy="12" r="2"/><circle cx="12" cy="10" r="2"/><circle cx="20" cy="14" r="2"/></svg></span>
+                        {{ "generation_defaults"|t(lang) }}
                     </div>
-                    <label class="settings-toggle">
-                        <input id="settings-retry-badcase" type="checkbox" checked />
-                        <span class="toggle-track"></span>
-                        <span class="toggle-knob"></span>
-                    </label>
-                </div>
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "retry_max_times"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "retry_max_times_hint"|t(lang) }}</div>
+                    <div class="card-body" id="section-defaults-body">
+                        <div id="settings-generation-defaults">
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "default_sample_rate"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "default_sample_rate_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <input id="settings-default-sample-rate" type="number" min="16000" max="48000" value="24000" placeholder="{{ 'recommended_24000'|t(lang) }}" class="sinput" />
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "default_speed"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "default_speed_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <input id="settings-default-speed" type="number" min="0.1" max="3.0" step="0.1" value="1.0" placeholder="{{ 'recommended_1.0'|t(lang) }}" class="sinput" />
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "default_seed"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "default_seed_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <input id="settings-default-seed" type="number" min="0" max="999999" value="42" placeholder="{{ 'recommended_42'|t(lang) }}" class="sinput" />
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "script_studio_silence_secs"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "script_studio_silence_secs_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <input id="settings-script-studio-silence" type="number" min="0" max="2.0" step="0.1" value="0.4" placeholder="{{ 'recommended_0.4'|t(lang) }}" class="sinput" />
+                                </div>
+                            </div>
+                            <div style="margin-top:12px">
+                                <button type="button" id="settings-save-generation-btn" class="btn btn-p btn-sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveGenerationDefaults()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                    {{ "save"|t(lang) }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <input id="settings-retry-max-times" type="number" min="0" max="10" value="3" placeholder="{{ 'recommended_3'|t(lang) }}" class="settings-number-input" />
-                </div>
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "retry_ratio_threshold"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "retry_ratio_threshold_hint"|t(lang) }}</div>
-                    </div>
-                    <input id="settings-retry-ratio-threshold" type="number" min="1" max="20" step="0.5" value="6" placeholder="{{ 'recommended_6'|t(lang) }}" class="settings-number-input" />
-                </div>
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "target_lufs"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "target_lufs_hint"|t(lang) }}</div>
-                    </div>
-                    <input id="settings-target-lufs" type="number" min="-30" max="0" step="1" value="-16" placeholder="{{ 'recommended_minus_16'|t(lang) }}" class="settings-number-input" />
-                </div>
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "idle_timeout"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "idle_timeout_hint"|t(lang) }}</div>
-                    </div>
-                    <input id="settings-idle-timeout" type="number" min="60" max="3600" value="300" placeholder="{{ 'recommended_300'|t(lang) }}" class="settings-number-input" />
-                </div>
-                <div class="settings-row">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "trim_silence"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "trim_silence_hint"|t(lang) }}</div>
-                    </div>
-                    <label class="settings-toggle">
-                        <input id="settings-trim-silence-vad" type="checkbox" checked />
-                        <span class="toggle-track"></span>
-                        <span class="toggle-knob"></span>
-                    </label>
                 </div>
             </div>
-            <div style="margin-top:12px;">
-                <button type="button" id="settings-save-advanced-btn" class="tts-btn tts-btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="saveAdvancedParams()"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>{{ "save"|t(lang) }}</button>
-            </div>
-            </div><!-- end settings-advanced-params -->
-        </div><!-- end section-advanced-body -->
-    </div>
 
-    <div class="card" id="settings-defaults">
-        <div class="card-header settings-section-header" onclick="toggleSettingsSection('section-defaults-body', this)">
-            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg></span>
-            <h3 class="card-header-title">{{ "generation_defaults"|t(lang) }}</h3>
-        </div>
-        <div class="settings-section-body" id="section-defaults-body">
-            <div id="settings-generation-defaults">
-            <div class="settings-stack">
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "default_sample_rate"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "default_sample_rate_hint"|t(lang) }}</div>
+            <!-- 右列：参数配置 -->
+            <div class="settings-col">
+                <!-- 高级生成参数 -->
+                <div class="card" id="settings-advanced">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                        {{ "advanced_gen_params"|t(lang) }}
                     </div>
-                    <input id="settings-default-sample-rate" type="number" min="16000" max="48000" value="24000" placeholder="{{ 'recommended_24000'|t(lang) }}" class="settings-number-input settings-number-input-wide" />
-                </div>
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "default_speed"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "default_speed_hint"|t(lang) }}</div>
+                    <div class="card-body" id="section-advanced-body">
+                        <div id="settings-advanced-params">
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "retry_badcase"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "retry_badcase_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <label class="settings-toggle">
+                                        <input id="settings-retry-badcase" type="checkbox" checked />
+                                        <span class="toggle-track"></span>
+                                        <span class="toggle-knob"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "retry_max_times"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "retry_max_times_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <input id="settings-retry-max-times" type="number" min="0" max="10" value="3" placeholder="{{ 'recommended_3'|t(lang) }}" class="sinput" />
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "retry_ratio_threshold"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "retry_ratio_threshold_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <input id="settings-retry-ratio-threshold" type="number" min="1" max="20" step="0.5" value="6" placeholder="{{ 'recommended_6'|t(lang) }}" class="sinput" />
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "target_lufs"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "target_lufs_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <input id="settings-target-lufs" type="number" min="-30" max="0" step="1" value="-16" placeholder="{{ 'recommended_minus_16'|t(lang) }}" class="sinput" />
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "idle_timeout"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "idle_timeout_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <input id="settings-idle-timeout" type="number" min="60" max="3600" value="300" placeholder="{{ 'recommended_300'|t(lang) }}" class="sinput" />
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "trim_silence"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "trim_silence_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <label class="settings-toggle">
+                                        <input id="settings-trim-silence-vad" type="checkbox" checked />
+                                        <span class="toggle-track"></span>
+                                        <span class="toggle-knob"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div style="margin-top:12px">
+                                <button type="button" id="settings-save-advanced-btn" class="btn btn-p btn-sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAdvancedParams()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                    {{ "save"|t(lang) }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <input id="settings-default-speed" type="number" min="0.1" max="3.0" step="0.1" value="1.0" placeholder="{{ 'recommended_1.0'|t(lang) }}" class="settings-number-input" />
                 </div>
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "default_seed"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "default_seed_hint"|t(lang) }}</div>
-                    </div>
-                    <input id="settings-default-seed" type="number" min="0" max="999999" value="42" placeholder="{{ 'recommended_42'|t(lang) }}" class="settings-number-input settings-number-input-wide" />
-                </div>
-                <div class="settings-row">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "script_studio_silence_secs"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "script_studio_silence_secs_hint"|t(lang) }}</div>
-                    </div>
-                    <input id="settings-script-studio-silence" type="number" min="0" max="2.0" step="0.1" value="0.4" placeholder="{{ 'recommended_0.4'|t(lang) }}" class="settings-number-input" />
-                </div>
-            </div>
-            <div style="margin-top:12px;">
-                <button type="button" id="settings-save-generation-btn" class="tts-btn tts-btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="saveGenerationDefaults()"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>{{ "save"|t(lang) }}</button>
-            </div>
-            </div><!-- end settings-generation-defaults -->
-        </div><!-- end section-defaults-body -->
-    </div>
 
-    <div class="card" id="settings-general">
-        <div class="card-header settings-section-header" onclick="toggleSettingsSection('section-general-body', this)">
-            <svg class="settings-section-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            <span class="card-header-icon" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block !important;width:20px !important;height:20px !important;flex-shrink:0 !important;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1-1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
-            <h3 class="card-header-title">{{ "general_settings"|t(lang) }}</h3>
+                <!-- 通用设置 -->
+                <div class="card" id="settings-general">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1-1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                        {{ "general_settings"|t(lang) }}
+                    </div>
+                    <div class="card-body" id="section-general-body">
+                        <div id="settings-general">
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "auto_save"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "auto_save_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <label class="settings-toggle">
+                                        <input id="settings-auto-save" type="checkbox" checked />
+                                        <span class="toggle-track"></span>
+                                        <span class="toggle-knob"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "auto_play"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "auto_play_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <label class="settings-toggle">
+                                        <input id="settings-auto-play" type="checkbox" />
+                                        <span class="toggle-track"></span>
+                                        <span class="toggle-knob"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "notifications"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "notifications_hint"|t(lang) }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <label class="settings-toggle">
+                                        <input id="settings-notifications" type="checkbox" checked />
+                                        <span class="toggle-track"></span>
+                                        <span class="toggle-knob"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="srow">
+                                <div class="sinfo">
+                                    <div class="sname">{{ "default_output_format"|t(lang) }}</div>
+                                    <div class="sdesc">{{ "default_output_format_hint"|t(lang, default="输出音频文件格式") }}</div>
+                                </div>
+                                <div class="sctrl">
+                                    <select id="settings-output-format" class="sinput" style="width:100px">
+                                        <option value="wav">WAV</option>
+                                        <option value="mp3">MP3</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="margin-top:12px">
+                                <button type="button" id="settings-save-general-btn" class="btn btn-p btn-sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveGeneralSettings()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                    {{ "save"|t(lang) }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="settings-section-body" id="section-general-body">
-            <div id="settings-general">
-            <div class="settings-stack">
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "auto_save"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "auto_save_hint"|t(lang) }}</div>
-                    </div>
-                    <label class="settings-toggle">
-                        <input id="settings-auto-save" type="checkbox" checked />
-                        <span class="toggle-track"></span>
-                        <span class="toggle-knob"></span>
-                    </label>
-                </div>
-                <div class="settings-row-bordered">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "auto_play"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "auto_play_hint"|t(lang) }}</div>
-                    </div>
-                    <label class="settings-toggle">
-                        <input id="settings-auto-play" type="checkbox" />
-                        <span class="toggle-track"></span>
-                        <span class="toggle-knob"></span>
-                    </label>
-                </div>
-                <div class="settings-row-bordered settings-row-group-end">
-                    <div style="flex:1;">
-                        <span class="settings-label">{{ "notifications"|t(lang) }}</span>
-                        <div class="settings-hint">{{ "notifications_hint"|t(lang) }}</div>
-                    </div>
-                    <label class="settings-toggle">
-                        <input id="settings-notifications" type="checkbox" checked />
-                        <span class="toggle-track"></span>
-                        <span class="toggle-knob"></span>
-                    </label>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label">{{ "default_output_format"|t(lang) }}</span>
-                    <select id="settings-output-format" class="tts-input-dropdown" style="width:100px;font-size:13px;padding:4px 8px;">
-                        <option value="wav">WAV</option>
-                        <option value="mp3">MP3</option>
-                    </select>
-                </div>
-            </div>
-            <div style="margin-top:12px;">
-                <button type="button" id="settings-save-general-btn" class="tts-btn tts-btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="saveGeneralSettings()"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>{{ "save"|t(lang) }}</button>
-            </div>
-            </div><!-- end settings-general -->
-        </div><!-- end section-general-body -->
     </div>
-    </div><!-- End Right Column: Parameter Config -->
 </div>
 
-<script>
-function toggleSettingsSection(bodyId, headerEl) {
-    var body = document.getElementById(bodyId);
-    if (!body) return;
-    var isCollapsed = body.style.display === 'none';
-    if (isCollapsed) {
-        body.style.display = '';
-        body.classList.remove('collapsed');
-        headerEl.classList.remove('collapsed');
-    } else {
-        body.style.display = 'none';
-        body.classList.add('collapsed');
-        headerEl.classList.add('collapsed');
+<style>
+/* settings.html 双列布局（限定在 .pv-theme 作用域内） */
+.pv-theme .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.pv-theme .settings-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.pv-theme .srow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-lt);
+}
+.pv-theme .srow:last-child {
+    border-bottom: none;
+}
+.pv-theme .sinfo {
+    flex: 1;
+    min-width: 0;
+}
+.pv-theme .sname {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--t1);
+    margin-bottom: 2px;
+}
+.pv-theme .sdesc {
+    font-size: 11px;
+    color: var(--t3);
+    line-height: 1.4;
+}
+.pv-theme .sctrl {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+.pv-theme .sinput {
+    width: 100px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--t1);
+    font-size: 12px;
+    font-family: var(--mono);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pv-theme .sinput:focus {
+    outline: none;
+    border-color: var(--p600);
+    box-shadow: 0 0 0 2px var(--p50);
+}
+
+/* Toggle 开关（保留项目原有结构，匹配原型视觉） */
+.pv-theme .settings-toggle {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    cursor: pointer;
+}
+.pv-theme .settings-toggle input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+.pv-theme .settings-toggle .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--bg3);
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+.pv-theme .settings-toggle .toggle-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    transition: transform 0.2s;
+}
+.pv-theme .settings-toggle input[type="checkbox"]:checked ~ .toggle-track {
+    background: var(--p600);
+}
+.pv-theme .settings-toggle input[type="checkbox"]:checked ~ .toggle-knob {
+    transform: translateX(16px);
+}
+
+/* Progress Bar */
+.pv-theme .progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--bg3);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.pv-theme .progress-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 3px;
+    transition: width 0.5s ease, background-color 0.5s ease;
+}
+
+/* Quick Nav */
+.pv-theme .quick-nav {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.pv-theme .quick-nav a {
+    font-size: 12px;
+    color: var(--p600);
+    text-decoration: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.pv-theme .quick-nav a:hover {
+    background: var(--p50);
+}
+
+.pv-theme .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+}
+.pv-theme .status-badge.firm {
+    background: rgba(16,185,129,.12);
+    color: var(--green);
+}
+
+/* 响应式：小屏单列 */
+@media (max-width: 900px) {
+    .pv-theme .settings-grid {
+        grid-template-columns: 1fr;
     }
 }
+</style>
+
+<script>
 (function(){
     var t = function(key) {
         return (window.I18N && window.I18N[key]) || key;
@@ -276,26 +464,13 @@ function toggleSettingsSection(bodyId, headerEl) {
 
     // Initialize toggle switch visual state
     function initToggles() {
-        var toggles = document.querySelectorAll('.settings-toggle');
+        var toggles = document.querySelectorAll('.pv-theme .settings-toggle');
         for (var i = 0; i < toggles.length; i++) {
             (function(toggle) {
                 var input = toggle.querySelector('input[type="checkbox"]');
-                var track = toggle.querySelector('.toggle-track');
-                var knob = toggle.querySelector('.toggle-knob');
-                if (!input || !track || !knob) return;
-
-                function updateVisual() {
-                    if (input.checked) {
-                        track.style.backgroundColor = 'var(--toggle-on-bg)';
-                        knob.style.transform = 'translateX(18px)';
-                    } else {
-                        track.style.backgroundColor = 'var(--toggle-off-bg)';
-                        knob.style.transform = 'translateX(0)';
-                    }
-                }
-
-                updateVisual();
-                input.addEventListener('change', updateVisual);
+                if (!input) return;
+                // 视觉状态由 CSS :checked 选择器自动处理，无需 JS 干预
+                // 这里仅保留函数以兼容现有调用
             })(toggles[i]);
         }
     }
@@ -309,8 +484,8 @@ function toggleSettingsSection(bodyId, headerEl) {
         var cpu = isCpuMode();
         var section = document.getElementById('settings-vram-section');
         if (!section) return;
-        var card = section.parentElement;
-        var cardTitle = card.querySelector('.card-header-title');
+        var card = section.closest('.card');
+        var cardTitle = card ? card.querySelector('#settings-gpu-title') : null;
         if (cardTitle) cardTitle.textContent = t(cpu ? 'cpu_memory' : 'gpu_vram');
 
         var labels = section.querySelectorAll('.vram-label');
@@ -360,16 +535,16 @@ function toggleSettingsSection(bodyId, headerEl) {
                     if (vramBar && data.memory_percent) {
                         vramBar.style.width = data.memory_percent + '%';
                         if (data.memory_percent > 90) {
-                            vramBar.style.background = 'var(--accent-error)';
+                            vramBar.style.background = 'var(--red)';
                             var now = Date.now();
                             if (now - _lastMemoryWarning > 60000) {
                                 _lastMemoryWarning = now;
-                                Toast.show(t('memory_high_warning') + ' (' + data.memory_percent + '%)', 'error');
+                                if (window.Toast) Toast.show(t('memory_high_warning') + ' (' + data.memory_percent + '%)', 'error');
                             }
                         } else if (data.memory_percent > 70) {
-                            vramBar.style.background = 'var(--accent-warning)';
+                            vramBar.style.background = 'var(--orange)';
                         } else {
-                            vramBar.style.background = 'var(--accent-success)';
+                            vramBar.style.background = 'var(--green)';
                         }
                     }
                 } else {
@@ -386,16 +561,16 @@ function toggleSettingsSection(bodyId, headerEl) {
                     if (vramBar && data.vram_percent) {
                         vramBar.style.width = data.vram_percent + '%';
                         if (data.vram_percent > 90) {
-                            vramBar.style.background = 'var(--accent-error)';
+                            vramBar.style.background = 'var(--red)';
                             var now = Date.now();
                             if (now - _lastVramWarning > 60000) {
                                 _lastVramWarning = now;
-                                Toast.show(t('vram_high_warning') + ' (' + data.vram_percent + '%)', 'error');
+                                if (window.Toast) Toast.show(t('vram_high_warning') + ' (' + data.vram_percent + '%)', 'error');
                             }
                         } else if (data.vram_percent > 70) {
-                            vramBar.style.background = 'var(--accent-warning)';
+                            vramBar.style.background = 'var(--orange)';
                         } else {
-                            vramBar.style.background = 'var(--accent-success)';
+                            vramBar.style.background = 'var(--green)';
                         }
                     }
                 }
@@ -411,9 +586,6 @@ function toggleSettingsSection(bodyId, headerEl) {
                     var formatEl = document.getElementById('settings-output-format');
                     if (formatEl && gs.output_format) formatEl.value = gs.output_format;
                 }
-
-                // Re-apply toggle visuals after data updates
-                initToggles();
             })
             .catch(function(err) {
                 console.error('Failed to fetch settings:', err);
@@ -439,9 +611,6 @@ function toggleSettingsSection(bodyId, headerEl) {
                 if (idleTimeout) idleTimeout.value = p.idle_timeout != null ? p.idle_timeout : 300;
                 var trimSilence = document.getElementById('settings-trim-silence-vad');
                 if (trimSilence) { trimSilence.checked = p.trim_silence_vad !== false; }
-
-                // Re-apply toggle visuals after data updates
-                initToggles();
             })
             .catch(function(err) {
                 console.error('Failed to fetch advanced params:', err);
@@ -498,13 +667,13 @@ function toggleSettingsSection(bodyId, headerEl) {
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
-                Toast.show(t('save_success'), 'success');
+                if (window.Toast) Toast.show(t('save_success'), 'success');
             } else {
-                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+                if (window.Toast) Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
             }
         }).catch(function(err) {
             if (btn) btn.disabled = false;
-            Toast.show(t('save_failed') + ': ' + err.message, 'error');
+            if (window.Toast) Toast.show(t('save_failed') + ': ' + err.message, 'error');
         });
     };
 
@@ -531,13 +700,13 @@ function toggleSettingsSection(bodyId, headerEl) {
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
-                Toast.show(t('save_success'), 'success');
+                if (window.Toast) Toast.show(t('save_success'), 'success');
             } else {
-                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+                if (window.Toast) Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
             }
         }).catch(function(err) {
             if (btn) btn.disabled = false;
-            Toast.show(t('save_failed') + ': ' + err.message, 'error');
+            if (window.Toast) Toast.show(t('save_failed') + ': ' + err.message, 'error');
         });
     };
 
@@ -564,13 +733,13 @@ function toggleSettingsSection(bodyId, headerEl) {
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
-                Toast.show(t('save_success'), 'success');
+                if (window.Toast) Toast.show(t('save_success'), 'success');
             } else {
-                Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
+                if (window.Toast) Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
             }
         }).catch(function(err) {
             if (btn) btn.disabled = false;
-            Toast.show(t('save_failed') + ': ' + err.message, 'error');
+            if (window.Toast) Toast.show(t('save_failed') + ': ' + err.message, 'error');
         });
     };
 
