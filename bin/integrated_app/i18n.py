@@ -32,6 +32,11 @@ def _load_translations(lang):
 
 
 def _resolve_key(translations, key):
+    # 先尝试直接查找（支持含 "." 的扁平键，如 "recommended_1.0"）
+    if key in translations:
+        result = translations[key]
+        return result if isinstance(result, str) else None
+    # 回退到嵌套查找（支持命名空间键，如 "namespace.sub.key"）
     if "." in key:
         parts = key.split(".")
         result = translations
@@ -41,7 +46,7 @@ def _resolve_key(translations, key):
             else:
                 return None
         return result if isinstance(result, str) else None
-    return translations.get(key)
+    return None
 
 
 _DEFAULT_LANG = "zh-CN"

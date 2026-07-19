@@ -1559,14 +1559,154 @@ input,select,textarea,button{font-family:var(--font);font-size:13px}
         </div>
       </div>
 
+      <!-- ==================== PAGE: 历史记录 ==================== -->
       <div class="page" id="page-history">
         <div class="full-width">
+          <!-- Stats + Filter bar -->
+          <div class="card" style="margin-bottom:12px">
+            <div class="card-body" style="padding:12px 14px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+                <div style="display:flex;gap:14px;align-items:center">
+                  <span style="font-size:14px;font-weight:600">历史记录总数: 156</span>
+                  <span style="font-size:11px;color:var(--t3)">|</span>
+                  <span style="font-size:12px;color:var(--t2)">总时长: 1h 23m 45s</span>
+                  <span style="font-size:11px;color:var(--t3)">|</span>
+                  <span style="font-size:12px;color:var(--t2)">总大小: 245.6 MB</span>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-o btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg> 刷新</button>
+                  <button class="btn btn-o btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导出 CSV</button>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+                <input class="fi" placeholder="搜索文件名或文本内容..." style="flex:1;min-width:200px">
+                <select class="fs" style="width:auto"><option>全部引擎</option><option>VoxCPM2</option><option>IndexTTS 2.0</option></select>
+                <select class="fs" style="width:auto"><option>全部时间</option><option>今天</option><option>近 7 天</option><option>近 30 天</option><option>自定义范围</option></select>
+                <button class="btn btn-p btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 搜索</button>
+                <button class="btn btn-o btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 清除筛选</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- History Table -->
           <div class="card">
-            <div class="card-hdr"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> 历史记录</div>
-            <div class="card-body">
-              <div class="empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <p>生成历史记录</p>
+            <div class="card-hdr">
+              <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> 历史记录列表
+              <span style="margin-left:auto;font-size:11px;color:var(--t3)">显示 1-20 / 共 156 条</span>
+            </div>
+            <div class="card-body" style="padding:0">
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                  <thead>
+                    <tr style="background:var(--bg3);border-bottom:1px solid var(--border)">
+                      <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--t2);white-space:nowrap">文件名</th>
+                      <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--t2);white-space:nowrap">引擎</th>
+                      <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--t2);white-space:nowrap">生成时间</th>
+                      <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--t2);white-space:nowrap">时长</th>
+                      <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--t2);white-space:nowrap">大小</th>
+                      <th style="padding:8px 12px;text-align:right;font-weight:600;color:var(--t2);white-space:nowrap">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style="border-bottom:1px solid var(--border-lt);transition:background .15s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                      <td style="padding:8px 12px;color:var(--t1);font-family:var(--mono);font-size:11px">vd_20260719_153045.wav</td>
+                      <td style="padding:8px 12px"><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--p50);color:var(--p700);border:1px solid var(--p200)">VoxCPM2</span></td>
+                      <td style="padding:8px 12px;color:var(--t2)">2026-07-19 15:30:45</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">12.5s</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">2.4 MB</td>
+                      <td style="padding:8px 12px;text-align:right">
+                        <div style="display:inline-flex;gap:4px">
+                          <button class="btn-icon" title="播放"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                          <button class="btn-icon" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                          <button class="btn-icon" title="删除" style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style="border-bottom:1px solid var(--border-lt);transition:background .15s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                      <td style="padding:8px 12px;color:var(--t1);font-family:var(--mono);font-size:11px">vc_20260719_152801.wav</td>
+                      <td style="padding:8px 12px"><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--p50);color:var(--p700);border:1px solid var(--p200)">VoxCPM2</span></td>
+                      <td style="padding:8px 12px;color:var(--t2)">2026-07-19 15:28:01</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">8.3s</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">1.6 MB</td>
+                      <td style="padding:8px 12px;text-align:right">
+                        <div style="display:inline-flex;gap:4px">
+                          <button class="btn-icon" title="播放"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                          <button class="btn-icon" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                          <button class="btn-icon" title="删除" style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style="border-bottom:1px solid var(--border-lt);transition:background .15s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                      <td style="padding:8px 12px;color:var(--t1);font-family:var(--mono);font-size:11px">idx_20260719_151530.mp3</td>
+                      <td style="padding:8px 12px"><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#dcfce7;color:#166534;border:1px solid #86efac">IndexTTS 2.0</span></td>
+                      <td style="padding:8px 12px;color:var(--t2)">2026-07-19 15:15:30</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">24.7s</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">0.6 MB</td>
+                      <td style="padding:8px 12px;text-align:right">
+                        <div style="display:inline-flex;gap:4px">
+                          <button class="btn-icon" title="播放"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                          <button class="btn-icon" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                          <button class="btn-icon" title="删除" style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style="border-bottom:1px solid var(--border-lt);transition:background .15s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                      <td style="padding:8px 12px;color:var(--t1);font-family:var(--mono);font-size:11px">uc_20260719_145012.wav</td>
+                      <td style="padding:8px 12px"><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--p50);color:var(--p700);border:1px solid var(--p200)">VoxCPM2</span></td>
+                      <td style="padding:8px 12px;color:var(--t2)">2026-07-19 14:50:12</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">15.2s</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">2.9 MB</td>
+                      <td style="padding:8px 12px;text-align:right">
+                        <div style="display:inline-flex;gap:4px">
+                          <button class="btn-icon" title="播放"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                          <button class="btn-icon" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                          <button class="btn-icon" title="删除" style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style="border-bottom:1px solid var(--border-lt);transition:background .15s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                      <td style="padding:8px 12px;color:var(--t1);font-family:var(--mono);font-size:11px">sc_20260719_134520.wav</td>
+                      <td style="padding:8px 12px"><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--p50);color:var(--p700);border:1px solid var(--p200)">VoxCPM2</span></td>
+                      <td style="padding:8px 12px;color:var(--t2)">2026-07-19 13:45:20</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">48.7s</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">9.4 MB</td>
+                      <td style="padding:8px 12px;text-align:right">
+                        <div style="display:inline-flex;gap:4px">
+                          <button class="btn-icon" title="播放"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                          <button class="btn-icon" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                          <button class="btn-icon" title="删除" style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style="transition:background .15s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                      <td style="padding:8px 12px;color:var(--t1);font-family:var(--mono);font-size:11px">dur_20260719_120255.mp3</td>
+                      <td style="padding:8px 12px"><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#dcfce7;color:#166534;border:1px solid #86efac">IndexTTS 2.0</span></td>
+                      <td style="padding:8px 12px;color:var(--t2)">2026-07-19 12:02:55</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">18.4s</td>
+                      <td style="padding:8px 12px;color:var(--t2);font-family:var(--mono)">0.4 MB</td>
+                      <td style="padding:8px 12px;text-align:right">
+                        <div style="display:inline-flex;gap:4px">
+                          <button class="btn-icon" title="播放"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                          <button class="btn-icon" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                          <button class="btn-icon" title="删除" style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- Pagination -->
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--border-lt);flex-wrap:wrap;gap:8px">
+                <span style="font-size:11px;color:var(--t3)">显示 1-20 / 共 156 条</span>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-o btn-sm" disabled style="opacity:.5;cursor:not-allowed"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+                  <button class="btn btn-sm" style="background:var(--p700);color:#fff;border:none">1</button>
+                  <button class="btn btn-o btn-sm">2</button>
+                  <button class="btn btn-o btn-sm">3</button>
+                  <button class="btn btn-o btn-sm">...</button>
+                  <button class="btn btn-o btn-sm">8</button>
+                  <button class="btn btn-o btn-sm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+                </div>
               </div>
             </div>
           </div>

@@ -1,39 +1,184 @@
 {% from 'partials/advanced_params.html' import advanced_params %}
-<div class="card">
-    <div class="card-header">
-        <span class="card-header-icon tts-card-header-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
-        <h3 class="card-header-title">{{ "script_workshop"|t(lang) }}</h3>
-        <span class="card-header-badge">{{ "multi_dialogue"|t(lang) }}</span>
+{# Script Workshop tab - rewritten with prototype_v4 visual design
+   Two-column layout: form (left 65%) + result (right 35%).
+   All element IDs, form field names, JS function names preserved. #}
+<div class="pv-theme">
+    <div class="two-col">
+        <!-- ============ Form Column (65%) ============ -->
+        <div class="col-form">
+            <form id="script-form" hx-post="/api/generate/voxcpm_script" hx-target="#sc-result" hx-swap="innerHTML" hx-indicator="#sc-spinner" x-data="{}">
+                <input type="hidden" name="mode" value="voxcpm_script">
+
+                <!-- Card: 剧本工坊 -->
+                <div class="card">
+                    <div class="card-hdr">
+                        <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
+                        {{ "script_workshop"|t(lang) }}
+                        <span class="card-badge">{{ "multi_dialogue"|t(lang) }}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="hint-text" style="margin-bottom:12px;line-height:1.6">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                            <strong>{{ "format_desc"|t(lang) }}：</strong>{{ "script_example"|t(lang) }}
+                            <ul style="margin:4px 0 0 18px;padding:0">
+                                <li>[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}</li>
+                                <li>[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}</li>
+                            </ul>
+                        </div>
+
+                        <div class="fg">
+                            <label class="fl" for="sc-text">{{ "synthesis_text"|t(lang) }}</label>
+                            <textarea name="text" id="sc-text"
+                                      class="ft tts-textarea tts-auto-resize"
+                                      rows="6"
+                                      style="min-height:200px;font-family:monospace;font-size:14px"
+                                      placeholder="{{ 'enter_text_placeholder'|t(lang) }}"
+                                      data-char-counter="sc-char-counter"
+                                      data-max-chars="{{ engine_max_total_chars }}"
+                                      data-segment-max-chars="{{ gen_split_max_chars }}"
+                                      data-auto-resize="true"></textarea>
+                            <div class="cc" id="sc-char-counter">0/{{ engine_max_total_chars }} | {{ "per_segment"|t(lang) }} {{ gen_split_max_chars }}{{ "chars"|t(lang) }}</div>
+                        </div>
+
+                        <div class="fg">
+                            <label class="fl" for="sc-instruction">{{ "control_instruction"|t(lang) }} <span style="font-size:10px;color:var(--t3);font-weight:400">({{ 'optional'|t(lang) }})</span></label>
+                            <input type="text" name="instruction" id="sc-instruction" class="fi" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
+                        </div>
+
+                        <!-- Collapsible: 高级参数 -->
+                        <div style="margin-top:8px">
+                            <div class="collapse-header" onclick="toggleCollapse(this)">
+                                <span>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                    {{ "advanced_params"|t(lang) }}
+                                </span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                            <div class="collapse-body">
+                                <div class="form-row" style="margin-top:8px">
+                                    <div class="form-col">
+                                        <label class="fl" for="sc-cfg-value">CFG Scale</label>
+                                        <input type="number" id="sc-cfg-value" name="cfg" class="fi" value="2.0" step="0.1" min="0.1" max="10">
+                                    </div>
+                                    <div class="form-col">
+                                        <label class="fl" for="sc-inference-steps">{{ "inference_steps"|t(lang) }}</label>
+                                        <input type="number" id="sc-inference-steps" name="steps" class="fi" value="32" min="1" max="200">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-col">
+                                        <label class="fl" for="sc-denoise">{{ "denoise"|t(lang) }}</label>
+                                        <select id="sc-denoise" name="denoise" class="fs">
+                                            <option value="true" selected>{{ "enabled"|t(lang) }}</option>
+                                            <option value="false">{{ "disabled"|t(lang) }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-col">
+                                        <label class="fl" for="sc-norm">{{ "text_normalization"|t(lang) }}</label>
+                                        <select id="sc-norm" name="norm" class="fs">
+                                            <option value="true" selected>{{ "enabled"|t(lang) }}</option>
+                                            <option value="false">{{ "disabled"|t(lang) }}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <button type="submit" id="script-submit-btn" class="btn-generate">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    {{ "generate_dialogue"|t(lang) }}
+                </button>
+                <div class="gen-hint">Ctrl+Enter</div>
+            </form>
+        </div>
+
+        <!-- ============ Result Column (35%) ============ -->
+        <div class="col-result">
+            <!-- Card: 生成结果 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+                    {{ "result_audio"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <div id="sc-result" aria-live="polite">
+                        <div id="sc-spinner" class="htmx-indicator" style="display:none">
+                            <div class="hint-text">{{ "generating"|t(lang) }}</div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+                        </div>
+                        <div class="status-message" id="sc-status" aria-live="polite"></div>
+                        <div class="empty-state" id="sc-empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
+                            <p>{{ "no_result_yet"|t(lang) }}</p>
+                            <p style="font-size:10px;color:var(--t3);margin-top:2px">{{ "fill_form_then_generate"|t(lang) }}</p>
+                        </div>
+                    </div>
+                    <audio class="tts-audio-hidden" id="sc-audio"></audio>
+                </div>
+            </div>
+
+            <!-- Card: 后处理 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+                    {{ "post_processing"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <div id="sc-pp-section" style="display:none">
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="fl" for="sc-pp-tempo">{{ "speed_factor"|t(lang) }}</label>
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <input type="range" id="sc-pp-tempo" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1" oninput="document.getElementById('sc-pp-tempo-val').textContent=this.value">
+                                    <span id="sc-pp-tempo-val" style="font-size:12px;min-width:28px;text-align:center">1.0</span>
+                                </div>
+                            </div>
+                            <div class="form-col">
+                                <label class="fl" for="sc-pp-enhance">{{ "voice_enhancement"|t(lang) }}</label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)">
+                                    <input type="checkbox" id="sc-pp-enhance" style="accent-color:var(--p500)">
+                                    {{ "enable"|t(lang) }}
+                                </label>
+                            </div>
+                        </div>
+                        <div style="text-align:right;margin-top:8px">
+                            <button type="button" class="btn btn-o btn-sm" onclick="scReprocess()">{{ "reprocess"|t(lang) }}</button>
+                        </div>
+                    </div>
+                    <div id="sc-pp-empty" class="hint-text">{{ "post_processing_hint"|t(lang) }}</div>
+                </div>
+            </div>
+
+            <!-- Card: 快捷操作 -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+                    {{ "quick_actions"|t(lang) }}
+                </div>
+                <div class="card-body">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <button type="button" class="btn btn-o btn-sm" onclick="document.getElementById('script-form').requestSubmit()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                            {{ "regenerate"|t(lang) }}
+                        </button>
+                        <button type="button" class="btn btn-o btn-sm" onclick="scCopyText()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            {{ "copy_text"|t(lang) }}
+                        </button>
+                        <button type="button" class="btn btn-o btn-sm" onclick="scClearResult()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            {{ "clear"|t(lang) }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="tts-card-desc">{{ "script_desc"|t(lang) }}</div>
-    <form id="script-form" hx-post="/api/generate/voxcpm_script" hx-target="#sc-result" hx-swap="innerHTML" hx-indicator="#sc-spinner">
-        <div class="format-hint">
-            <strong>{{ "format_desc"|t(lang) }}：</strong>{{ "script_example"|t(lang) }}
-            <ul>
-                <li>[{{ 'narrator'|t(lang) }}]（{{ 'slowly'|t(lang) }}）{{ 'example_line1'|t(lang) }}</li>
-                <li>[{{ 'character_name'|t(lang) }}]{{ 'example_line2'|t(lang) }}</li>
-            </ul>
-        </div>
-        {% with prefix='sc', label='synthesis_text'|t(lang), placeholder='enter_text_placeholder'|t(lang), max_chars=engine_max_total_chars, segment_max_chars=gen_split_max_chars, textarea_class='', textarea_rows=8, textarea_style='style="min-height:200px; font-family:monospace; font-size:14px;"' %}
-        {% include 'partials/text_input.html' %}
-        {% endwith %}
-
-        <div class="tts-form-group">
-            <label class="tts-form-label">{{ "control_instruction"|t(lang) }}（{{ 'optional'|t(lang) }}）</label>
-            <input type="text" name="instruction" class="tts-input-text tts-full-width" placeholder="{{ 'instruction_placeholder'|t(lang) }}">
-        </div>
-
-        {{ advanced_params(prefix='sc', lang=lang) }}
-
-        <button type="submit" id="script-submit-btn" class="tts-btn tts-btn-primary generate-btn tts-full-width-btn"><span class="btn-text">{{ "generate_dialogue"|t(lang) }}</span></button>
-    </form>
 </div>
-{% with prefix='sc', title_key='result_audio' %}
-{% include 'partials/result_card.html' %}
-{% endwith %}
-{% with prefix='sc' %}
-{% include 'partials/post_processing.html' %}
-{% endwith %}
+
 <script>
 (function(){
     // Initialize shared TTS form utilities
@@ -53,8 +198,10 @@
         if (e.detail.successful) {
             var wrapper = document.querySelector('#sc-result [data-audio-filename]');
             var ppSection = document.getElementById('sc-pp-section');
+            var ppEmpty = document.getElementById('sc-pp-empty');
             if (wrapper && ppSection) {
                 ppSection.style.display = '';
+                if (ppEmpty) ppEmpty.style.display = 'none';
             }
         }
     });
@@ -76,5 +223,41 @@
             params: { tempo_factor: tempo, voice_enhancement: enhance, target_lufs: '-16.0' }
         });
     };
+
+    // Copy script text to clipboard
+    window.scCopyText = function() {
+        var textarea = document.getElementById('sc-text');
+        if (textarea && textarea.value) {
+            navigator.clipboard.writeText(textarea.value).then(function() {
+                if (window.Toast) Toast.show('{{ "copied"|t(lang) }}', 'success');
+            });
+        } else {
+            if (window.Toast) Toast.show('{{ "no_text_to_copy"|t(lang) }}', 'warning');
+        }
+    };
+
+    // Clear result panel
+    window.scClearResult = function() {
+        var resultEl = document.getElementById('sc-result');
+        var statusEl = document.getElementById('sc-status');
+        var ppSection = document.getElementById('sc-pp-section');
+        var ppEmpty = document.getElementById('sc-pp-empty');
+        var audioEl = document.getElementById('sc-audio');
+        if (resultEl) {
+            resultEl.innerHTML = '<div id="sc-spinner" class="htmx-indicator" style="display:none"><div class="hint-text">{{ "generating"|t(lang) }}</div><div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div></div><div class="status-message" id="sc-status" aria-live="polite"></div><div class="empty-state" id="sc-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg><p>{{ "no_result_yet"|t(lang) }}</p><p style="font-size:10px;color:var(--t3);margin-top:2px">{{ "fill_form_then_generate"|t(lang) }}</p></div>';
+        }
+        if (statusEl) statusEl.innerHTML = '';
+        if (ppSection) ppSection.style.display = 'none';
+        if (ppEmpty) ppEmpty.style.display = '';
+        if (audioEl) { audioEl.pause(); audioEl.removeAttribute('src'); }
+    };
+
+    // Ctrl+Enter to submit
+    document.getElementById('sc-text').addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('script-form').requestSubmit();
+        }
+    });
 })();
 </script>
