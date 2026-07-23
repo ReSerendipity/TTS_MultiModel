@@ -23,6 +23,23 @@ A powerful open-source multi-model Text-to-Speech platform with voice cloning, v
 
 <a id="中文"></a>
 
+## Why TTS MultiModel?
+
+| 优势 | 说明 |
+|------|------|
+| **一站式平台** | 集成 VoxCPM2 + IndexTTS2 双引擎，声音克隆、声音设计、剧本配音、LoRA 微调，无需在多个工具间切换 |
+| **极低门槛** | 内置 WinPython + 一键安装脚本，Windows 用户开箱即用；Docker 部署仅需一行命令 |
+| **完整工具链** | 从数据准备到模型训练到推理部署，覆盖 TTS 全生命周期 |
+| **开源透明** | Apache 2.0 许可，可商用，可二次开发，社区驱动 |
+| **多语言界面** | 支持中文、英文、日文、韩文，国际化开箱即用 |
+
+## Demo
+
+<!-- 截图占位：替换为实际截图路径 -->
+<!-- ![TTS MultiModel UI](docs/screenshots/demo_light.png) -->
+
+> 截图和 GIF 演示即将添加。欢迎在 [Discussions](https://github.com/ReSerendipity/TTS_MultiModel/discussions) 中分享你的使用体验！
+
 ## 功能亮点
 
 | 功能 | 描述 |
@@ -280,6 +297,23 @@ Copyright (c) 2026 ReSerendipity
 ---
 
 <a id="english"></a>
+
+## Why TTS MultiModel?
+
+| Advantage | Description |
+|-----------|-------------|
+| **All-in-One** | Dual-engine (VoxCPM2 + IndexTTS2), voice cloning, voice design, script dubbing, LoRA fine-tuning — no need to switch between tools |
+| **Zero Friction** | Bundled WinPython + one-click installer for Windows; Docker deployment in one command |
+| **Complete Toolchain** | From data preparation to model training to inference — covers the full TTS lifecycle |
+| **Open Source** | Apache 2.0 license, commercially usable, extensible, community-driven |
+| **Multilingual UI** | Chinese, English, Japanese, Korean — internationalization out of the box |
+
+## Demo
+
+<!-- Screenshot placeholder: replace with actual screenshot path -->
+<!-- ![TTS MultiModel UI](docs/screenshots/demo_light.png) -->
+
+> Screenshots and GIF demos coming soon. Share your experience in [Discussions](https://github.com/ReSerendipity/TTS_MultiModel/discussions)!
 
 ## Features
 
