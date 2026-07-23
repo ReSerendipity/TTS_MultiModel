@@ -1,6 +1,6 @@
 # TTS MultiModel - 模型下载与配置指南
 
-> 最后更新: 2026-06-02
+> 最后更新: 2026-07-23
 
 > 本文档详细说明项目所需模型的下载步骤和配置方法
 
@@ -50,7 +50,7 @@ mkdir pretrained_models\VoxCPM2
 python -c "
 from huggingface_hub import snapshot_download
 snapshot_download(
-    repo_id='<voxcpm2-repo-id>',
+    repo_id='openbmb/VoxCPM2',
     local_dir='pretrained_models/VoxCPM2',
     local_dir_use_symlinks=False
 )
@@ -66,7 +66,7 @@ pip install modelscope
 python -c "
 from modelscope import snapshot_download
 snapshot_download(
-    model_id='<voxcpm2-model-id>',
+    model_id='OpenBMB/VoxCPM2',
     cache_dir='pretrained_models/VoxCPM2'
 )
 "
@@ -74,7 +74,7 @@ snapshot_download(
 
 #### 方式 C：手动下载
 
-1. 访问 [HuggingFace VoxCPM2 页面](https://huggingface.co)
+1. 访问 [HuggingFace VoxCPM2 页面](https://huggingface.co/openbmb/VoxCPM2)
 2. 点击 "Files and versions" 标签
 3. 下载所有文件到 `pretrained_models/VoxCPM2/` 目录
 
@@ -153,22 +153,26 @@ pretrained_models/SenseVoiceSmall/
 
 ### 下载来源
 
-#### 方式 A：HuggingFace
+#### 方式 A：ModelScope（推荐）
 
 ```bash
+pip install modelscope
+
+# 下载模型
 python -c "
-from huggingface_hub import snapshot_download
+from modelscope import snapshot_download
 snapshot_download(
-    repo_id='<zipenhancer-repo-id>',
-    local_dir='pretrained_models/speech_zipenhancer',
-    local_dir_use_symlinks=False
+    model_id='iic/speech_zipenhancer_ans_multiloss_16k_base',
+    cache_dir='pretrained_models/speech_zipenhancer'
 )
 "
 ```
 
+> **注意**: speech_zipenhancer 目前仅在 ModelScope 上提供，HuggingFace 暂无此模型。
+
 #### 方式 B：手动下载
 
-1. 访问 [HuggingFace zipenhancer 页面](https://huggingface.co)
+1. 访问 [ModelScope speech_zipenhancer 页面](https://modelscope.cn/models/iic/speech_zipenhancer_ans_multiloss_16k_base)
 2. 下载所有文件到 `pretrained_models/speech_zipenhancer/`
 
 ### 目录结构

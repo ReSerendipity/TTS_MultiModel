@@ -5,7 +5,11 @@ All notable changes to TTS MultiModel will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-07-23
+## [Unreleased]
+
+_No unreleased changes._
+
+## [2.0.1] - 2026-07-23
 
 ### Added
 - GitHub reference repos analysis report (GITHUB_REFERENCE_REPOS_ANALYSIS.md)
@@ -15,14 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - OpenVoice (myshell-ai/OpenVoice) - Instant voice cloning with style control
   - VoxCPM (OpenBMB/VoxCPM) - VoxCPM2 upstream with tokenizer-free TTS
   - ChatTTS (2noise/ChatTTS) - Dialogue-optimized TTS with fine-grained control
-
-### Added (Short-term Improvements)
 - **CLI Batch Enhancement** (`cli.py`): JSON/CSV input support, output format (WAV/MP3), engine selection, progress reporting with ETA
 - **Emotion Tag System** (`emotion_tags.py`): 30+ emotion/style tags inspired by Fish Speech, bracket/parenthetical/Chinese tag formats, tag validation, control instruction generation
 - **Neural Watermarking** (`watermark.py`): Spread-spectrum audio watermarking inspired by Chatterbox Perth, invisible watermark with payload encoding, detection and verification
 - **vLLM Acceleration Backend** (`vllm_backend.py`): Optional vLLM integration for high-throughput LLM inference, automatic fallback to PyTorch, model compatibility checker
 - **v2.0.2 Config**: Emotion tags, watermark, and vLLM configuration options in `config.yaml`
 - **Optional Dependencies**: Added `vllm` and `watermark` optional dependency groups in `pyproject.toml`
+- **Examples directory**: Added API usage examples (`clone_example.py`, `api_example.py`, `batch_example.py`)
+- **GitHub Config**: Added `.github/release.yml` for auto-generated release notes, issue template config, and question template
+- **CONTRIBUTING.md**: Enhanced with development setup, project structure, Good First Issues, and architecture decisions sections
 
 ### Added (Medium-term Design Documents)
 - `docs/MODEL_TIERING_PLAN.md`: Turbo/Nano/Standard tiered deployment (inspired by Chatterbox)
