@@ -8,7 +8,7 @@
 
 A powerful open-source multi-model Text-to-Speech platform with voice cloning, voice design, LoRA fine-tuning, and multi-character script dubbing
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
@@ -206,7 +206,7 @@ TTS_MultiModel/
 ├── pyproject.toml               # Python 项目元数据
 ├── Dockerfile                   # Docker 构建配置
 ├── docker-compose.yml           # Docker Compose 配置
-└── LICENSE                      # MIT 许可证
+└── LICENSE                      # Apache 2.0 许可证
 ```
 
 ## 故障排除
@@ -234,9 +234,9 @@ TTS_MultiModel/
 
 ## 许可证
 
-本项目基于 [MIT License](LICENSE) 开源。
+本项目基于 [Apache License 2.0](LICENSE) 开源。
 
-Copyright (c) 2026 Doro2047
+Copyright (c) 2026 ReSerendipity
 
 ## 文档
 
@@ -473,9 +473,9 @@ See [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Apache License 2.0](LICENSE).
 
-Copyright (c) 2026 Doro2047
+Copyright (c) 2026 ReSerendipity
 
 ## Acknowledgments
 
