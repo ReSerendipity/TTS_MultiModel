@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from ..config import get_config
 from ..i18n import get_i18n_json, get_lang
@@ -30,3 +30,8 @@ async def index(request: Request):
 async def favicon():
     svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%236B5CE7"/><text x="50" y="68" font-size="50" font-weight="bold" fill="white" text-anchor="middle" font-family="Arial">TTS</text></svg>'
     return HTMLResponse(content=svg_content, media_type="image/svg+xml")
+
+
+@router.get("/@vite/client", include_in_schema=False)
+async def vite_client():
+    return Response(status_code=204)
