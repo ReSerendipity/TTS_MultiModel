@@ -113,8 +113,8 @@ reference_repos/
 # Verification output (moved to docs/screenshots/verification/)
 verification_output/
 
-# Screenshots (now in docs/screenshots/)
-screenshots/
+# Screenshots (root-level ignored; docs/screenshots/ is tracked)
+/screenshots/
 ui_screenshots/
 
 # VC Redistributable installers
