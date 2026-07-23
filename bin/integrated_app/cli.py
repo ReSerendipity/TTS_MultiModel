@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 
 import soundfile as sf
@@ -266,15 +267,27 @@ def cmd_clone(args, parser):
 
 
 def cmd_batch(args, parser):
+    """Batch-generate audio from input file.
+
+    Supports:
+      - Plain text files (one text per line)
+      - JSON files (list of objects with "text" and optional "control", "output" fields)
+      - CSV files (columns: text, control, output)
+
+    Output format: WAV (default) or MP3 (if --format mp3)
+    """
     input_file = require_file_exists(args.input, parser, "input file")
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(input_file, encoding="utf-8") as f:
-        texts = [line.strip() for line in f if line.strip()]
+    output_format = getattr(args, "format", "wav") or "wav"
+    engine = getattr(args, "engine", None)
 
-    if not texts:
-        sys.exit("Error: Input file is empty")
+    # Parse input file based on extension
+    tasks = _parse_batch_input(input_file, args, parser)
+
+    if not tasks:
+        sys.exit("Error: Input file is empty or contains no valid tasks")
 
     prompt_text = validate_batch_args(args, parser)
     model = load_model(args)
@@ -287,11 +300,22 @@ def cmd_batch(args, parser):
     if args.reference_audio:
         reference_audio_path = str(require_file_exists(args.reference_audio, parser, "reference audio file"))
 
+    total = len(tasks)
     success_count = 0
+    fail_count = 0
+    start_time = time.time()
 
-    for i, text in enumerate(texts, 1):
+    logger.info(f"\n{'='*50}")
+    logger.info(f"Batch processing: {total} tasks | Format: {output_format.upper()} | Engine: {engine or 'auto'}")
+    logger.info(f"{'='*50}\n")
+
+    for i, task in enumerate(tasks, 1):
+        text = task["text"]
+        control = task.get("control") or args.control
+        task_output_name = task.get("output")
+
         try:
-            final_text = build_final_text(text, args.control)
+            final_text = build_final_text(text, control)
             audio_array = model.generate(
                 text=final_text,
                 prompt_wav_path=prompt_audio_path,
@@ -303,17 +327,165 @@ def cmd_batch(args, parser):
                 denoise=args.denoise and (prompt_audio_path is not None or reference_audio_path is not None),
             )
 
-            output_file = output_dir / f"output_{i:03d}.wav"
-            sf.write(str(output_file), audio_array, model.tts_model.sample_rate)
+            # Determine output filename
+            if task_output_name:
+                out_name = task_output_name
+                if not out_name.endswith(f".{output_format}"):
+                    out_name = f"{out_name}.{output_format}"
+            else:
+                out_name = f"output_{i:03d}.{output_format}"
 
-            duration = len(audio_array) / model.tts_model.sample_rate
-            logger.info(f"已保存: {output_file} ({duration:.2f}s)")
+            output_file = output_dir / out_name
+            sample_rate = model.tts_model.sample_rate
+
+            if output_format == "mp3":
+                _save_as_mp3(audio_array, sample_rate, str(output_file))
+            else:
+                sf.write(str(output_file), audio_array, sample_rate)
+
+            duration = len(audio_array) / sample_rate
+            elapsed = time.time() - start_time
+            avg_time = elapsed / i
+            eta = avg_time * (total - i)
+            logger.info(
+                f"[{i}/{total}] Saved: {output_file.name} ({duration:.2f}s) "
+                f"| Elapsed: {elapsed:.1f}s | ETA: {eta:.1f}s"
+            )
             success_count += 1
 
         except Exception as e:
-            logger.error(f"第 {i} 行处理失败: {e}")
+            fail_count += 1
+            logger.error(f"[{i}/{total}] FAILED: {e}")
 
-    logger.info(f"批量处理完成: {success_count}/{len(texts)} 成功")
+    elapsed_total = time.time() - start_time
+    logger.info(f"\n{'='*50}")
+    logger.info(
+        f"Batch complete: {success_count}/{total} succeeded, {fail_count} failed "
+        f"| Total time: {elapsed_total:.1f}s | Avg: {elapsed_total/max(success_count,1):.2f}s/task"
+    )
+    logger.info(f"Output: {output_dir.resolve()}")
+    logger.info(f"{'='*50}")
+
+
+def _parse_batch_input(input_file: Path, args, parser) -> list[dict]:
+    """Parse batch input file (TXT, JSON, or CSV).
+
+    Returns list of dicts with at least 'text' key.
+    """
+    suffix = input_file.suffix.lower()
+
+    if suffix == ".json":
+        return _parse_json_input(input_file, parser)
+    elif suffix == ".csv":
+        return _parse_csv_input(input_file, parser)
+    else:
+        # Default: plain text (one line per text)
+        return _parse_text_input(input_file)
+
+
+def _parse_text_input(input_file: Path) -> list[dict]:
+    """Parse plain text file (one text per line)."""
+    with open(input_file, encoding="utf-8") as f:
+        tasks = []
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                tasks.append({"text": line})
+    return tasks
+
+
+def _parse_json_input(input_file: Path, parser) -> list[dict]:
+    """Parse JSON input file.
+
+    Supports two formats:
+    1. Array of strings: ["text1", "text2", ...]
+    2. Array of objects: [{"text": "...", "control": "...", "output": "..."}, ...]
+    """
+    import json
+
+    try:
+        with open(input_file, encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        parser.error(f"Invalid JSON in {input_file}: {e}")
+        return []
+
+    if not isinstance(data, list):
+        parser.error(f"JSON input must be an array, got {type(data).__name__}")
+        return []
+
+    tasks = []
+    for i, item in enumerate(data):
+        if isinstance(item, str):
+            tasks.append({"text": item})
+        elif isinstance(item, dict):
+            if "text" not in item:
+                logger.warning(f"JSON item {i} missing 'text' field, skipping")
+                continue
+            tasks.append(item)
+        else:
+            logger.warning(f"JSON item {i} is {type(item).__name__}, expected string or object, skipping")
+
+    return tasks
+
+
+def _parse_csv_input(input_file: Path, parser) -> list[dict]:
+    """Parse CSV input file.
+
+    Expected columns: text (required), control (optional), output (optional)
+    First row can be a header row (auto-detected).
+    """
+    import csv
+
+    tasks = []
+    try:
+        with open(input_file, encoding="utf-8", newline="") as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+            if header is None:
+                return []
+
+            # Detect if first row is a header
+            first_cell = header[0].strip().lower() if header else ""
+            if first_cell in ("text", "content", "input", "文本", "内容"):
+                # Header row, process remaining rows
+                columns = [h.strip().lower() for h in header]
+            else:
+                # No header, treat first row as data
+                columns = ["text", "control", "output"]
+                row_data = {columns[j]: header[j].strip() for j in range(min(len(header), len(columns)))}
+                if row_data.get("text"):
+                    tasks.append(row_data)
+
+            for row in reader:
+                if not row or all(cell.strip() == "" for cell in row):
+                    continue
+                row_data = {columns[j]: row[j].strip() for j in range(min(len(row), len(columns)))}
+                if row_data.get("text"):
+                    tasks.append(row_data)
+
+    except Exception as e:
+        parser.error(f"Failed to parse CSV {input_file}: {e}")
+
+    return tasks
+
+
+def _save_as_mp3(audio_array, sample_rate: int, output_path: str) -> None:
+    """Save audio as MP3 using pydub."""
+    import io
+
+    try:
+        from pydub import AudioSegment
+
+        buf = io.BytesIO()
+        sf.write(buf, audio_array, sample_rate, format="WAV")
+        buf.seek(0)
+        audio = AudioSegment.from_wav(buf)
+        audio.export(output_path, format="mp3", bitrate="192k")
+    except ImportError:
+        logger.warning("pydub not installed, falling back to WAV format")
+        wav_path = output_path.rsplit(".", 1)[0] + ".wav"
+        sf.write(wav_path, audio_array, sample_rate)
 
 
 # -----------------------------
@@ -461,6 +633,20 @@ Examples:
         help="Inference steps (int, recommended 4–30, default: 10)",
     )
     batch_parser.add_argument("--normalize", action="store_true", help="Enable text normalization")
+    batch_parser.add_argument(
+        "--format",
+        type=str,
+        choices=["wav", "mp3"],
+        default="wav",
+        help="Output audio format (default: wav)",
+    )
+    batch_parser.add_argument(
+        "--engine",
+        type=str,
+        choices=["voxcpm2", "indextts2"],
+        default=None,
+        help="TTS engine to use (default: auto)",
+    )
     _add_model_args(batch_parser)
     _add_lora_args(batch_parser)
 

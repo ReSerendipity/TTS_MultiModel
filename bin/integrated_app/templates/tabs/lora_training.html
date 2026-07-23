@@ -75,13 +75,13 @@
                         </div>
 
                         <div style="display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--t2);flex-wrap:wrap">
-                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer" title="{{ 'lora_module_hint'|t(lang, default='选择要微调的模型模块') }}">
                                 <input type="checkbox" id="ft-lora-enable-lm" checked style="accent-color:var(--p500)"> {{ "enable_lm"|t(lang) }}
                             </label>
-                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer" title="{{ 'lora_module_hint'|t(lang, default='选择要微调的模型模块') }}">
                                 <input type="checkbox" id="ft-lora-enable-dit" checked style="accent-color:var(--p500)"> {{ "enable_dit"|t(lang) }}
                             </label>
-                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer" title="{{ 'lora_module_hint'|t(lang, default='选择要微调的模型模块') }}">
                                 <input type="checkbox" id="ft-lora-enable-proj" style="accent-color:var(--p500)"> {{ "enable_proj"|t(lang) }}
                             </label>
                         </div>

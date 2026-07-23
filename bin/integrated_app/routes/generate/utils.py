@@ -195,10 +195,10 @@ def _check_engine_ready(request, engine_name: str = None):
         engine_name = registry.current_engine
     if engine_name == "indextts2":
         if registry.indextts2_engine is None:
-            return _error_html(request, "IndexTTS 2.0 模型未加载，请先点击顶部 IndexTTS 2.0 加载模型", error_type="engine_not_ready")
+            return _error_html(request, "IndexTTS 2.0 模型未加载，请先加载模型", error_type="engine_not_ready", engine_id="indextts2")
     else:
         if registry.voxcpm_model is None:
-            return _error_html(request, "VoxCPM2 模型未加载，请先点击顶部 VoxCPM2 加载模型", error_type="engine_not_ready")
+            return _error_html(request, "VoxCPM2 模型未加载，请先加载模型", error_type="engine_not_ready", engine_id="voxcpm2")
     return None
 
 
@@ -354,7 +354,7 @@ def _apply_post_processing_to_file(filename, tempo_factor, voice_enhancement, ta
         return filename
 
 
-def _error_html(request, error_message, error_type="general"):
+def _error_html(request, error_message, error_type="general", engine_id=""):
     """渲染 HTML 错误片段；优先使用模板，降级时返回安全字符串。"""
     try:
         templates = request.app.state.templates
@@ -367,6 +367,7 @@ def _error_html(request, error_message, error_type="general"):
                 "lang": get_lang(request),
                 "error_message": error_message,
                 "error_type": error_type,
+                "engine_id": engine_id,
             },
             status_code=400,
             headers={
@@ -378,10 +379,14 @@ def _error_html(request, error_message, error_type="general"):
         )
     except Exception:
         # 极端降级：仍保证转义
+        load_btn = ""
+        if error_type == "engine_not_ready" and engine_id:
+            load_btn = f'<button type="button" onclick="window.switchModel(\'{html.escape(engine_id)}\')" style="margin-top:8px;padding:4px 12px;border-radius:4px;background:var(--p500);color:#fff;border:none;cursor:pointer;font-size:12px">加载模型</button>'
         return HTMLResponse(
             f'<div class="tts-error-block" data-error-type="{html.escape(error_type)}">'
             f'<div class="error-title">生成失败</div>'
             f'<div class="error-message">{html.escape(error_message)}</div>'
+            f'{load_btn}'
             f"</div>",
             status_code=400,
         )

@@ -168,7 +168,7 @@ def get_persona_desc(name: str) -> str:
     """获取音色描述信息"""
     wav_path = os.path.join(PERSONA_DIR, f"{name}.wav")
     if os.path.exists(wav_path):
-        return f"🎵 **{name}**（自定义音色）\n\n自定义音色，适用于个性化语音合成。"
+        return f"**{name}**（自定义音色）\n\n自定义音色，适用于个性化语音合成。"
     return ""
 
 

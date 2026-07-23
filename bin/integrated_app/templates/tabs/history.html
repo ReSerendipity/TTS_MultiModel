@@ -108,7 +108,7 @@
                         <tbody id="hist-table-body" role="rowgroup">
                             {% for row in history_records %}
                             <tr class="history-record-row" role="row">
-                                <td style="text-align:center"><input type="checkbox" class="history-row-checkbox" data-history-id="{{ row[0] }}"></td>
+                                <td style="text-align:center"><input type="checkbox" class="history-row-checkbox" data-history-id="{{ row[0] }}" aria-label="{{ 'select_record'|t(lang, default='选择记录') }} {{ row[0] }}"></td>
                                 <td data-label="{{ 'filename'|t(lang) }}" style="color:var(--t1);font-family:var(--mono);font-size:11px">{{ row[0] }}</td>
                                 <td data-label="{{ 'engine'|t(lang, default='引擎') }}"><span class="engine-badge" data-engine="voxcpm2">VoxCPM2</span></td>
                                 <td data-label="{{ 'gen_time'|t(lang) }}" style="color:var(--t2)">{{ row[1] }}</td>
@@ -406,6 +406,7 @@
             checkbox.type = 'checkbox';
             checkbox.className = 'history-row-checkbox';
             checkbox.setAttribute('data-history-id', r[0]);
+            checkbox.setAttribute('aria-label', '{{ "select_record"|t(lang, default="选择记录") }} ' + r[0]);
             tdCheck.appendChild(checkbox);
 
             var tdName = document.createElement('td');

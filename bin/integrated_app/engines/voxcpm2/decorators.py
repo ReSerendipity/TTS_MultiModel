@@ -72,8 +72,14 @@ def with_generation_context(
                 result = func(*args, **kwargs)
                 return result
 
+            except Exception:
+                # 6b. Mark progress as error before re-raising
+                if use_progress:
+                    _progress_mgr.set_error(f"{phase_name} 失败" if phase_name else "生成失败")
+                raise
+
             finally:
-                # 6. End tracker and progress
+                # 6a. End tracker and progress
                 elapsed = time.time() - start_time
                 if use_tracker:
                     _gen_tracker.end_generation(elapsed)

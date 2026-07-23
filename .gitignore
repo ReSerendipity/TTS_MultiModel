@@ -13,6 +13,7 @@ torch_compile_cache/
 log.txt
 error.txt
 get-pip.py
+.uploads/
 
 # Static generated files
 static/
@@ -22,6 +23,8 @@ static/
 .idea/
 *.swp
 *.swo
+.mypy_cache/
+.ruff_cache/
 
 # Trae IDE documents (local development)
 .trae/
@@ -104,5 +107,27 @@ test_screenshot.png
 test_player.html
 test_*.py
 
-# External exports (e.g. Yuanbao / browser snapshots, unrelated to the project)
-yuanbao_html_*.html
+# Reference repositories (external, not part of core project)
+reference_repos/
+
+# Verification output (moved to docs/screenshots/verification/)
+verification_output/
+
+# Screenshots (now in docs/screenshots/)
+screenshots/
+ui_screenshots/
+
+# VC Redistributable installers
+VC*/
+
+# Dogfood test output
+dogfood-output/
+
+# Test verification output
+tests/verification/
+
+# Temporary files
+tmp/
+
+# Root-level runtime data
+generation_times.json

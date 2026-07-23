@@ -248,6 +248,20 @@ Copyright (c) 2026 ReSerendipity
 - [UI 开发指南](docs/UI 开发指南_README.md) - Web UI 开发指南
 - [改进手册](docs/IMPROVEMENT_GUIDEBOOK.md) - 优化和改进建议
 
+## 相关项目
+
+以下开源项目在功能、架构或技术上与本项目有较高参考价值（详细分析见 [GitHub 参考仓库分析报告](GITHUB_REFERENCE_REPOS_ANALYSIS.md)）：
+
+| 项目 | 说明 | Stars |
+|------|------|-------|
+| [VoxCPM](https://github.com/OpenBMB/VoxCPM) | OpenBMB 多语言 TTS，本项目 VoxCPM2 引擎的上游 | ~29.6k |
+| [Fish Speech](https://github.com/fishaudio/fish-speech) | Fish Audio 多语言 TTS，80+ 语言支持，RL 对齐 | ~70k+ |
+| [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) | 少样本 TTS，完整训练工具链 | ~50k |
+| [ChatTTS](https://github.com/2noise/ChatTTS) | 对话式 TTS，精细韵律控制 | ~37.5k |
+| [OpenVoice](https://github.com/myshell-ai/OpenVoice) | MyShell 即时语音克隆，风格控制 | ~25k+ |
+| [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) | 阿里多语言 TTS，Flow Matching + vLLM 加速 | ~18.6k |
+| [Chatterbox](https://github.com/resemble-ai/chatterbox) | Resemble AI 低延迟 TTS，模型分级策略 | ~19.2k |
+
 ## 致谢
 
 - [VoxCPM2](https://github.com/OpenBMB/VoxCPM2) - OpenBMB 开源 TTS 模型
@@ -269,7 +283,6 @@ Copyright (c) 2026 ReSerendipity
 
 ## Features
 
-<<<<<<< HEAD
 | Feature | Description |
 |---------|-------------|
 | **Dual Engine** | VoxCPM2 + IndexTTS 2.0 dual TTS engine architecture |
@@ -284,40 +297,15 @@ Copyright (c) 2026 ReSerendipity
 | **i18n** | UI in Chinese, English, Japanese, Korean |
 | **Multi-GPU** | NVIDIA CUDA / Apple MPS / CPU |
 | **Custom Voice Library** | Save and manage custom voice personas |
-=======
-- **Multiple TTS Models** - Support for VoxCPM2 and IndexTTS 2.0 dual-engine architecture
-- **Voice Cloning** - Create custom voice personas with minimal audio samples (controllable clone + ultimate clone)
-- **Voice Design** - Generate speech from voice description text
-- **Script Studio** - Multi-character dialogue generation with speaker mapping
-- **Streaming Generation** - Real-time audio streaming for long text
-- **LoRA Fine-tuning** - Fine-tune models with your own datasets via LoRA
-- **Web Interface** - Responsive and modern web UI built with FastAPI + HTMX + Jinja2
-- **Batch Processing** - Support for batch audio generation
-- **History Management** - SQLite-based history tracking with search, filter, and pagination
-- **Multi-language** - Internationalization support (i18n) for Chinese, English, Japanese, Korean
-- **Multi-GPU Backend** - Support for NVIDIA CUDA, Apple MPS, and CPU
-- **GPU Acceleration** - Optimized for GPU-based inference with adaptive VRAM management
-- **9 Official Speakers** - Pre-configured voice personas covering various voice types
->>>>>>> c8bfcbd8f75e4e4fd69abff1f6aaf9a1b95e8018
 
 ## Quick Start
 
 ### Prerequisites
 
-<<<<<<< HEAD
 - **OS**: Windows 10/11 (64-bit) or Linux
 - **Python**: 3.12+ (bundled WinPython for Windows)
 - **GPU**: NVIDIA (CUDA) / Apple Silicon (MPS), 6.5GB+ VRAM recommended
 - **VC Redistributable** (Windows): Included in `VC 运行库/` folder
-=======
-- **Operating System**: Windows 10/11 (64-bit) or Linux
-- **Python**: 3.12+ (bundled WinPython included for Windows, or install your own)
-- **GPU**: NVIDIA GPU (CUDA) recommended for optimal performance
-  - Apple Silicon (MPS) is supported
-  - Minimum 6.5GB VRAM required for VoxCPM2 model
-  - CPU mode is available but slower
-- **VC Redistributable** (Windows only): Visual C++ Redistributable (included in `VC运行库/` folder)
->>>>>>> c8bfcbd8f75e4e4fd69abff1f6aaf9a1b95e8018
 
 ### Windows
 
@@ -476,6 +464,20 @@ See [Contributing Guide](CONTRIBUTING.md) for details.
 This project is licensed under the [Apache License 2.0](LICENSE).
 
 Copyright (c) 2026 ReSerendipity
+
+## Related Projects
+
+The following open-source projects share high relevance in features, architecture, or technology with this project (detailed analysis in [GitHub Reference Repos Analysis](GITHUB_REFERENCE_REPOS_ANALYSIS.md)):
+
+| Project | Description | Stars |
+|---------|-------------|-------|
+| [VoxCPM](https://github.com/OpenBMB/VoxCPM) | OpenBMB multilingual TTS, upstream of our VoxCPM2 engine | ~29.6k |
+| [Fish Speech](https://github.com/fishaudio/fish-speech) | Fish Audio multilingual TTS, 80+ languages, RL alignment | ~70k+ |
+| [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) | Few-shot TTS with complete training toolchain | ~50k |
+| [ChatTTS](https://github.com/2noise/ChatTTS) | Dialogue-optimized TTS with fine-grained prosody control | ~37.5k |
+| [OpenVoice](https://github.com/myshell-ai/OpenVoice) | MyShell instant voice cloning with style control | ~25k+ |
+| [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) | Alibaba multilingual TTS, Flow Matching + vLLM acceleration | ~18.6k |
+| [Chatterbox](https://github.com/resemble-ai/chatterbox) | Resemble AI low-latency TTS with model tiering | ~19.2k |
 
 ## Acknowledgments
 

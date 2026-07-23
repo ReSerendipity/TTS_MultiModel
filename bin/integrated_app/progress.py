@@ -47,6 +47,7 @@ class ProgressManager:
         self._last_segment_bytes = 0
         self._is_complete = False
         self._is_cancelled = False
+        self._is_error = False
         self._total_chars_processed = 0
 
     def _notify_sse(self):
@@ -75,6 +76,7 @@ class ProgressManager:
             self._last_segment_bytes = 0
             self._is_complete = False
             self._is_cancelled = False
+            self._is_error = False
             self._total_chars_processed = 0
         self._notify_sse()
 
@@ -126,6 +128,17 @@ class ProgressManager:
             progress is too early to display (<0.5s elapsed).
         """
         with self._lock:
+            if self._is_error:
+                phase_display = self._phase or "生成失败"
+                return (
+                    '<div class="tts-progress-bar">'
+                    '<div class="tts-progress-fill tts-progress-error" style="width:100%"></div>'
+                    "</div>"
+                    '<div class="tts-progress-info tts-progress-error-info">'
+                    f'<span class="tts-progress-phase">{phase_display}</span>'
+                    '<span class="tts-progress-percentage">失败</span>'
+                    "</div>"
+                )
             if self._is_complete:
                 return (
                     '<div class="tts-progress-bar">'
@@ -252,6 +265,7 @@ class ProgressManager:
             self._last_segment_bytes = 0
             self._is_complete = False
             self._is_cancelled = False
+            self._is_error = False
             self._total_chars_processed = 0
         self._notify_sse()
 
@@ -259,6 +273,20 @@ class ProgressManager:
         """Mark the current operation as cancelled."""
         with self._lock:
             self._is_cancelled = True
+        self._notify_sse()
+
+    def set_error(self, phase="生成失败"):
+        """Mark the current operation as failed with an error.
+
+        Renders the progress bar in error state (red) with the
+        given phase label.
+
+        Args:
+            phase: Error phase label string (default: "生成失败").
+        """
+        with self._lock:
+            self._phase = phase
+            self._is_error = True
         self._notify_sse()
 
     def is_cancelled(self):
@@ -271,13 +299,13 @@ class ProgressManager:
             return self._is_cancelled
 
     def should_stop(self):
-        """Check if the operation should stop (cancelled or complete).
+        """Check if the operation should stop (cancelled, complete, or error).
 
         Returns:
             True if the operation should stop, False otherwise.
         """
         with self._lock:
-            return self._is_cancelled or self._is_complete
+            return self._is_cancelled or self._is_complete or self._is_error
 
     def add_chars_processed(self, char_count):
         """Accumulate the count of processed characters.
@@ -333,7 +361,7 @@ class ProgressManager:
 
         Returns:
             Dictionary with keys: phase, current_segment, total_segments,
-            is_complete, is_cancelled, is_active.
+            is_complete, is_cancelled, is_error, is_active.
         """
         with self._lock:
             return {
@@ -342,5 +370,6 @@ class ProgressManager:
                 "total_segments": self._total_segments,
                 "is_complete": self._is_complete,
                 "is_cancelled": self._is_cancelled,
+                "is_error": self._is_error,
                 "is_active": self._phase != "",
             }

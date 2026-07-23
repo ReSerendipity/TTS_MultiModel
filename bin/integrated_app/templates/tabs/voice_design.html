@@ -184,9 +184,9 @@
                         </div>
                         <div class="status-message" id="vd-status" aria-live="polite"></div>
                         <div class="empty-state" id="vd-empty-state">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
-                            <p>{{ "no_result_yet"|t(lang) }}</p>
-                            <p style="font-size:10px;color:var(--t3);margin-top:2px">{{ "fill_form_then_generate"|t(lang) }}</p>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:0.35;margin-bottom:12px"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
+                            <p class="empty-state-title">{{ "no_result_yet"|t(lang) }}</p>
+                            <p class="empty-state-desc">{{ "fill_form_then_generate"|t(lang) }}</p>
                         </div>
                     </div>
                     <audio class="tts-audio-hidden" id="vd-audio" style="display:none"></audio>
@@ -330,7 +330,7 @@
         var statusEl = document.getElementById('vd-status');
         var ppSection = document.getElementById('vd-pp-section');
         if (resultEl) {
-            resultEl.innerHTML = '<div class="empty-state" id="vd-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg><p>{{ "no_result_yet"|t(lang) }}</p></div>';
+            resultEl.innerHTML = '<div class="empty-state" id="vd-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:0.35;margin-bottom:12px"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg><p class="empty-state-title">{{ "no_result_yet"|t(lang) }}</p><p class="empty-state-desc">{{ "fill_form_then_generate"|t(lang) }}</p></div>';
         }
         if (statusEl) statusEl.innerHTML = '';
         if (ppSection) ppSection.style.display = 'none';

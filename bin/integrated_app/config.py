@@ -304,17 +304,17 @@ def get_download_hints() -> dict[str, str]:
 
 # --- Language list ---
 _LANGS = [
-    "Chinese",
-    "English",
-    "Japanese",
-    "Korean",
-    "German",
-    "French",
-    "Russian",
-    "Portuguese",
-    "Spanish",
-    "Italian",
-    "Auto",
+    "中文",
+    "英语",
+    "日语",
+    "韩语",
+    "德语",
+    "法语",
+    "俄语",
+    "葡萄牙语",
+    "西班牙语",
+    "意大利语",
+    "自动检测",
 ]
 
 # --- Dialect list (Chinese dialects supported by VoxCPM2) ---
