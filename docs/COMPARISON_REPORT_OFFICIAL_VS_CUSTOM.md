@@ -17,7 +17,7 @@
 | 目标用户 | 开发者/研究人员 | 终端用户/内容创作者 |
 | 核心产物 | `voxcpm` Python 包（`pip install voxcpm`） | Voice Studio Web 界面 |
 | 代码入口 | `voxcpm.VoxCPM.from_pretrained()` + `app.py` | `create_app()` + `uvicorn.run()` |
-| 开源协议 | Apache-2.0（Copyright OpenBMB） | MIT（Copyright 2026 Doro2047） |
+| 开源协议 | Apache-2.0（Copyright OpenBMB） | Apache-2.0（Copyright 2026 ReSerendipity） |
 | 代码规模 | ~20 Python 文件 + 1 个 `app.py`（430 行） | ~50+ Python 文件 + 22 个模板文件 + 10+ 静态资源 |
 
 **核心差异总结**：官方 VoxCPM2 是一个 **SDK + 演示应用**，以 `voxcpm` Python 包为核心，`app.py` 仅作为功能展示用途；TTS_MultiModel 则是一个**面向生产环境的完整 Web 应用**，围绕最终用户体验设计，包含完整的路由分层、模板系统、持久化存储和运维监控能力。
