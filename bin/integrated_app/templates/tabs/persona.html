@@ -138,11 +138,12 @@
                 <audio id="persona-preview-audio" controls style="width:100%;height:38px"></audio>
             </div>
             <div class="persona-bottom-actions" style="display:flex;gap:8px;align-items:flex-end">
-                <button class="btn btn-o btn-sm" onclick="playSelectedPersona()" aria-label="{{ 'play'|t(lang) }}">
+                <span style="font-size:11px;color:var(--t3);white-space:nowrap;padding-bottom:4px">{{ "actions_for_selected"|t(lang, default="选中操作:") }}</span>
+                <button class="btn btn-o btn-sm" onclick="playSelectedPersona()" aria-label="{{ 'play_selected'|t(lang, default='试听选中音色') }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                     {{ "play"|t(lang) }}
                 </button>
-                <button class="btn btn-o btn-sm" onclick="deleteSelectedPersona()" style="color:var(--red)" aria-label="{{ 'delete'|t(lang) }}">
+                <button class="btn btn-o btn-sm" onclick="deleteSelectedPersona()" style="color:var(--red)" aria-label="{{ 'delete_selected'|t(lang, default='删除选中音色') }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     {{ "delete"|t(lang) }}
                 </button>

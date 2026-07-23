@@ -99,7 +99,7 @@
                                     <div class="sdesc">{{ "default_sample_rate_hint"|t(lang) }}</div>
                                 </div>
                                 <div class="sctrl">
-                                    <input id="settings-default-sample-rate" type="number" min="16000" max="48000" value="24000" placeholder="{{ 'recommended_24000'|t(lang) }}" class="sinput" />
+                                    <input id="settings-default-sample-rate" type="number" min="16000" max="48000" value="24000" placeholder="{{ 'param_sample_rate'|t(lang) }}" class="sinput" />
                                 </div>
                             </div>
                             <div class="srow">
@@ -108,7 +108,7 @@
                                     <div class="sdesc">{{ "default_speed_hint"|t(lang) }}</div>
                                 </div>
                                 <div class="sctrl">
-                                    <input id="settings-default-speed" type="number" min="0.1" max="3.0" step="0.1" value="1.0" placeholder="{{ 'recommended_1.0'|t(lang) }}" class="sinput" />
+                                    <input id="settings-default-speed" type="number" min="0.1" max="3.0" step="0.1" value="1.0" placeholder="{{ 'param_speed'|t(lang) }}" class="sinput" />
                                 </div>
                             </div>
                             <div class="srow">
@@ -117,7 +117,7 @@
                                     <div class="sdesc">{{ "default_seed_hint"|t(lang) }}</div>
                                 </div>
                                 <div class="sctrl">
-                                    <input id="settings-default-seed" type="number" min="0" max="999999" value="42" placeholder="{{ 'recommended_42'|t(lang) }}" class="sinput" />
+                                    <input id="settings-default-seed" type="number" min="0" max="999999" value="42" placeholder="{{ 'param_seed'|t(lang) }}" class="sinput" />
                                 </div>
                             </div>
                             <div class="srow">
@@ -126,15 +126,10 @@
                                     <div class="sdesc">{{ "script_studio_silence_secs_hint"|t(lang) }}</div>
                                 </div>
                                 <div class="sctrl">
-                                    <input id="settings-script-studio-silence" type="number" min="0" max="2.0" step="0.1" value="0.4" placeholder="{{ 'recommended_0.4'|t(lang) }}" class="sinput" />
+                                    <input id="settings-script-studio-silence" type="number" min="0" max="2.0" step="0.1" value="0.4" placeholder="{{ 'param_silence_secs'|t(lang) }}" class="sinput" />
                                 </div>
                             </div>
-                            <div style="margin-top:12px">
-                                <button type="button" id="settings-save-generation-btn" class="btn btn-p btn-sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveGenerationDefaults()">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                    {{ "save"|t(lang) }}
-                                </button>
-                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -169,7 +164,7 @@
                                     <div class="sdesc">{{ "retry_max_times_hint"|t(lang) }}</div>
                                 </div>
                                 <div class="sctrl">
-                                    <input id="settings-retry-max-times" type="number" min="0" max="10" value="3" placeholder="{{ 'recommended_3'|t(lang) }}" class="sinput" />
+                                    <input id="settings-retry-max-times" type="number" min="0" max="10" value="3" placeholder="{{ 'param_retry_max_times'|t(lang) }}" class="sinput" />
                                 </div>
                             </div>
                             <div class="srow">
@@ -178,7 +173,7 @@
                                     <div class="sdesc">{{ "retry_ratio_threshold_hint"|t(lang) }}</div>
                                 </div>
                                 <div class="sctrl">
-                                    <input id="settings-retry-ratio-threshold" type="number" min="1" max="20" step="0.5" value="6" placeholder="{{ 'recommended_6'|t(lang) }}" class="sinput" />
+                                    <input id="settings-retry-ratio-threshold" type="number" min="1" max="20" step="0.5" value="6" placeholder="{{ 'param_retry_ratio'|t(lang) }}" class="sinput" />
                                 </div>
                             </div>
                             <div class="srow">
@@ -187,7 +182,7 @@
                                     <div class="sdesc">{{ "target_lufs_hint"|t(lang) }}</div>
                                 </div>
                                 <div class="sctrl">
-                                    <input id="settings-target-lufs" type="number" min="-30" max="0" step="1" value="-16" placeholder="{{ 'recommended_minus_16'|t(lang) }}" class="sinput" />
+                                    <input id="settings-target-lufs" type="number" min="-30" max="0" step="1" value="-16" placeholder="{{ 'param_target_lufs'|t(lang) }}" class="sinput" />
                                 </div>
                             </div>
                             <div class="srow">
@@ -196,7 +191,7 @@
                                     <div class="sdesc">{{ "idle_timeout_hint"|t(lang) }}</div>
                                 </div>
                                 <div class="sctrl">
-                                    <input id="settings-idle-timeout" type="number" min="60" max="3600" value="300" placeholder="{{ 'recommended_300'|t(lang) }}" class="sinput" />
+                                    <input id="settings-idle-timeout" type="number" min="60" max="3600" value="300" placeholder="{{ 'param_idle_timeout'|t(lang) }}" class="sinput" />
                                 </div>
                             </div>
                             <div class="srow">
@@ -212,12 +207,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div style="margin-top:12px">
-                                <button type="button" id="settings-save-advanced-btn" class="btn btn-p btn-sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAdvancedParams()">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                    {{ "save"|t(lang) }}
-                                </button>
-                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -281,16 +271,18 @@
                                     </select>
                                 </div>
                             </div>
-                            <div style="margin-top:12px">
-                                <button type="button" id="settings-save-general-btn" class="btn btn-p btn-sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveGeneralSettings()">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                    {{ "save"|t(lang) }}
-                                </button>
-                            </div>
+
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+        <!-- Unified Save Bar -->
+        <div style="margin-top:16px;display:flex;justify-content:center">
+            <button type="button" id="settings-save-all-btn" class="btn btn-p" style="min-width:200px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="saveAllSettings()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                {{ "save_all_settings"|t(lang) }}
+            </button>
         </div>
     </div>
 </div>
@@ -469,8 +461,6 @@
             (function(toggle) {
                 var input = toggle.querySelector('input[type="checkbox"]');
                 if (!input) return;
-                // 视觉状态由 CSS :checked 选择器自动处理，无需 JS 干预
-                // 这里仅保留函数以兼容现有调用
             })(toggles[i]);
         }
     }
@@ -500,142 +490,191 @@
     var _lastMemoryWarning = 0;
     var _lastVramWarning = 0;
 
-    function fetchSettingsData() {
-        fetch('/api/system/settings')
-            .then(function(res) {
-                if (!res.ok) {
-                    console.warn('Settings API returned status:', res.status);
-                    return null;
-                }
-                return res.json();
-            })
-            .then(function(data) {
-                if (!data || data.status !== 'ok') return;
-                var modelPath = document.getElementById('settings-model-path');
-                if (modelPath) modelPath.textContent = data.model_path || '--';
+    // Global-persistent cache on window so it survives HTMX tab swaps
+    // Each cache entry: { data: <parsed JSON>, ts: <timestamp> }
+    if (!window._ttsSettingsCache) {
+        window._ttsSettingsCache = {
+            settings: { data: null, ts: 0 },
+            advanced: { data: null, ts: 0 },
+            defaults: { data: null, ts: 0 }
+        };
+    }
+    var _cache = window._ttsSettingsCache;
+    var CACHE_TTL = 30 * 1000; // 30 seconds
 
-                var device = document.getElementById('settings-device');
-                if (device) {
-                    device.textContent = data.device || '--';
-                    updateVramLabels();
-                }
+    function isCacheValid(key) {
+        return _cache[key].data !== null && (Date.now() - _cache[key].ts < CACHE_TTL);
+    }
 
-                var cpu = isCpuMode();
-                if (cpu) {
-                    var vramUsed = document.getElementById('settings-vram-used');
-                    if (vramUsed) vramUsed.textContent = data.memory_used || '--';
-                    var vramTotal = document.getElementById('settings-vram-total');
-                    if (vramTotal) vramTotal.textContent = data.memory_total || '--';
-                    var vramFree = document.getElementById('settings-vram-free');
-                    if (vramFree) vramFree.textContent = data.memory_free || '--';
-                    var gpuUtil = document.getElementById('settings-gpu-util');
-                    if (gpuUtil) gpuUtil.textContent = data.cpu_util || '--';
+    function invalidateCache(key) {
+        if (key) {
+            _cache[key] = { data: null, ts: 0 };
+        } else {
+            _cache.settings = { data: null, ts: 0 };
+            _cache.advanced = { data: null, ts: 0 };
+            _cache.defaults = { data: null, ts: 0 };
+        }
+    }
 
-                    var vramBar = document.getElementById('settings-vram-bar');
-                    if (vramBar && data.memory_percent) {
-                        vramBar.style.width = data.memory_percent + '%';
-                        if (data.memory_percent > 90) {
-                            vramBar.style.background = 'var(--red)';
-                            var now = Date.now();
-                            if (now - _lastMemoryWarning > 60000) {
-                                _lastMemoryWarning = now;
-                                if (window.Toast) Toast.show(t('memory_high_warning') + ' (' + data.memory_percent + '%)', 'error');
-                            }
-                        } else if (data.memory_percent > 70) {
-                            vramBar.style.background = 'var(--orange)';
-                        } else {
-                            vramBar.style.background = 'var(--green)';
-                        }
+    // --- Apply cached/live data to DOM ---
+    function applySettingsData(data) {
+        if (!data || data.status !== 'ok') return;
+        var modelPath = document.getElementById('settings-model-path');
+        if (modelPath) modelPath.textContent = data.model_path || '--';
+
+        var device = document.getElementById('settings-device');
+        if (device) {
+            device.textContent = data.device || '--';
+            updateVramLabels();
+        }
+
+        var cpu = isCpuMode();
+        if (cpu) {
+            var vramUsed = document.getElementById('settings-vram-used');
+            if (vramUsed) vramUsed.textContent = data.memory_used || '--';
+            var vramTotal = document.getElementById('settings-vram-total');
+            if (vramTotal) vramTotal.textContent = data.memory_total || '--';
+            var vramFree = document.getElementById('settings-vram-free');
+            if (vramFree) vramFree.textContent = data.memory_free || '--';
+            var gpuUtil = document.getElementById('settings-gpu-util');
+            if (gpuUtil) gpuUtil.textContent = data.cpu_util || '--';
+
+            var vramBar = document.getElementById('settings-vram-bar');
+            if (vramBar && data.memory_percent) {
+                vramBar.style.width = data.memory_percent + '%';
+                if (data.memory_percent > 90) {
+                    vramBar.style.background = 'var(--red)';
+                    var now = Date.now();
+                    if (now - _lastMemoryWarning > 60000) {
+                        _lastMemoryWarning = now;
+                        if (window.Toast) Toast.show(t('memory_high_warning') + ' (' + data.memory_percent + '%)', 'error');
                     }
+                } else if (data.memory_percent > 70) {
+                    vramBar.style.background = 'var(--orange)';
                 } else {
-                    var vramUsed = document.getElementById('settings-vram-used');
-                    if (vramUsed) vramUsed.textContent = data.vram_used || '--';
-                    var vramTotal = document.getElementById('settings-vram-total');
-                    if (vramTotal) vramTotal.textContent = data.vram_total || '--';
-                    var vramFree = document.getElementById('settings-vram-free');
-                    if (vramFree) vramFree.textContent = data.vram_free || '--';
-                    var gpuUtil = document.getElementById('settings-gpu-util');
-                    if (gpuUtil) gpuUtil.textContent = data.gpu_util || '--';
+                    vramBar.style.background = 'var(--green)';
+                }
+            }
+        } else {
+            var vramUsed = document.getElementById('settings-vram-used');
+            if (vramUsed) vramUsed.textContent = data.vram_used || '--';
+            var vramTotal = document.getElementById('settings-vram-total');
+            if (vramTotal) vramTotal.textContent = data.vram_total || '--';
+            var vramFree = document.getElementById('settings-vram-free');
+            if (vramFree) vramFree.textContent = data.vram_free || '--';
+            var gpuUtil = document.getElementById('settings-gpu-util');
+            if (gpuUtil) gpuUtil.textContent = data.gpu_util || '--';
 
-                    var vramBar = document.getElementById('settings-vram-bar');
-                    if (vramBar && data.vram_percent) {
-                        vramBar.style.width = data.vram_percent + '%';
-                        if (data.vram_percent > 90) {
-                            vramBar.style.background = 'var(--red)';
-                            var now = Date.now();
-                            if (now - _lastVramWarning > 60000) {
-                                _lastVramWarning = now;
-                                if (window.Toast) Toast.show(t('vram_high_warning') + ' (' + data.vram_percent + '%)', 'error');
-                            }
-                        } else if (data.vram_percent > 70) {
-                            vramBar.style.background = 'var(--orange)';
-                        } else {
-                            vramBar.style.background = 'var(--green)';
-                        }
+            var vramBar = document.getElementById('settings-vram-bar');
+            if (vramBar && data.vram_percent) {
+                vramBar.style.width = data.vram_percent + '%';
+                if (data.vram_percent > 90) {
+                    vramBar.style.background = 'var(--red)';
+                    var now = Date.now();
+                    if (now - _lastVramWarning > 60000) {
+                        _lastVramWarning = now;
+                        if (window.Toast) Toast.show(t('vram_high_warning') + ' (' + data.vram_percent + '%)', 'error');
                     }
+                } else if (data.vram_percent > 70) {
+                    vramBar.style.background = 'var(--orange)';
+                } else {
+                    vramBar.style.background = 'var(--green)';
                 }
+            }
+        }
 
-                if (data.general_settings) {
-                    var gs = data.general_settings;
-                    var autoSaveEl = document.getElementById('settings-auto-save');
-                    if (autoSaveEl) { autoSaveEl.checked = gs.auto_save !== false; }
-                    var autoPlayEl = document.getElementById('settings-auto-play');
-                    if (autoPlayEl) { autoPlayEl.checked = gs.auto_play === true; }
-                    var notifEl = document.getElementById('settings-notifications');
-                    if (notifEl) { notifEl.checked = gs.notifications !== false; }
-                    var formatEl = document.getElementById('settings-output-format');
-                    if (formatEl && gs.output_format) formatEl.value = gs.output_format;
-                }
-            })
-            .catch(function(err) {
-                console.error('Failed to fetch settings:', err);
-            });
+        if (data.general_settings) {
+            var gs = data.general_settings;
+            var autoSaveEl = document.getElementById('settings-auto-save');
+            if (autoSaveEl) { autoSaveEl.checked = gs.auto_save !== false; }
+            var autoPlayEl = document.getElementById('settings-auto-play');
+            if (autoPlayEl) { autoPlayEl.checked = gs.auto_play === true; }
+            var notifEl = document.getElementById('settings-notifications');
+            if (notifEl) { notifEl.checked = gs.notifications !== false; }
+            var formatEl = document.getElementById('settings-output-format');
+            if (formatEl && gs.output_format) formatEl.value = gs.output_format;
+        }
+    }
 
-        fetch('/api/system/advanced_params')
-            .then(function(res) {
-                if (!res.ok) return null;
-                return res.json();
-            })
-            .then(function(data) {
-                if (!data || data.status !== 'ok' || !data.params) return;
-                var p = data.params;
-                var retryBadcase = document.getElementById('settings-retry-badcase');
-                if (retryBadcase) { retryBadcase.checked = p.retry_badcase !== false; }
-                var retryMaxTimes = document.getElementById('settings-retry-max-times');
-                if (retryMaxTimes) retryMaxTimes.value = p.retry_badcase_max_times != null ? p.retry_badcase_max_times : 3;
-                var retryRatioThreshold = document.getElementById('settings-retry-ratio-threshold');
-                if (retryRatioThreshold) retryRatioThreshold.value = p.retry_badcase_ratio_threshold != null ? p.retry_badcase_ratio_threshold : 6;
-                var targetLufs = document.getElementById('settings-target-lufs');
-                if (targetLufs) targetLufs.value = p.target_lufs != null ? p.target_lufs : -16;
-                var idleTimeout = document.getElementById('settings-idle-timeout');
-                if (idleTimeout) idleTimeout.value = p.idle_timeout != null ? p.idle_timeout : 300;
-                var trimSilence = document.getElementById('settings-trim-silence-vad');
-                if (trimSilence) { trimSilence.checked = p.trim_silence_vad !== false; }
-            })
-            .catch(function(err) {
-                console.error('Failed to fetch advanced params:', err);
-            });
+    function applyAdvancedData(data) {
+        if (!data || data.status !== 'ok' || !data.params) return;
+        var p = data.params;
+        var retryBadcase = document.getElementById('settings-retry-badcase');
+        if (retryBadcase) { retryBadcase.checked = p.retry_badcase !== false; }
+        var retryMaxTimes = document.getElementById('settings-retry-max-times');
+        if (retryMaxTimes) retryMaxTimes.value = p.retry_badcase_max_times != null ? p.retry_badcase_max_times : 3;
+        var retryRatioThreshold = document.getElementById('settings-retry-ratio-threshold');
+        if (retryRatioThreshold) retryRatioThreshold.value = p.retry_badcase_ratio_threshold != null ? p.retry_badcase_ratio_threshold : 6;
+        var targetLufs = document.getElementById('settings-target-lufs');
+        if (targetLufs) targetLufs.value = p.target_lufs != null ? p.target_lufs : -16;
+        var idleTimeout = document.getElementById('settings-idle-timeout');
+        if (idleTimeout) idleTimeout.value = p.idle_timeout != null ? p.idle_timeout : 300;
+        var trimSilence = document.getElementById('settings-trim-silence-vad');
+        if (trimSilence) { trimSilence.checked = p.trim_silence_vad !== false; }
+    }
 
-        fetch('/api/system/generation_defaults')
-            .then(function(res) {
-                if (!res.ok) return null;
-                return res.json();
-            })
-            .then(function(data) {
-                if (!data || data.status !== 'ok' || !data.params) return;
-                var p = data.params;
-                var sampleRateEl = document.getElementById('settings-default-sample-rate');
-                if (sampleRateEl) sampleRateEl.value = p.default_sample_rate != null ? p.default_sample_rate : 24000;
-                var speedEl = document.getElementById('settings-default-speed');
-                if (speedEl) speedEl.value = p.default_speed != null ? p.default_speed : 1.0;
-                var seedEl = document.getElementById('settings-default-seed');
-                if (seedEl) seedEl.value = p.default_seed != null ? p.default_seed : 42;
-                var silenceEl = document.getElementById('settings-script-studio-silence');
-                if (silenceEl) silenceEl.value = p.script_studio_silence_secs != null ? p.script_studio_silence_secs : 0.4;
-            })
-            .catch(function(err) {
-                console.error('Failed to fetch generation defaults:', err);
-            });
+    function applyDefaultsData(data) {
+        if (!data || data.status !== 'ok' || !data.params) return;
+        var p = data.params;
+        var sampleRateEl = document.getElementById('settings-default-sample-rate');
+        if (sampleRateEl) sampleRateEl.value = p.default_sample_rate != null ? p.default_sample_rate : 24000;
+        var speedEl = document.getElementById('settings-default-speed');
+        if (speedEl) speedEl.value = p.default_speed != null ? p.default_speed : 1.0;
+        var seedEl = document.getElementById('settings-default-seed');
+        if (seedEl) seedEl.value = p.default_seed != null ? p.default_seed : 42;
+        var silenceEl = document.getElementById('settings-script-studio-silence');
+        if (silenceEl) silenceEl.value = p.script_studio_silence_secs != null ? p.script_studio_silence_secs : 0.4;
+    }
+
+    // --- Fetch with cache ---
+    function fetchSettingsData(forceRefresh) {
+        // /api/system/settings
+        if (forceRefresh || !isCacheValid('settings')) {
+            fetch('/api/system/settings')
+                .then(function(res) {
+                    if (!res.ok) { console.warn('Settings API returned status:', res.status); return null; }
+                    return res.json();
+                })
+                .then(function(data) {
+                    if (data && data.status === 'ok') {
+                        _cache.settings = { data: data, ts: Date.now() };
+                    }
+                    applySettingsData(data);
+                })
+                .catch(function(err) { console.error('Failed to fetch settings:', err); });
+        } else {
+            applySettingsData(_cache.settings.data);
+        }
+
+        // /api/system/advanced_params
+        if (forceRefresh || !isCacheValid('advanced')) {
+            fetch('/api/system/advanced_params')
+                .then(function(res) { if (!res.ok) return null; return res.json(); })
+                .then(function(data) {
+                    if (data && data.status === 'ok') {
+                        _cache.advanced = { data: data, ts: Date.now() };
+                    }
+                    applyAdvancedData(data);
+                })
+                .catch(function(err) { console.error('Failed to fetch advanced params:', err); });
+        } else {
+            applyAdvancedData(_cache.advanced.data);
+        }
+
+        // /api/system/generation_defaults
+        if (forceRefresh || !isCacheValid('defaults')) {
+            fetch('/api/system/generation_defaults')
+                .then(function(res) { if (!res.ok) return null; return res.json(); })
+                .then(function(data) {
+                    if (data && data.status === 'ok') {
+                        _cache.defaults = { data: data, ts: Date.now() };
+                    }
+                    applyDefaultsData(data);
+                })
+                .catch(function(err) { console.error('Failed to fetch generation defaults:', err); });
+        } else {
+            applyDefaultsData(_cache.defaults.data);
+        }
     }
 
     window.saveAdvancedParams = function() {
@@ -667,6 +706,7 @@
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
+                invalidateCache('advanced');
                 if (window.Toast) Toast.show(t('save_success'), 'success');
             } else {
                 if (window.Toast) Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
@@ -700,6 +740,7 @@
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
+                invalidateCache('defaults');
                 if (window.Toast) Toast.show(t('save_success'), 'success');
             } else {
                 if (window.Toast) Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
@@ -733,6 +774,7 @@
         }).then(function(res) { return res.json(); }).then(function(data) {
             if (btn) btn.disabled = false;
             if (data.status === 'ok') {
+                invalidateCache('settings');
                 if (window.Toast) Toast.show(t('save_success'), 'success');
             } else {
                 if (window.Toast) Toast.show(t('save_failed') + ': ' + (data.message || t('unknown_error')), 'error');
@@ -743,9 +785,98 @@
         });
     };
 
+    // Unified save: save all settings sections in parallel
+    window.saveAllSettings = function() {
+        var btn = document.getElementById('settings-save-all-btn');
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+
+        var t = function(key) { return (window.I18N && window.I18N[key]) || key; };
+        var completed = 0;
+        var failed = 0;
+        var total = 3;
+
+        function checkDone() {
+            completed++;
+            if (completed < total) return;
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+            if (failed === 0) {
+                invalidateCache();
+                if (window.Toast) Toast.show(t('save_success'), 'success');
+            } else {
+                if (window.Toast) Toast.show(t('save_failed') + ' (' + failed + '/' + total + ')', 'error');
+            }
+        }
+
+        // Generation defaults payload
+        var sampleRateEl = document.getElementById('settings-default-sample-rate');
+        var speedEl = document.getElementById('settings-default-speed');
+        var seedEl = document.getElementById('settings-default-seed');
+        var silenceEl = document.getElementById('settings-script-studio-silence');
+        var genPayload = {
+            default_sample_rate: sampleRateEl ? parseInt(sampleRateEl.value, 10) : 24000,
+            default_speed: speedEl ? parseFloat(speedEl.value) : 1.0,
+            default_seed: seedEl ? parseInt(seedEl.value, 10) : 42,
+            script_studio_silence_secs: silenceEl ? parseFloat(silenceEl.value) : 0.4,
+        };
+
+        // Advanced params payload
+        var retryBadcase = document.getElementById('settings-retry-badcase');
+        var retryMaxTimes = document.getElementById('settings-retry-max-times');
+        var retryRatioThreshold = document.getElementById('settings-retry-ratio-threshold');
+        var targetLufs = document.getElementById('settings-target-lufs');
+        var idleTimeout = document.getElementById('settings-idle-timeout');
+        var trimSilence = document.getElementById('settings-trim-silence-vad');
+        var advPayload = {
+            max_len: 3000,
+            split_max_chars: 200,
+            retry_badcase: retryBadcase ? retryBadcase.checked : true,
+            retry_badcase_max_times: retryMaxTimes ? parseInt(retryMaxTimes.value, 10) : 3,
+            retry_badcase_ratio_threshold: retryRatioThreshold ? parseFloat(retryRatioThreshold.value) : 6,
+            target_lufs: targetLufs ? parseFloat(targetLufs.value) : -16,
+            idle_timeout: idleTimeout ? parseInt(idleTimeout.value, 10) : 300,
+            trim_silence_vad: trimSilence ? trimSilence.checked : true,
+        };
+
+        // General settings payload
+        var autoSaveEl = document.getElementById('settings-auto-save');
+        var autoPlayEl = document.getElementById('settings-auto-play');
+        var notifEl = document.getElementById('settings-notifications');
+        var formatEl = document.getElementById('settings-output-format');
+        var genSettingsPayload = {
+            auto_save: autoSaveEl ? autoSaveEl.checked : true,
+            auto_play: autoPlayEl ? autoPlayEl.checked : false,
+            notifications: notifEl ? notifEl.checked : true,
+            output_format: formatEl ? formatEl.value : 'wav',
+        };
+
+        var jsonHeaders = { 'Content-Type': 'application/json' };
+        var csrfVal = window.getCsrfToken ? window.getCsrfToken() : '';
+        if (csrfVal) jsonHeaders['X-CSRF-Token'] = csrfVal;
+
+        fetch('/api/system/generation_defaults', { method: 'POST', headers: jsonHeaders, body: JSON.stringify(genPayload) })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { if (d.status !== 'ok') failed++; checkDone(); })
+            .catch(function() { failed++; checkDone(); });
+
+        fetch('/api/system/advanced_params', { method: 'POST', headers: jsonHeaders, body: JSON.stringify(advPayload) })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { if (d.status !== 'ok') failed++; checkDone(); })
+            .catch(function() { failed++; checkDone(); });
+
+        fetch('/api/system/settings', { method: 'POST', headers: jsonHeaders, body: JSON.stringify(genSettingsPayload) })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { if (d.status !== 'ok') failed++; checkDone(); })
+            .catch(function() { failed++; checkDone(); });
+    };
+
+    // Expose cache invalidation globally so other tabs can trigger it
+    window._ttsSettingsInvalidateCache = invalidateCache;
+
     initToggles();
     fetchSettingsData();
-    var refreshInterval = setInterval(fetchSettingsData, 30000);
+
+    // Periodic refresh: force refresh to get fresh data, but cache prevents redundant DOM updates
+    var refreshInterval = setInterval(function() { fetchSettingsData(true); }, 30000);
 
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
@@ -753,7 +884,7 @@
             refreshInterval = null;
         } else {
             fetchSettingsData();
-            refreshInterval = setInterval(fetchSettingsData, 30000);
+            refreshInterval = setInterval(function() { fetchSettingsData(true); }, 30000);
         }
     });
 

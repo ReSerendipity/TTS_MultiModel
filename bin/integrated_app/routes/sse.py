@@ -176,6 +176,17 @@ async def sse_events(request: Request):
                     )
                     yield f"event: cancelled\ndata: {data}\n\n"
 
+                # ---- error 事件 ----
+                if progress_status.get("is_error", False):
+                    data = json.dumps(
+                        {
+                            "status": "error",
+                            "message": progress_status.get("phase", "生成失败"),
+                        },
+                        ensure_ascii=False,
+                    )
+                    yield f"event: error\ndata: {data}\n\n"
+
                 # ---- status 事件 (原 /sse/status, 2s 轮询) ----
                 tracker_info = _gen_tracker.get_info() if _gen_tracker else {}
                 status_text = tracker_info.get("status_text", i18n_t("sse_status_idle", lang))
@@ -320,4 +331,12 @@ async def sse_events(request: Request):
             except Exception:
                 pass
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
