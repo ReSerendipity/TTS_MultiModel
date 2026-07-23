@@ -35,10 +35,19 @@ A powerful open-source multi-model Text-to-Speech platform with voice cloning, v
 
 ## Demo
 
-<!-- 截图占位：替换为实际截图路径 -->
-<!-- ![TTS MultiModel UI](docs/screenshots/demo_light.png) -->
+<div align="center">
 
-> 截图和 GIF 演示即将添加。欢迎在 [Discussions](https://github.com/ReSerendipity/TTS_MultiModel/discussions) 中分享你的使用体验！
+| 声音设计 | 声音克隆 |
+|:--------:|:--------:|
+| ![Voice Design](docs/screenshots/voxcpm2_01_voice_design_viewport.png) | ![Voice Clone](docs/screenshots/voxcpm2_02_voice_clone_viewport.png) |
+
+| 剧本配音 | 系统设置 |
+|:--------:|:--------:|
+| ![Script Workshop](docs/screenshots/voxcpm2_04_script_workshop_viewport.png) | ![Settings](docs/screenshots/voxcpm2_08_settings_viewport.png) |
+
+</div>
+
+> 欢迎在 [Discussions](https://github.com/ReSerendipity/TTS_MultiModel/discussions) 中分享你的使用体验！
 
 ## 功能亮点
 
@@ -310,10 +319,19 @@ Copyright (c) 2026 ReSerendipity
 
 ## Demo
 
-<!-- Screenshot placeholder: replace with actual screenshot path -->
-<!-- ![TTS MultiModel UI](docs/screenshots/demo_light.png) -->
+<div align="center">
 
-> Screenshots and GIF demos coming soon. Share your experience in [Discussions](https://github.com/ReSerendipity/TTS_MultiModel/discussions)!
+| Voice Design | Voice Clone |
+|:------------:|:-----------:|
+| ![Voice Design](docs/screenshots/voxcpm2_01_voice_design_viewport.png) | ![Voice Clone](docs/screenshots/voxcpm2_02_voice_clone_viewport.png) |
+
+| Script Workshop | Settings |
+|:---------------:|:--------:|
+| ![Script Workshop](docs/screenshots/voxcpm2_04_script_workshop_viewport.png) | ![Settings](docs/screenshots/voxcpm2_08_settings_viewport.png) |
+
+</div>
+
+> Share your experience in [Discussions](https://github.com/ReSerendipity/TTS_MultiModel/discussions)!
 
 ## Features
 
