@@ -1,6 +1,8 @@
 # OpenAI 兼容 API 设计
 
 > 来源参考：VoxCPM (OpenBMB/VoxCPM) OpenAI 兼容 API + CosyVoice gRPC/FastAPI 服务
+>
+> 最后更新: 2026-07-24
 
 ---
 

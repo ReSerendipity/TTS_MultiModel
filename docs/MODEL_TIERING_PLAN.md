@@ -1,5 +1,7 @@
 # 模型分级部署架构设计
 
+> 最后更新: 2026-07-24
+>
 > 来源参考：Chatterbox (resemble-ai/chatterbox) Turbo/Nano/Multilingual 模型分级策略
 
 ---

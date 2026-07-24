@@ -1,3 +1,8 @@
+"""VoxCPM2 可控克隆生成。
+
+使用参考音频进行声音克隆，支持 prompt 缓存加速和高级参数控制。
+"""
+
 import os
 import time
 

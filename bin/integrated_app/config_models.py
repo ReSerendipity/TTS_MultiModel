@@ -4,7 +4,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class AdvancedParamsConfig(BaseModel):
-    """高级生成参数配置（不可变，替代全局 _ADVANCED_PARAMS 字典）"""
+    """高级生成参数配置（不可变，替代全局 _ADVANCED_PARAMS 字典）
+
+    RAS 说明:
+        参考 Fish Speech 的 RAS (Repetition Aware Sampling) 策略，
+        适配为音频段级别检测。启用后，在多段生成过程中自动检测
+        退化输出（过短、静音、单调重复），并调整 cfg_value 重试。
+    """
 
     model_config = ConfigDict(extra="ignore")
     max_len: int = Field(default=3000, description="最大生成长度（固定值）")
@@ -15,6 +21,10 @@ class AdvancedParamsConfig(BaseModel):
     trim_silence_vad: bool = Field(default=True, description="VAD 静音裁切")
     target_lufs: float = Field(default=-16.0, ge=-30, le=0, description="目标响度 (LUFS)")
     idle_timeout: int = Field(default=300, ge=60, le=3600, description="空闲超时时间 (秒)")
+    # RAS (Repetition Aware Sampling) 段级重复检测
+    enable_ras: bool = Field(default=False, description="启用 RAS 段级重复检测（参考 Fish Speech）")
+    ras_max_retries: int = Field(default=2, ge=0, le=5, description="RAS 每段最大重试次数")
+    ras_cfg_increase: float = Field(default=0.5, gt=0, le=2.0, description="RAS 重试时 cfg_value 每次增量")
 
     def to_dict(self) -> dict:
         """转换为字典（用于传递给模型生成函数）"""
@@ -55,6 +65,31 @@ class MemoryConfig(BaseModel):
     preload_buffer: int = Field(default=1024, ge=256, le=4096, description="Preload buffer size (MB)")
 
 
+class EngineSpecConfig(BaseModel):
+    """声明式引擎规格配置（对齐 VoiceBox 的 ModelConfig dataclass）
+
+    统一管理所有引擎元数据：名称、HF 仓库、大小、语言、显存需求、支持特性等。
+    新引擎只需在 config.yaml 中声明即可自动注册和渲染。
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    name: str = Field(description="引擎内部标识符（如 voxcpm2, indextts2）")
+    display_name: str = Field(default="", description="UI 显示名称")
+    hf_repo: str = Field(default="", description="HuggingFace/ModelScope 仓库地址")
+    model_dir: str = Field(default="", description="本地模型目录名（相对于 pretrained_models/）")
+    vram_gb: float = Field(default=6.0, gt=0, description="最低显存需求 (GB)")
+    ram_gb: float = Field(default=16.0, gt=0, description="最低内存需求 (GB)")
+    languages: list[str] = Field(default_factory=lambda: ["zh", "en"], description="支持语言列表")
+    quality: str = Field(default="high", description="质量等级: x-low/low/medium/high")
+    license: str = Field(default="", description="引擎许可证类型")
+    supported_features: list[str] = Field(
+        default_factory=list,
+        description="支持特性: voice_design/clone/ultimate/script/streaming/emotion_control/lora",
+    )
+    sample_rate: int = Field(default=24000, description="输出采样率 (Hz)")
+    requires_gpu: bool = Field(default=True, description="是否需要 GPU（False 表示 CPU 可用）")
+
+
 class ModelConfig(BaseModel):
     """Model path and parameters configuration."""
 
@@ -62,6 +97,17 @@ class ModelConfig(BaseModel):
     base_dir: str = Field(default="models", description="Base directory for model weights")
     voxcpm_vram: float = Field(default=6.0, gt=0, description="VoxCPM2 VRAM requirement (GB)")
     indextts2_vram: float = Field(default=6.0, gt=0, description="IndexTTS 2.0 VRAM requirement (GB)")
+    engines: dict[str, EngineSpecConfig] = Field(
+        default_factory=dict,
+        description="声明式引擎注册表，key 为引擎名称",
+    )
+
+    def get_engine_spec(self, engine_name: str) -> EngineSpecConfig | None:
+        """获取指定引擎的声明式规格配置。
+
+        优先使用 engines 字典中的配置，若不存在则返回 None。
+        """
+        return self.engines.get(engine_name)
 
 
 class I18nConfig(BaseModel):

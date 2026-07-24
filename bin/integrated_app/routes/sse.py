@@ -328,8 +328,8 @@ async def sse_events(request: Request):
                     ensure_ascii=False,
                 )
                 yield f"event: error\ndata: {error_data}\n\n"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"SSE error recovery failed: {e}")
 
     return StreamingResponse(
         event_stream(),

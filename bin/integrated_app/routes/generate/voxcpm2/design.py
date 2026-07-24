@@ -1,3 +1,8 @@
+"""VoxCPM2 声音设计生成路由。
+
+根据文本描述生成指定风格语音的 HTTP 端点。
+"""
+
 import os
 
 from fastapi import Form, Request
@@ -15,7 +20,7 @@ from ..utils import (
 )
 
 
-@router.post("/voxcpm_design", summary="声音设计")
+@router.post("/voxcpm_design", summary="声音设计", description="使用 VoxCPM2 根据文本描述生成指定风格的语音")
 async def generate_voxcpm_design(
     request: Request,
     text: str = Form(""),

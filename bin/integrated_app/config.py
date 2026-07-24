@@ -2,7 +2,7 @@
 Multi-engine configuration (VoxCPM2 + IndexTTS 2.0).
 
 Configuration is managed through the AppConfig class, accessible via get_config().
-Module-level variables are kept for backward compatibility but are deprecated.
+Module-level deprecated variables have been removed; use get_config() instead.
 """
 
 import os
@@ -140,8 +140,10 @@ def _parse_api_auth(yaml_config: dict) -> ApiAuthConfig:
                 enabled=bool(auth_cfg.get("enabled", False)),
                 token=str(auth_cfg.get("token", "")),
             )
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+
+        logging.getLogger("tts_multimodel").debug(f"API auth config parse failed (using defaults): {e}")
     return ApiAuthConfig()
 
 
@@ -156,11 +158,28 @@ class AppConfig:
     Holds all configuration values loaded from config.yaml and provides
     property access for backward compatibility with module-level variables.
 
+    Configuration is loaded lazily on first property access, not at construction
+    time. This avoids triggering side effects (environment variables, directory
+    creation, YAML parsing) during import or testing.
+
     Use ``get_config()`` to obtain the singleton instance.
     """
 
     def __init__(self):
-        # Initialize environment and directories first
+        self._loaded = False
+        self._yaml_config: dict = {}
+        self._version: str = "0.0.0"
+        self._generation_defaults: GenerationDefaultsConfig | None = None
+        self._api_auth: ApiAuthConfig | None = None
+        self._pydantic_config: _PydanticAppConfig | None = None
+
+    def _ensure_loaded(self):
+        """Trigger lazy initialization on first property access."""
+        if self._loaded:
+            return
+        self._loaded = True
+
+        # Initialize environment and directories
         _set_env()
         _ensure_dirs()
 
@@ -182,18 +201,22 @@ class AppConfig:
 
     @property
     def version(self) -> str:
+        self._ensure_loaded()
         return self._version
 
     @property
     def generation_defaults(self) -> GenerationDefaultsConfig:
+        self._ensure_loaded()
         return self._generation_defaults
 
     @property
     def api_auth(self) -> ApiAuthConfig:
+        self._ensure_loaded()
         return self._api_auth
 
     @property
     def pydantic_config(self) -> _PydanticAppConfig:
+        self._ensure_loaded()
         return self._pydantic_config
 
     # -- Computed properties (backward compat with old module-level vars) -----
@@ -201,11 +224,13 @@ class AppConfig:
     @property
     def gen_defaults_dict(self) -> dict:
         """Generation defaults as a plain dict (backward compat with GEN_DEFAULTS)."""
+        self._ensure_loaded()
         return self._generation_defaults.model_dump()
 
     @property
     def api_auth_dict(self) -> dict:
         """API auth as a plain dict (backward compat with API_AUTH)."""
+        self._ensure_loaded()
         return {"enabled": self._api_auth.enabled, "token": self._api_auth.token}
 
 
@@ -222,6 +247,18 @@ def get_config() -> AppConfig:
     if _config_instance is None:
         _config_instance = AppConfig()
     return _config_instance
+
+
+def force_load_config() -> AppConfig:
+    """Force immediate configuration loading.
+
+    Entry points (app_server.run_server, cli.main) should call this before
+    create_app() to ensure environment variables and directories are set up
+    proactively, rather than relying on lazy initialization.
+    """
+    cfg = get_config()
+    cfg._ensure_loaded()
+    return cfg
 
 
 # ---------------------------------------------------------------------------
@@ -255,8 +292,10 @@ def _has_model_weights(model_dir: str, min_size_mb: float = 10.0) -> bool:
             try:
                 if os.path.isfile(fpath) and os.path.getsize(fpath) >= min_bytes:
                     return True
-            except OSError:
-                pass
+            except OSError as e:
+                import logging
+
+                logging.getLogger("tts_multimodel").debug(f"[Config] 模型权重文件检查失败 {fpath}: {e}")
     return False
 
 

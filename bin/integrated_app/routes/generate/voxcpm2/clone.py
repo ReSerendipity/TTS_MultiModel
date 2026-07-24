@@ -1,3 +1,8 @@
+"""VoxCPM2 克隆/极致克隆/Prompt延续生成路由。
+
+处理可控克隆、极致克隆和 Prompt 延续三种生成模式的 HTTP 端点。
+"""
+
 import os
 import time
 

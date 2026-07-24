@@ -1,3 +1,8 @@
+"""VoxCPM2 剧本工坊生成路由。
+
+处理多角色对话剧本语音合成的 HTTP 端点。
+"""
+
 import os
 
 from fastapi import Form, Request
@@ -14,7 +19,7 @@ from ..utils import (
 )
 
 
-@router.post("/voxcpm_script", summary="剧本工坊")
+@router.post("/voxcpm_script", summary="剧本工坊", description="使用 VoxCPM2 生成多角色对话剧本语音")
 async def generate_voxcpm_script(
     request: Request,
     text: str = Form(""),

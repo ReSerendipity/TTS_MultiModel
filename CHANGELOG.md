@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No unreleased changes._
 
+## [2.0.2] - 2026-07-24
+
+### Added
+- CORS Docker deployment support: configurable via `TTS_CORS_ORIGINS` environment variable
+- CI/CD benchmark test step (runs on main branch pushes)
+
+### Changed
+- Version synchronized across pyproject.toml, config.yaml, and app_server.py (all 2.0.2)
+- Coverage threshold raised from 40% to 50% in pyproject.toml and ci.yml
+- SPEC_optimization.md status updated to "已完成"
+- Documentation "最后更新" timestamps added to all docs
+
+### Fixed
+- Removed duplicate English/Chinese content in install.sh and start.sh
+- Version number inconsistency (pyproject.toml 2.0.0 → 2.0.2, app_server.py 2.0.0 → 2.0.2)
+
 ## [2.0.1] - 2026-07-23
 
 ### Added

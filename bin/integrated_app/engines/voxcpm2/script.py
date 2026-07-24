@@ -1,3 +1,8 @@
+"""VoxCPM2 剧本工坊生成。
+
+解析多角色对话剧本，为每个角色加载对应音色，依次合成并拼接为完整音频。
+"""
+
 import os
 import re
 import time

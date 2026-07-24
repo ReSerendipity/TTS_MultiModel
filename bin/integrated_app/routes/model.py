@@ -13,6 +13,7 @@ Supports VoxCPM2 and IndexTTS 2.0 dual-engine architecture.
 """
 
 import asyncio
+import json
 import logging
 import re
 
@@ -387,7 +388,42 @@ async def lora_list_endpoint():
                     info["base_model"] = cfg.get("base_model_name_or_path", "")
                     info["r"] = cfg.get("r", "")
                     info["lora_alpha"] = cfg.get("lora_alpha", "")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"LoRA adapter_config.json 解析失败 ({config_path}): {e}")
             checkpoints.append(info)
     return JSONResponse({"status": "ok", "checkpoints": checkpoints})
+
+
+@router.get("/download_hints", summary="模型下载提示", description="返回缺失模型的下载命令和链接")
+async def model_download_hints():
+    """#26: 模型缺失时返回下载提示信息。
+
+    Returns:
+        JSON: 包含各引擎的下载命令和链接
+    """
+    try:
+        from ..config import get_download_hints
+        hints = get_download_hints()
+        all_ok = len(hints) == 0
+        return JSONResponse({
+            "status": "ok",
+            "all_models_available": all_ok,
+            "hints": hints,
+        })
+    except Exception as e:
+        logger.error(f"获取下载提示失败: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": "获取下载提示失败"}, status_code=500)
+
+
+@router.post("/api/generate/cancel", summary="取消生成任务")
+async def cancel_generation():
+    """Cancel the current generation task.
+
+    Returns:
+        JSON: Status of the cancellation request.
+    """
+    from ..model_manager import _progress_mgr
+    if _progress_mgr:
+        _progress_mgr.cancel()
+        return JSONResponse({"status": "cancelling", "message": "生成任务已取消"})
+    return JSONResponse({"status": "no_active_generation", "message": "没有正在进行的生成任务"})

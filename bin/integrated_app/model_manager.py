@@ -70,7 +70,7 @@ from .gpu_utils import (
     get_gpu_device,
     is_oom_error,
 )
-from .model_registry import registry
+from .model_registry import EngineName, registry
 from .monitor import get_health_monitor
 from .progress import ProgressManager
 from .tracker import GenerationTracker
@@ -392,13 +392,16 @@ def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Ge
 
         new_model = voxcpm.VoxCPM.from_pretrained(VOXCPM2_MODEL_PATH, **kwargs)
 
-        # Move sub-components to GPU
+        # Move sub-components to GPU with granular progress
         if backend != GPUBackend.CPU and gpu_device is not None:
-            for attr in ("tts_model", "model", "codecs", "vocoder"):
-                sub = getattr(new_model, attr, None)
-                if sub is not None and hasattr(sub, "to"):
-                    sub.to(device_string)
-                    logger.info(f"  VoxCPM2.{attr} -> {device_string}")
+            gpu_components = [attr for attr in ("tts_model", "model", "codecs", "vocoder") if getattr(new_model, attr, None) is not None]
+            total_components = len(gpu_components)
+            for i, attr in enumerate(gpu_components, 1):
+                sub = getattr(new_model, attr)
+                status_text = f"GPU 传输: {attr} ({i}/{total_components})..."
+                yield status_text, None, None, None
+                sub.to(device_string)
+                logger.info(f"  VoxCPM2.{attr} -> {device_string}")
             # Ensure cache sync
             GPUBackendManager.synchronize()
             allocated_mb = GPUBackendManager.memory_allocated() / (1024**2)
@@ -515,7 +518,7 @@ def load_indextts2() -> Generator:
             # Step 1: VRAM/RAM check
             from .model_registry import ENGINE_VRAM_REQUIREMENTS
 
-            needed_vram_gb = ENGINE_VRAM_REQUIREMENTS.get("indextts2", 6.0)
+            needed_vram_gb = ENGINE_VRAM_REQUIREMENTS.get(EngineName.INDEXTTS2.value, 6.0)
             status_text = "正在检查系统资源..."
             yield status_text, None, None, None
 
@@ -602,7 +605,7 @@ class PreloadService:
         }
         self._lock = threading.Lock()
 
-    def preload(self, engine: str = "voxcpm2", size: str = "voxcpm2") -> None:
+    def preload(self, engine: str = EngineName.VOXCPM2.value, size: str = EngineName.VOXCPM2.value) -> None:
         """Background preload of model files into system RAM page cache.
 
         Reads the first 1MB of each model file to warm up the OS page cache,
@@ -613,7 +616,7 @@ class PreloadService:
         Only one preload task runs at a time (guarded by _lock).
 
         Args:
-            engine: Target engine name ("voxcpm2" or "indextts2").
+            engine: Target engine name (EngineName.VOXCPM2 or EngineName.INDEXTTS2).
             size: Model size variant (currently ignored).
         """
         with self._lock:
@@ -631,7 +634,7 @@ class PreloadService:
 
             set_request_id(f"bg-{threading.current_thread().name}")
             try:
-                if engine == "voxcpm2":
+                if engine == EngineName.VOXCPM2.value:
                     logger.info("[预加载] 开始预读 VoxCPM2 模型文件到系统内存...")
                     if os.path.exists(VOXCPM2_MODEL_PATH):
                         self._read_files_to_cache(VOXCPM2_MODEL_PATH)
@@ -643,7 +646,7 @@ class PreloadService:
                         self._read_files_to_cache(VOXCPM2_ASR_PATH)
                         logger.info("[预加载] VoxCPM2 ASR 模型文件已预读到系统缓存")
 
-                elif engine == "indextts2":
+                elif engine == EngineName.INDEXTTS2.value:
                     logger.info("[预加载] 开始预读 IndexTTS 2.0 模型文件到系统内存...")
                     if os.path.exists(INDEXTTS2_MODEL_PATH):
                         self._read_files_to_cache(INDEXTTS2_MODEL_PATH)
@@ -730,7 +733,7 @@ class PreloadService:
 _preload_service = PreloadService()
 
 
-def preload_model(engine: str = "voxcpm2", size: str = "voxcpm2") -> None:
+def preload_model(engine: str = EngineName.VOXCPM2.value, size: str = EngineName.VOXCPM2.value) -> None:
     """向后兼容包装：委托给 PreloadService.preload()。"""
     _preload_service.preload(engine, size)
 
@@ -743,6 +746,59 @@ def get_preload_status() -> dict:
 # ====================================================================
 # 引擎切换 (M-R1 拆分 + M-R3 回滚一致性)
 # ====================================================================
+
+
+def _can_hot_standby(target_engine: str) -> bool:
+    """Check if there's enough VRAM to keep both current and target engine loaded.
+
+    Hot standby mode allows switching engines without unloading the current one,
+    reducing switch latency when VRAM is sufficient.
+
+    Args:
+        target_engine: Name of the target engine to load.
+
+    Returns:
+        True if hot standby is possible, False otherwise.
+    """
+    from .gpu_backend import GPUBackend, GPUBackendManager
+    from .model_registry import ENGINE_VRAM_REQUIREMENTS
+
+    backend = GPUBackendManager.detect_backend()
+    if backend == GPUBackend.CPU:
+        return False
+
+    gpu_device = get_gpu_device()
+    if gpu_device is None:
+        return False
+
+    props = GPUBackendManager.get_device_properties(gpu_device)
+    total = props.get("total_memory", 0)
+    if total <= 0:
+        return False
+
+    allocated = GPUBackendManager.memory_allocated(gpu_device)
+    free_gb = (total - allocated) / (1024 ** 3)
+
+    current_vram = ENGINE_VRAM_REQUIREMENTS.get(registry.current_engine, 0)
+    target_vram = ENGINE_VRAM_REQUIREMENTS.get(target_engine, 0)
+
+    # Need enough free VRAM for target engine (with 20% margin)
+    # Plus we keep current engine loaded
+    needed_gb = target_vram * 0.8
+    can_standby = free_gb >= needed_gb
+
+    if can_standby:
+        logger.info(
+            f"[热待机] 显存充足: 可用 {free_gb:.2f}GB, "
+            f"目标需要 {needed_gb:.2f}GB, 当前引擎占用 {current_vram:.1f}GB"
+        )
+    else:
+        logger.info(
+            f"[热待机] 显存不足: 可用 {free_gb:.2f}GB, "
+            f"目标需要 {needed_gb:.2f}GB"
+        )
+
+    return can_standby
 
 
 def _validate_engine_name(engine_name: str) -> str:
@@ -758,7 +814,7 @@ def _validate_engine_name(engine_name: str) -> str:
         EngineSwitchError: 引擎名称不在白名单中。
     """
     engine_name = engine_name.strip()
-    if engine_name not in ("voxcpm2", "indextts2"):
+    if engine_name not in EngineName._value2member_map_:
         raise EngineSwitchError(f"不支持的引擎: {engine_name}")
     return engine_name
 
@@ -905,7 +961,7 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
 
     # M-R3: 根据 prev_engine 重新加载模型
     # 注意：set_voxcpm_loaded / set_indextts2_loaded 内部会设置 current_engine
-    if prev_engine == "voxcpm2":
+    if prev_engine == EngineName.VOXCPM2.value:
         try:
             logger.info("[引擎切换] 回滚: 重新加载 VoxCPM2 模型...")
             from .gpu_backend import GPUBackend, GPUBackendManager
@@ -918,7 +974,7 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
             logger.info("[引擎切换] 回滚: VoxCPM2 模型重新加载完成")
         except Exception as reload_err:
             logger.error(f"[引擎切换] 回滚时重新加载 VoxCPM2 失败: {reload_err}")
-    elif prev_engine == "indextts2":
+    elif prev_engine == EngineName.INDEXTTS2.value:
         try:
             logger.info("[引擎切换] 回滚: 重新加载 IndexTTS2 引擎...")
             from .engines.indextts2_engine import IndexTTS2Engine
@@ -943,7 +999,7 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
     GPUBackendManager.empty_cache()
 
 
-def switch_engine(engine_name: str = "voxcpm2") -> Generator:
+def switch_engine(engine_name: str = EngineName.VOXCPM2.value) -> Generator:
     """Switch the active engine with full rollback on failure.
 
     REFACTOR: [M-R1] 拆分为 5 个职责单一的辅助函数，单函数圈复杂度 25 → 各 <8。
@@ -961,7 +1017,7 @@ def switch_engine(engine_name: str = "voxcpm2") -> Generator:
     re-raised as-is; other exceptions are wrapped as EngineSwitchError.
 
     Args:
-        engine_name: Target engine name ("voxcpm2" or "indextts2").
+        engine_name: Target engine name (EngineName.VOXCPM2 or EngineName.INDEXTTS2).
 
     Yields:
         Tuple of (status_text, audio, sample_rate, format) at each stage.
@@ -989,30 +1045,36 @@ def switch_engine(engine_name: str = "voxcpm2") -> Generator:
         logger.info("[引擎切换] 开始 VRAM 预检查...")
         _check_vram_prereq(engine_name, backend, gpu_device)
 
-        # Step 2: Unload current model
-        _progress_mgr.update_phase("正在卸载旧引擎...")
-        unload_model()
+        # Step 2: Check if hot standby is possible
+        hot_standby = _can_hot_standby(engine_name)
+        if hot_standby:
+            logger.info("[引擎切换] 显存充足，使用热待机模式，跳过卸载")
+            _progress_mgr.update_phase("显存充足，直接加载新引擎...")
+        else:
+            logger.info("[引擎切换] 显存不足，使用传统切换模式")
+            _progress_mgr.update_phase("正在卸载旧引擎...")
+            unload_model()
 
-        # M-R1: 等待显存释放
-        if backend != GPUBackend.CPU and gpu_device is not None:
-            GPUBackendManager.synchronize(gpu_device)
-            GPUBackendManager.empty_cache()
-            GPUBackendManager.ipc_collect(gpu_device)
+            # M-R1: 等待显存释放
+            if backend != GPUBackend.CPU and gpu_device is not None:
+                GPUBackendManager.synchronize(gpu_device)
+                GPUBackendManager.empty_cache()
+                GPUBackendManager.ipc_collect(gpu_device)
 
-            vram_freed = _wait_vram_freed(gpu_device)
-            GPUBackendManager.empty_cache()
+                vram_freed = _wait_vram_freed(gpu_device)
+                GPUBackendManager.empty_cache()
 
-            if vram_freed:
-                logger.info("[引擎切换] VRAM 已释放")
-            else:
-                logger.warning("[引擎切换] VRAM 轮询超时，继续切换流程")
+                if vram_freed:
+                    logger.info("[引擎切换] VRAM 已释放")
+                else:
+                    logger.warning("[引擎切换] VRAM 轮询超时，继续切换流程")
 
-        _progress_mgr.update_phase("正在清理 VRAM...")
+            _progress_mgr.update_phase("正在清理 VRAM...")
 
         # Step 3: 加载新引擎
-        if engine_name == "voxcpm2":
+        if engine_name == EngineName.VOXCPM2.value:
             yield from _load_voxcpm2_engine(gpu_device, backend)
-        elif engine_name == "indextts2":
+        elif engine_name == EngineName.INDEXTTS2.value:
             yield from load_indextts2()
 
     except TTSError:
