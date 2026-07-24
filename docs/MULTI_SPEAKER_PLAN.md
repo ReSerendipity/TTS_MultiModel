@@ -1,6 +1,8 @@
 # 多说话人生成增强方案
 
 > 来源参考：Fish Speech (fishaudio/fish-speech) `<|speaker:i|>` 多说话人 token 控制
+>
+> 最后更新: 2026-07-24
 
 ---
 

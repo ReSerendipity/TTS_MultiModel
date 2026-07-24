@@ -1,6 +1,8 @@
 # 方言支持扩展方案
 
 > 来源参考：CosyVoice (FunAudioLLM/CosyVoice) 18+ 中国方言支持
+>
+> 最后更新: 2026-07-24
 
 ---
 

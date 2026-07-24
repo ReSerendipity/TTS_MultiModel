@@ -1,3 +1,9 @@
+"""国际化 (i18n) 模块。
+
+支持 zh/en/ja/ko 四种语言，通过 JSON 文件加载翻译。
+提供 t() 翻译函数、Jinja2 模板过滤器注册、语言检测等能力。
+"""
+
 import json
 import os
 from typing import Any

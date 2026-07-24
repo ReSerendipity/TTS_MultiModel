@@ -1,3 +1,9 @@
+"""FastAPI 应用入口。
+
+负责创建 FastAPI 实例、注册中间件（CORS、CSRF、API Auth、Request ID）、
+自动发现并挂载路由、配置静态文件服务和模板引擎、管理模型的启动加载。
+"""
+
 import asyncio
 import importlib
 import logging
@@ -19,6 +25,7 @@ from .exceptions import TTSError, ValidationError
 from .middleware.csrf import CSRFMiddleware
 from .middleware.error_handler import generic_error_handler, tts_error_handler, validation_error_handler
 from .middleware.request_id import RequestIDLogFilter, RequestIDMiddleware
+from .model_registry import EngineName
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_BASE_DIR))
@@ -105,12 +112,37 @@ def setup_logging():
         root_logger.setLevel(logging.INFO)
 
 
-def _auto_discover_routers(routes_package):
+def _auto_discover_routers(routes_package, prefix: str = ""):
+    """Recursively discover and collect routers from routes package.
+
+    Handles both top-level modules (e.g., pages.py) and sub-packages
+    (e.g., system/health.py, generate/voxcpm2/design.py).
+
+    Args:
+        routes_package: The routes package to scan.
+        prefix: Current import prefix for nested packages.
+
+    Returns:
+        List of FastAPI APIRouter instances.
+    """
     routers = []
-    for _importer, modname, _ispkg in pkgutil.iter_modules(routes_package.__path__):
-        mod = importlib.import_module(f".routes.{modname}", package="integrated_app")
-        if hasattr(mod, "router"):
-            routers.append(mod.router)
+    for _importer, modname, ispkg in pkgutil.iter_modules(routes_package.__path__):
+        full_name = f"{prefix}{modname}" if prefix else modname
+        try:
+            mod = importlib.import_module(f".routes.{full_name}", package="integrated_app")
+            if hasattr(mod, "router"):
+                routers.append(mod.router)
+        except Exception as e:
+            logger.debug(f"[路由发现] 导入 {full_name} 失败: {e}")
+
+        # Recurse into sub-packages
+        if ispkg:
+            try:
+                subpkg = importlib.import_module(f".routes.{full_name}", package="integrated_app")
+                routers.extend(_auto_discover_routers(subpkg.__path__, f"{full_name}."))
+            except Exception as e:
+                logger.debug(f"[路由发现] 递归扫描 {full_name} 失败: {e}")
+
     return routers
 
 
@@ -118,7 +150,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="TTS MultiModel Voice Studio",
         description="多模型语音合成平台，支持 VoxCPM2 和 IndexTTS2 引擎",
-        version="2.0.0",
+        version="2.0.2",
         docs_url="/docs",
         redoc_url="/redoc",
     )
@@ -132,9 +164,23 @@ def create_app() -> FastAPI:
         RequestIDMiddleware,
     )
 
+    # CORS: support Docker deployment via TTS_CORS_ORIGINS env var
+    cors_origins_str = os.environ.get("TTS_CORS_ORIGINS", "")
+    if cors_origins_str:
+        cors_origins = [o.strip() for o in cors_origins_str.split(",") if o.strip()]
+    else:
+        cors_origins = [
+            "http://127.0.0.1",
+            "http://localhost",
+            "http://127.0.0.1:7869",
+            "http://localhost:7869",
+            "http://0.0.0.0:7869",
+            "http://host.docker.internal:7869",
+        ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://127.0.0.1", "http://localhost", "http://127.0.0.1:7869", "http://localhost:7869"],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "X-CSRF-Token", "HX-Request", "HX-Target", "HX-Trigger"],
@@ -201,13 +247,23 @@ def create_app() -> FastAPI:
         else:
             status = "degraded"
 
-        return {
+        result = {
             "status": status,
             "models_available": models_ok,
             "loading": model_loading,
             "progress": model_load_progress,
             "missing_models": getattr(app.state, "missing_models", []),
         }
+
+        # #26: 模型缺失时附加下载提示
+        if not models_ok:
+            try:
+                from .config import get_download_hints
+                result["download_hints"] = get_download_hints()
+            except Exception:
+                result["download_hints"] = {}
+
+        return result
 
     from . import routes
 
@@ -235,6 +291,13 @@ def create_app() -> FastAPI:
             logger.error(f"[启动] 历史记录全量同步失败: {e}")
 
         auto_load = os.environ.get("TTS_AUTO_LOAD_MODEL", "0") == "1"
+
+        # 从 config.yaml 加载声明式引擎规格（替换硬编码常量）
+        try:
+            from .model_registry import load_engine_specs_from_config
+            load_engine_specs_from_config()
+        except Exception as e:
+            logger.debug(f"[启动] 引擎规格加载失败（使用默认值）: {e}")
 
         if not auto_load:
             logger.info("[启动] 自动加载已禁用，请通过界面手动加载模型")
@@ -265,7 +328,7 @@ def create_app() -> FastAPI:
                         setattr(app.state, k, v)
 
             try:
-                if auto_engine == "indextts2":
+                if auto_engine == EngineName.INDEXTTS2.value:
                     from .model_manager import load_indextts2
 
                     logger.info("[启动] 后台加载 IndexTTS 2.0 模型中...")
@@ -321,7 +384,10 @@ def create_app() -> FastAPI:
 
 
 def run_server(ip="127.0.0.1", port=7869):
-    from .config import check_models_available, get_config
+    from .config import check_models_available, force_load_config
+
+    # Force config loading before create_app() to set up env vars and dirs
+    force_load_config()
 
     app = create_app()
     models_ok, missing = check_models_available()

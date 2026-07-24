@@ -1,5 +1,7 @@
 # 边缘设备部署策略
 
+> 最后更新: 2026-07-24
+>
 > 来源参考：VoxCPM (OpenBMB/VoxCPM) llama.cpp-omni / Chatterbox Nano 边缘部署
 
 ---

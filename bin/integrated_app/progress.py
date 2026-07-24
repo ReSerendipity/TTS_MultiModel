@@ -56,8 +56,10 @@ class ProgressManager:
             from .routes.sse import event_bus
 
             event_bus.notify()
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+
+            logging.getLogger("tts_multimodel").debug(f"[ProgressManager] SSE 通知失败 (可忽略): {e}")
 
     def start(self, total_segments=1, phase="准备中"):
         """Initialize progress tracking for a new generation task.
@@ -88,6 +90,13 @@ class ProgressManager:
         """
         with self._lock:
             self._phase = phase
+        self._notify_sse()
+
+    def cancel(self):
+        """Cancel the current generation task."""
+        with self._lock:
+            self._is_cancelled = True
+            self._phase = "已取消"
         self._notify_sse()
 
     def advance_segment(self, phase="推理中", segment_bytes=0):

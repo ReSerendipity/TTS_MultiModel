@@ -1,5 +1,7 @@
 # TTS MultiModel Voice Studio — 第三轮全面浏览器测试报告
 
+> 最后更新: 2026-07-24
+
 **测试日期**: 2026-05-06
 **测试地址**: http://127.0.0.1:7869/
 **测试工具**: agent-browser (Chromium MCP)

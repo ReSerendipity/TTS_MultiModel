@@ -1,3 +1,8 @@
+"""VoxCPM2 Prompt 延续生成。
+
+基于参考音频的 prompt 模式，延续已有语音片段的风格继续生成。
+"""
+
 import os
 import time
 

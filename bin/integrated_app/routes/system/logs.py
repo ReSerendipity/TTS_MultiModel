@@ -1,3 +1,8 @@
+"""系统操作日志模块。
+
+维护内存中的操作日志队列，支持按类型过滤查询。
+"""
+
 import logging
 import threading
 from collections import deque

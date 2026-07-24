@@ -1,3 +1,9 @@
+"""LoRA 微调训练路由。
+
+管理 VoxCPM2 模型的 LoRA 微调训练流程，包括启动训练、停止训练、
+查看训练日志，以及自动检测采样率和参数校验。
+"""
+
 import asyncio
 import contextlib
 import json

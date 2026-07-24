@@ -1,3 +1,6 @@
+"""页面路由：首页、favicon 等。
+"""
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
 

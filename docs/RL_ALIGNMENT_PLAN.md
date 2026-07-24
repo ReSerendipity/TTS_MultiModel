@@ -1,5 +1,7 @@
 # RL 后训练对齐方案
 
+> 最后更新: 2026-07-24
+
 > 来源参考：Fish Speech (fishaudio/fish-speech) GRPO 强化学习对齐
 
 ---

@@ -1,3 +1,8 @@
+"""GPU 监控工具模块。
+
+提供 NVML 和 nvidia-smi 双后端的 GPU 利用率获取，支持句柄缓存和失败冷却。
+"""
+
 import logging
 import subprocess
 import threading

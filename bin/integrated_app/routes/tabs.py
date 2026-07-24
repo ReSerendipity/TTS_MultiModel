@@ -1,4 +1,11 @@
+"""HTMX 标签页路由。
+
+通过 /tab/{tab_name} 端点按需加载各功能页签的 HTML 模板，
+支持 VoxCPM2 / IndexTTS2 双引擎标签页和历史/音色/LoRA 管理。
+"""
+
 import html
+import logging
 import os
 
 from fastapi import APIRouter, Request
@@ -12,6 +19,8 @@ from ..model_registry import registry
 from ..persona_manager import get_persona_detail_table, get_persona_list, get_total_persona_count
 
 router = APIRouter()
+
+logger = logging.getLogger("tts_multimodel.tabs")
 
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 templates = Jinja2Templates(directory=os.path.join(_BASE_DIR, "templates"))
@@ -49,7 +58,8 @@ def _common_context(request: Request, tab_name: str = ""):
     # Use configurable split_max_chars from config
     try:
         split_chars = get_config().generation_defaults.split_max_chars
-    except Exception:
+    except Exception as e:
+        logger.debug(f"读取 split_max_chars 配置失败，使用默认值 200: {e}")
         split_chars = 200
 
     # Model-specific total character limits: 根据标签页决定，而非registry.current_engine

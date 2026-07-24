@@ -56,6 +56,58 @@ ENGINE_VRAM_REQUIREMENTS: dict[str, float] = {
     EngineName.INDEXTTS2.value: 6.0,
 }
 
+# --- 声明式引擎规格缓存（由 load_engine_specs_from_config 填充） ---
+_engine_specs: dict[str, Any] = {}
+
+
+def load_engine_specs_from_config(config_models_module=None) -> None:
+    """从 config_models 的 EngineSpecConfig 加载引擎规格，填充缓存。
+
+    对齐 VoiceBox 的声明式 ModelConfig 设计：引擎元数据（显存需求、
+    显示名称、支持特性等）由 config.yaml 驱动，而非硬编码。
+    新增引擎只需在 config.yaml 的 models.engines 中声明即可。
+
+    Args:
+        config_models_module: 可选的 config_models 模块引用。
+                             若为 None 则延迟导入。
+    """
+    global _engine_specs
+    try:
+        if config_models_module is None:
+            from . import config_models
+        else:
+            config_models = config_models_module
+
+        # 从 AppConfig 获取引擎规格
+        try:
+            from .config import get_config
+            app_config = get_config()
+            if app_config and app_config.models and app_config.models.engines:
+                for name, spec in app_config.models.engines.items():
+                    _engine_specs[name] = spec
+                    # 同步更新硬编码字典（保持向后兼容）
+                    ENGINE_DISPLAY_NAMES[name] = spec.display_name or name
+                    ENGINE_VRAM_REQUIREMENTS[name] = spec.vram_gb
+                logger.info(f"[ModelRegistry] 已从配置加载 {len(_engine_specs)} 个引擎规格: {list(_engine_specs.keys())}")
+            else:
+                logger.debug("[ModelRegistry] 配置中未找到引擎规格，使用默认值")
+        except Exception as e:
+            logger.debug(f"[ModelRegistry] 加载引擎规格失败（使用默认值）: {e}")
+    except Exception as e:
+        logger.debug(f"[ModelRegistry] load_engine_specs_from_config 失败: {e}")
+
+
+def get_engine_spec(name: str):
+    """获取指定引擎的声明式规格配置。
+
+    Args:
+        name: 引擎名称（如 "voxcpm2"）。
+
+    Returns:
+        EngineSpecConfig 实例，若未找到则返回 None。
+    """
+    return _engine_specs.get(name)
+
 
 class ModelRegistry:
     """Centralized, thread-safe registry for all model state.
@@ -221,8 +273,8 @@ class ModelRegistry:
             from .routes.sse import event_bus
 
             event_bus.notify()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[ModelRegistry] SSE 通知失败 (可忽略): {e}")
 
     def set_voxcpm_loaded(
         self,
@@ -340,11 +392,14 @@ class ModelRegistry:
         return False
 
     def get_current_model_info(self) -> dict[str, Any]:
-        """Return info dict for the currently active engine."""
+        """Return info dict for the currently active engine.
+
+        Includes spec data from EngineSpecConfig when available.
+        """
         with self._lock:
             engine = self._current_engine
             if engine == EngineName.VOXCPM2.value and self._voxcpm_model is not None:
-                return {
+                info = {
                     "engine": self._current_engine,
                     "type": self._current_type,
                     "size": self._current_size,
@@ -354,13 +409,29 @@ class ModelRegistry:
                     "control_enabled": self.voxcpm_control_enabled,
                 }
             elif engine == EngineName.INDEXTTS2.value and self._indextts2_engine is not None:
-                return {
+                info = {
                     "engine": self._current_engine,
                     "type": self._current_type,
                     "size": self._current_size,
                     "ready": True,
                 }
-            return {"ready": False}
+            else:
+                return {"ready": False}
+
+        # 附加声明式引擎规格数据
+        spec = _engine_specs.get(engine)
+        if spec is not None:
+            info["spec"] = {
+                "display_name": spec.display_name,
+                "vram_gb": spec.vram_gb,
+                "ram_gb": spec.ram_gb,
+                "languages": spec.languages,
+                "quality": spec.quality,
+                "license": spec.license,
+                "supported_features": spec.supported_features,
+                "sample_rate": spec.sample_rate,
+            }
+        return info
 
     def get_current_engine(self):
         """Get the current engine instance implementing TTSEngine protocol.
@@ -369,13 +440,13 @@ class ModelRegistry:
         VoxCPM2Engine instances are created lazily and cached.
         Returns ``None`` if no engine is loaded.
         """
-        if self.current_engine == "voxcpm2" and self.voxcpm_model is not None:
+        if self.current_engine == EngineName.VOXCPM2.value and self.voxcpm_model is not None:
             if not hasattr(self, "_voxcpm2_engine_instance") or self._voxcpm2_engine_instance is None:
                 from .engines.voxcpm2.engine import VoxCPM2Engine
 
                 self._voxcpm2_engine_instance = VoxCPM2Engine()
             return self._voxcpm2_engine_instance
-        elif self.current_engine == "indextts2" and self.indextts2_engine is not None:
+        elif self.current_engine == EngineName.INDEXTTS2.value and self.indextts2_engine is not None:
             return self.indextts2_engine
         return None
 

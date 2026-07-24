@@ -15,10 +15,12 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ..engine_interface import TTSEngine
+
 logger = logging.getLogger("tts_multimodel")
 
 
-class IndexTTS2Engine:
+class IndexTTS2Engine(TTSEngine):
     """IndexTTS 2.0 引擎适配器
 
     封装 IndexTTS 2.0 推理接口，提供统一的 API 供 TTS MultiModel 使用。
