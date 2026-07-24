@@ -15,6 +15,33 @@ models:
     model_path: "pretrained_models/VoxCPM2"
     asr_path: "pretrained_models/SenseVoiceSmall"
     denoiser_path: "pretrained_models/speech_zipenhancer"
+  # 声明式引擎注册表（对齐 VoiceBox ModelConfig 设计）
+  # 新引擎只需在此声明即可自动注册、显存预检和 UI 渲染
+  engines:
+    voxcpm2:
+      name: "voxcpm2"
+      display_name: "VoxCPM2"
+      model_dir: "VoxCPM2"
+      vram_gb: 6.5
+      ram_gb: 16.0
+      languages: ["zh", "en", "ja", "ko", "ar", "de", "es", "fr", "hi", "it", "nl", "pl", "pt", "ru", "sv", "tr", "vi", "bn", "fa", "sw", "tl", "ur", "my", "ta", "th", "cs", "el", "hu", "ro", "uk"]
+      quality: "high"
+      license: "Apache-2.0"
+      supported_features: ["voice_design", "clone", "ultimate", "script", "streaming", "lora"]
+      sample_rate: 48000
+      requires_gpu: true
+    indextts2:
+      name: "indextts2"
+      display_name: "IndexTTS 2.0"
+      model_dir: "IndexTTS2"
+      vram_gb: 6.0
+      ram_gb: 16.0
+      languages: ["zh", "en"]
+      quality: "high"
+      license: "MIT"
+      supported_features: ["clone", "emotion_control"]
+      sample_rate: 24000
+      requires_gpu: true
 
 generation:
   cfg_value: 2.0
@@ -27,6 +54,10 @@ generation:
   min_len: 2
   max_len: 4096
   split_max_chars: 200
+  # RAS 段级重复检测（参考 Fish Speech Repetition Aware Sampling）
+  enable_ras: false
+  ras_max_retries: 2
+  ras_cfg_increase: 0.5
   # Emotion tag system (inspired by Fish Speech)
   emotion_tags_enabled: true
   emotion_tags_strip_for_engine: false  # Keep tags in text for engine processing

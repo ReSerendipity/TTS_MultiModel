@@ -70,7 +70,7 @@
 ## 5. TTS_MultiModel 项目速查
 
 ### 5.1 运行与入口
-- **版本**：`config.yaml` 中 `version` 字段（当前 2.0.1）
+- **版本**：`config.yaml` 中 `version` 字段（当前 2.0.2）
 - **Windows 推荐入口**：`start.bat`（使用内置 WinPython）
 - **备选入口**：`bin/start_app.bat`（使用系统 Python）
 - **启动链路**：`start.bat` -> `bin/clean_launch.py` -> `bin/integrated_app/app_server.py`
@@ -201,7 +201,7 @@
 `config.yaml`（根目录）管理所有运行时配置：
 
 ```yaml
-version: "2.0.1"
+version: "2.0.2"
 server:        # 主机、端口、自动加载、SSL
 models:        # 模型路径（VoxCPM2 + IndexTTS2）
 generation:    # 生成默认参数（cfg、timesteps、重试策略等）

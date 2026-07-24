@@ -1,3 +1,8 @@
+"""VoxCPM2 极致克隆生成。
+
+提供完整参数控制（cfg/denoise/steps/seed），支持参考音频降噪和 ASR 自动识别。
+"""
+
 import os
 import time
 

@@ -1,3 +1,8 @@
+"""VoxCPM2 流式生成。
+
+长文本分段流式输出，支持 SSE 实时推送和一次性返回两种模式。
+"""
+
 import time
 
 from ._base import (

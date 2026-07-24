@@ -1,3 +1,8 @@
+"""系统设置路由。
+
+管理通用设置、高级生成参数和默认生成参数的读取与持久化。
+"""
+
 import json
 import logging
 import os

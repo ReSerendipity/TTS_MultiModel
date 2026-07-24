@@ -11,7 +11,7 @@ class GenerationTimeEstimator:
     """Tracks generation times and uses simple linear regression to predict future durations.
 
     Model: duration = a * char_count + b
-    Updated incrementally using Welford's online algorithm.
+    Coefficients are recomputed from all stored samples using batch least squares.
     """
 
     def __init__(self, data_file: str = "generation_times.json", max_entries: int = 200):

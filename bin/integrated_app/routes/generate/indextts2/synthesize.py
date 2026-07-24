@@ -1,3 +1,8 @@
+"""IndexTTS2 语音合成路由。
+
+处理 IndexTTS2 引擎的语音合成、情感控制和时长控制的 HTTP 端点。
+"""
+
 import contextlib
 import os
 import time

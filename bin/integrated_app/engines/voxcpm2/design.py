@@ -1,3 +1,8 @@
+"""VoxCPM2 声音设计生成。
+
+根据文本描述（instruction）生成指定风格的语音，支持参考音频和高级参数控制。
+"""
+
 import time
 
 from ._base import (

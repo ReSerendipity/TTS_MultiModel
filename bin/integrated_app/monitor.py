@@ -26,7 +26,18 @@ def _get_gpu_device():
 
 
 class HealthMonitor:
-    """Monitors application health, GPU memory trends, and model status."""
+    """Monitors application health, GPU memory trends, and model status.
+
+    显存熔断机制（Ch2 P0 / Ch16 P0）：
+    - 推理前调用 check_vram_circuit_breaker() 检查显存占用
+    - 占用超过 90% 时抛出 InsufficientVRAMError 立即终止推理
+    - 推理过程中周期性检查，超阈值则中断生成并清理缓存
+    """
+
+    # 显存熔断阈值：占用超过此比例立即终止推理
+    VRAM_CIRCUIT_BREAKER_PCT = 90.0
+    # 模型加载预检：可用显存需为模型大小的 1.5 倍以上
+    VRAM_PRELOAD_SAFETY_FACTOR = 1.5
 
     def __init__(self):
         self._vram_samples: list[float] = []
@@ -38,6 +49,7 @@ class HealthMonitor:
         self._total_generations: int = 0
         self._total_errors: int = 0
         self._total_oom_retries: int = 0
+        self._circuit_breaker_trips: int = 0
 
     def record_vram_usage(self, used_mb: float):
         """Record a GPU memory sample for leak detection."""
@@ -96,6 +108,108 @@ class HealthMonitor:
     def record_oom_retry(self):
         """Record an OOM retry event."""
         self._total_oom_retries += 1
+
+    def get_vram_usage_percent(self) -> float:
+        """获取当前 GPU 显存占用百分比。
+
+        Returns:
+            显存占用百分比 (0-100)，无 GPU 时返回 0.0。
+        """
+        from .gpu_backend import GPUBackend, GPUBackendManager
+
+        backend = GPUBackendManager.detect_backend()
+        if backend == GPUBackend.CPU:
+            return 0.0
+        try:
+            device = _get_gpu_device()
+            props = GPUBackendManager.get_device_properties(device)
+            total = props.get("total_memory", 0)
+            if total <= 0:
+                return 0.0
+            allocated = GPUBackendManager.memory_allocated(device)
+            return allocated / total * 100
+        except Exception:
+            return 0.0
+
+    def check_vram_circuit_breaker(self) -> bool:
+        """显存熔断检查：占用超过 90% 时触发熔断。
+
+        触发熔断后会：
+        1. 递增熔断计数器
+        2. 清理 GPU 缓存
+        3. 抛出 InsufficientVRAMError
+
+        Returns:
+            True 表示安全，False 表示熔断已触发。
+
+        Raises:
+            InsufficientVRAMError: 显存占用超过熔断阈值。
+        """
+        usage_pct = self.get_vram_usage_percent()
+        if usage_pct > self.VRAM_CIRCUIT_BREAKER_PCT:
+            self._circuit_breaker_trips += 1
+            logger.error(
+                f"[显存熔断] VRAM 占用 {usage_pct:.1f}% 超过阈值 "
+                f"{self.VRAM_CIRCUIT_BREAKER_PCT}%，立即终止推理 "
+                f"(累计触发 {self._circuit_breaker_trips} 次)"
+            )
+            # 立即清理缓存
+            from .gpu_utils import free_gpu_memory
+
+            free_gpu_memory()
+            from .exceptions import InsufficientVRAMError
+
+            raise InsufficientVRAMError(
+                f"显存熔断触发：VRAM 占用 {usage_pct:.1f}% 超过 "
+                f"{self.VRAM_CIRCUIT_BREAKER_PCT}% 安全阈值，推理已终止。"
+                f"请卸载模型后重试，或减少并发任务。"
+            )
+        return True
+
+    def check_vram_preload(self, model_size_gb: float) -> bool:
+        """模型加载预检：可用显存需为模型大小的 1.5 倍以上。
+
+        Args:
+            model_size_gb: 模型预计占用显存 (GB)。
+
+        Returns:
+            True 表示预检通过，可以加载。
+
+        Raises:
+            InsufficientVRAMError: 可用显存不足。
+        """
+        from .gpu_backend import GPUBackend, GPUBackendManager
+
+        backend = GPUBackendManager.detect_backend()
+        if backend == GPUBackend.CPU:
+            logger.info("[显存预检] CPU 模式，跳过预检")
+            return True
+
+        try:
+            device = _get_gpu_device()
+            mem_info = GPUBackendManager.get_memory_info(device)
+            free_bytes = mem_info[3]
+            free_gb = free_bytes / (1024**3)
+            needed_gb = model_size_gb * self.VRAM_PRELOAD_SAFETY_FACTOR
+
+            if free_gb < needed_gb:
+                from .exceptions import InsufficientVRAMError
+
+                raise InsufficientVRAMError(
+                    f"显存预检失败：模型需要 {needed_gb:.1f}GB (含安全系数 "
+                    f"{self.VRAM_PRELOAD_SAFETY_FACTOR}x)，"
+                    f"当前可用 {free_gb:.1f}GB。"
+                )
+            logger.info(
+                f"[显存预检] 通过：需要 {needed_gb:.1f}GB，"
+                f"可用 {free_gb:.1f}GB"
+            )
+            return True
+        except InsufficientVRAMError:
+            raise
+        except Exception as e:
+            logger.warning(f"[显存预检] 检查失败: {e}，跳过预检")
+            return True
 
     def set_model_status(self, status: str):
         """Update model status: loaded, unloading, ready, error, unknown."""

@@ -133,8 +133,8 @@ async def _stream_upload_to_disk(file: UploadFile, dest_path: str) -> tuple[bool
                     await f.close()
                     try:
                         os.remove(dest_path)
-                    except OSError:
-                        pass
+                    except OSError as e:
+                        logger.debug(f"清理超限上传文件失败: {e}")
                     return False, f"File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB", b""
                 await f.write(chunk)
                 if not header_collected:
@@ -147,8 +147,8 @@ async def _stream_upload_to_disk(file: UploadFile, dest_path: str) -> tuple[bool
         try:
             if os.path.exists(dest_path):
                 os.remove(dest_path)
-        except OSError:
-            pass
+        except OSError as e:
+            logger.debug(f"清理写入失败文件失败: {e}")
         return False, f"写入文件失败: {e}", b""
 
 
@@ -248,8 +248,8 @@ async def upload_audio(file: UploadFile = File(...)):
         if not _validate_audio_content(header_bytes, ext_lower):
             try:
                 os.remove(file_path)
-            except OSError:
-                pass
+            except OSError as e:
+                logger.debug(f"清理格式不匹配文件失败: {e}")
             return JSONResponse(
                 {
                     "status": "error",

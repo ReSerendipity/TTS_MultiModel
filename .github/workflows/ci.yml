@@ -61,8 +61,18 @@ jobs:
           MODELSCOPE_OFFLINE: "1"
           CUDA_VISIBLE_DEVICES: ""
         run: |
-          pytest tests/ -v --tb=short --cov=bin/integrated_app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=40 \
+          pytest tests/ -v --tb=short --cov=bin/integrated_app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=50 \
             -k "not gpu and not cuda and not vram" -m "not integration"
+
+      - name: Run benchmark tests
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+          MODELSCOPE_OFFLINE: "1"
+          CUDA_VISIBLE_DEVICES: ""
+        run: |
+          pytest tests/benchmarks/ -v --tb=short -m "benchmark" || true
 
       - name: Run integration tests
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'

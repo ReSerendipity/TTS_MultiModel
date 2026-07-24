@@ -1,3 +1,8 @@
+"""系统健康检查路由。
+
+提供 GPU/CPU 资源监控、模型状态检查和生成统计等健康指标端点。
+"""
+
 import asyncio
 import logging
 import os
@@ -184,7 +189,7 @@ async def get_health():
     return health
 
 
-@router.post("/shutdown", summary="优雅关闭服务器")
+@router.post("/shutdown", summary="优雅关闭服务器", description="请求服务器优雅关闭，延迟 1 秒后停止进程")
 def shutdown_server():
     """请求服务器优雅关闭。在后台延迟执行，给响应留出返回时间。"""
     logger.info("[SHUTDOWN] 收到关闭请求，将在 1 秒后关闭服务器...")

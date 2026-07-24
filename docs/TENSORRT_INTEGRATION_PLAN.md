@@ -1,5 +1,7 @@
 # TensorRT-LLM 集成计划
 
+> 最后更新: 2026-07-24
+
 > 来源参考：CosyVoice (FunAudioLLM/CosyVoice) TensorRT-LLM 4x 推理加速
 
 ---
