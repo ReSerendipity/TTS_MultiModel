@@ -1,5 +1,69 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # ruff: noqa: E402
+"""
+TTS MultiModel - VoxCPM LoRA 微调训练脚本
+==========================================
+
+项目名称: TTS MultiModel (多引擎语音合成平台)
+主要功能: 对 VoxCPM/VoxCPM2 模型进行 LoRA 微调或全参数微调训练
+核心技术栈: PyTorch + Transformers + Accelerate + TensorBoard + argbind
+
+支持的训练模式:
+    1. LoRA 微调 - 低秩适配，仅训练少量参数，显存占用低，适合定制音色
+    2. 全参数微调 - 更新所有权重（AudioVAE 除外），效果更好但需要更多显存
+
+训练特性:
+    - 自动检测 VoxCPM1/VoxCPM2 架构
+    - 混合精度训练（bfloat16）加速训练并节省显存
+    - 梯度累积支持大 batch size 训练
+    - 余弦学习率调度 + Warmup
+    - 梯度裁剪防止梯度爆炸
+    - 自动断点续训（latest checkpoint）
+    - 信号处理优雅保存（SIGINT/SIGTERM）
+    - TensorBoard 日志记录（loss、lr、梯度范数、音频样本）
+    - 定期验证和样本音频生成
+    - safetensors 格式权重保存（更安全快速）
+    - 多 GPU 分布式训练支持
+
+数据格式:
+    使用 HuggingFace Datasets 格式，需要 manifest 文件指向音频和文本数据。
+    支持音频长度过滤避免 OOM。
+
+使用方法:
+    方式 1: 使用 YAML 配置文件
+        python scripts/train_voxcpm_finetune.py --config_path=configs/lora_config.yaml
+
+    方式 2: 命令行参数
+        python scripts/train_voxcpm_finetune.py \
+            --pretrained_path=pretrained_models/VoxCPM2 \
+            --train_manifest=data/train_manifest.json \
+            --val_manifest=data/val_manifest.json \
+            --lora.rank=8 \
+            --batch_size=2 \
+            --learning_rate=1e-4 \
+            --num_iters=10000
+
+依赖要求:
+    pip install torch transformers accelerate tensorboardX argbind safetensors librosa matplotlib
+
+输出目录结构:
+    checkpoints/
+    ├── latest/                    # 最新检查点软链接/副本
+    │   ├── lora_weights.safetensors  # LoRA 权重（LoRA 模式）
+    │   ├── model.safetensors         # 模型权重（全参数模式）
+    │   ├── optimizer.pth             # 优化器状态
+    │   ├── scheduler.pth             # 学习率调度器状态
+    │   ├── training_state.json       # 训练状态（当前步数）
+    │   └── lora_config.json          # LoRA 配置（LoRA 模式）
+    ├── step_0001000/             # 每 save_interval 步保存的检查点
+    └── logs/                     # TensorBoard 日志目录
+
+硬件建议:
+    - LoRA 微调: 8GB+ VRAM（batch_size=1, grad_accum_steps=4）
+    - 全参数微调: 16GB+ VRAM
+    - 推荐 NVIDIA GPU（支持 CUDA 和 bfloat16）
+"""
 
 import sys
 from pathlib import Path
@@ -70,6 +134,72 @@ def train(
     hf_model_id: str = "",  # HuggingFace model ID (e.g., "openbmb/VoxCPM1.5")
     distribute: bool = False,  # If True, save hf_model_id as base_model; otherwise save pretrained_path
 ):
+    """
+    VoxCPM 模型训练主函数
+
+    功能说明:
+        执行完整的模型训练流程，包括数据加载、模型初始化、训练循环、验证、
+        检查点保存和日志记录。支持 LoRA 微调和全参数微调两种模式，自动检测
+        VoxCPM1/VoxCPM2 模型架构，支持多 GPU 分布式训练。
+
+    Args:
+        pretrained_path: 预训练模型路径，包含 config.json、tokenizer 等文件
+        train_manifest: 训练数据 manifest 文件路径（JSON 格式）
+        val_manifest: 验证数据 manifest 文件路径，为空则不进行验证
+        sample_rate: 音频采样率，必须与模型 AudioVAE 编码器的采样率匹配（默认 16000）
+        out_sample_rate: 输出音频采样率（用于 TensorBoard 音频记录），0 表示使用模型默认值
+        batch_size: 每个 micro-batch 的样本数量，显存不足时减小此值
+        grad_accum_steps: 梯度累积步数，等效 batch_size = batch_size * grad_accum_steps
+        num_workers: DataLoader 数据加载的工作线程数
+        num_iters: 总训练迭代步数
+        log_interval: 日志记录间隔（步数），每 N 步记录一次 loss 和 lr
+        valid_interval: 验证间隔（步数），每 N 步执行一次验证并生成样本音频
+        save_interval: 检查点保存间隔（步数），每 N 步保存一次模型
+        learning_rate: 初始学习率，LoRA 微调建议 1e-4，全参数微调建议更小值
+        weight_decay: AdamW 权重衰减系数
+        warmup_steps: 学习率 Warmup 步数，在这些步内学习率线性增加到初始值
+        max_steps: 最大训练步数，若 > 0 则覆盖 num_iters
+        max_batch_tokens: 单 batch 最大 token 数限制，用于过滤过长样本防止 OOM，0 表示不限制
+        save_path: 检查点保存目录路径
+        tensorboard: TensorBoard 日志目录，为空则使用 {save_path}/logs
+        lambdas: 损失函数字典，键为 "loss/diff"、"loss/stop" 等，值为对应的权重
+        lora: LoRA 配置字典，包含 rank、alpha 等参数；为空则执行全参数微调
+        config_path: YAML 配置文件路径（由 argbind 自动处理，一般不需手动传）
+        max_grad_norm: 梯度裁剪最大范数，0 表示禁用裁剪
+        hf_model_id: HuggingFace 模型 ID（如 "openbmb/VoxCPM1.5"），用于分发 LoRA 权重
+        distribute: 是否保存 hf_model_id 作为基础模型引用（用于 LoRA 分享）
+
+    训练流程:
+        1. 初始化 Accelerator（支持分布式训练和混合精度）
+        2. 创建保存目录和 TensorBoard writer
+        3. 自动检测模型架构（VoxCPM1/VoxCPM2）并加载预训练模型
+        4. 加载和预处理训练/验证数据集（文本 tokenization）
+        5. 可选：按 token 长度过滤过长样本防止 OOM
+        6. 构建 DataLoader 和 BatchProcessor
+        7. 初始化优化器（AdamW）和学习率调度器（余弦退火+Warmup）
+        8. 加载最新检查点实现断点续训
+        9. 注册 SIGINT/SIGTERM 信号处理器，异常终止时保存检查点
+        10. 进入训练循环：
+            - 梯度累积前向/反向传播
+            - 梯度裁剪
+            - 优化器步进和学习率更新
+            - 定期记录日志、验证、保存检查点
+        11. 训练结束保存最终检查点，关闭 TensorBoard
+
+    LoRA 配置示例:
+        lora = {
+            "rank": 8,           # LoRA 秩，越大效果越好但参数越多
+            "alpha": 16,         # LoRA alpha 缩放因子
+            "dropout": 0.05,     # LoRA dropout 率
+            "target_modules": [...]  # 目标注入模块
+        }
+
+    注意事项:
+        - 训练前确保预训练模型完整，sample_rate 与模型匹配
+        - 首次训练建议使用小数据集测试流程是否正常
+        - 使用 Ctrl+C 可安全中断训练，自动保存当前进度
+        - 训练日志可通过 TensorBoard 查看: tensorboard --logdir=checkpoints/logs
+    """
     if lambdas is None:
         lambdas = {"loss/diff": 1.0, "loss/stop": 1.0}
     _ = config_path
@@ -117,6 +247,17 @@ def train(
     )
 
     def tokenize(batch):
+        """文本分词批处理函数，用于 datasets.map() 的 batched 模式。
+
+        将批次中的文本列表使用模型的 tokenizer 进行分词，转换为 token ID 序列。
+        这是 HuggingFace datasets 库 map 方法要求的批处理函数格式。
+
+        Args:
+            batch: 数据集批次字典，必须包含 "text" 键，值为文本字符串列表。
+
+        Returns:
+            dict: 包含 "text_ids" 键的字典，值为分词后的 token ID 列表的列表。
+        """
         text_list = batch["text"]
         text_ids = [tokenizer(text) for text in text_list]
         return {"text_ids": text_ids}
@@ -238,6 +379,25 @@ def train(
         _resume=resume,
         _rank=accelerator.rank,
     ):
+        """信号处理函数：在收到终止信号时保存检查点并优雅退出。
+
+        捕获 SIGTERM 和 SIGINT 信号（如 Ctrl+C、kill 命令、容器停止等），
+        在进程终止前自动保存当前训练进度的检查点，避免训练成果丢失。
+        仅在 rank 0（主进程）执行保存操作，其他进程直接退出。
+
+        Args:
+            signum: 信号编号（SIGTERM=15, SIGINT=2）。
+            frame: 当前栈帧对象（未使用，但 signal 模块要求此参数）。
+            _model: 模型对象（通过默认参数捕获闭包变量，避免延迟绑定问题）。
+            _optim: 优化器对象。
+            _sched: 学习率调度器对象。
+            _save_dir: 检查点保存目录。
+            _pretrained: 预训练模型路径。
+            _hf_id: HuggingFace 模型 ID（用于 LoRA 合并导出）。
+            _dist: 是否为分布式训练模式。
+            _resume: 包含当前训练步数的字典引用，用于获取最新 step。
+            _rank: 当前进程的分布式 rank。
+        """
         try:
             cur_step = int(_resume.get("step", start_step))
         except Exception:
@@ -260,7 +420,17 @@ def train(
     train_iter = iter(train_loader)
 
     def get_next_batch():
-        """Get next batch, handles epoch boundary and DistributedSampler."""
+        """
+        获取下一个训练 batch，处理 epoch 边界和分布式采样器
+
+        功能说明:
+            从训练数据迭代器获取下一个 batch。当迭代器耗尽（一个 epoch 结束）时，
+            自动重置迭代器，并在分布式训练模式下调用 DistributedSampler.set_epoch()
+            确保每个 epoch 的数据顺序不同（避免数据重复问题）。
+
+        Returns:
+            dict: 包含 text_tokens、audio_feats 等字段的训练 batch 字典
+        """
         nonlocal train_iter, data_epoch
         try:
             return next(train_iter)
@@ -381,7 +551,45 @@ def validate(
     tokenizer=None,
     valid_interval=1000,
 ):
-    """Validate and generate sample audio"""
+    """
+    模型验证函数：计算验证集损失并生成样本音频
+
+    功能说明:
+        在验证集上评估模型性能，计算各项损失指标（扩散损失、停止损失等），
+        并可选地生成样本音频和 Mel 频谱图记录到 TensorBoard，用于监控训练效果。
+        最多验证 10 个 batch 以控制验证时间。
+
+    Args:
+        model: 待验证的模型对象
+        val_loader: 验证数据 DataLoader
+        batch_processor: BatchProcessor 实例，用于处理原始数据为模型输入
+        accelerator: Accelerator 实例，用于分布式训练和混合精度
+        tracker: TrainingTracker 实例，用于日志记录
+        lambdas: 损失权重字典，与训练时保持一致
+        writer: TensorBoard SummaryWriter 实例，None 表示不记录音频和图表
+        step: 当前训练步数，用于日志标记
+        val_ds: 验证数据集（原始数据集，用于提取参考音频）
+        audio_vae: AudioVAE 实例，用于音频解码生成
+        sample_rate: 音频输入采样率（编码器侧）
+        out_sample_rate: 音频输出采样率（解码器侧），0 表示使用 sample_rate
+        val_texts: 验证集原始文本列表，用于样本生成
+        tokenizer: 文本分词器
+        valid_interval: 验证间隔步数（仅用于日志参考）
+
+    验证流程:
+        1. 切换模型到 eval 模式
+        2. 遍历验证集（最多 10 个 batch），计算各项损失
+        3. 分布式环境下聚合所有 GPU 的损失指标
+        4. 通过 tracker 记录验证损失
+        5. 可选：生成 2 个样本音频，记录到 TensorBoard
+        6. 可选：生成参考音频和生成音频的对比 Mel 频谱图
+        7. 恢复模型到 train 模式
+
+    注意事项:
+        - 验证在 torch.no_grad() 下进行，不计算梯度
+        - 使用 bfloat16 混合精度加速验证
+        - 音频生成失败不影响验证流程，仅打印警告
+    """
     from collections import defaultdict
 
     import numpy as np  # noqa: F401
@@ -473,7 +681,21 @@ def validate(
 
 
 def compute_mel_spectrogram(audio_np, sample_rate, n_mels=128):
-    """Compute Mel Spectrogram (dB) using librosa"""
+    """
+    使用 librosa 计算 Mel 频谱图（dB 刻度）
+
+    功能说明:
+        将原始音频波形转换为 Mel 频谱图，并转换为分贝刻度用于可视化。
+        Mel 频谱图反映了人耳对不同频率的感知特性，适合用于语音质量评估。
+
+    Args:
+        audio_np: numpy 数组格式的音频波形数据，形状为 (n_samples,)
+        sample_rate: 音频采样率
+        n_mels: Mel 频带数量，默认 128
+
+    Returns:
+        numpy.ndarray: Mel 频谱图（dB 刻度），形状为 (n_mels, n_frames)
+    """
     import librosa
     import numpy as np
 
@@ -484,7 +706,29 @@ def compute_mel_spectrogram(audio_np, sample_rate, n_mels=128):
 
 def create_mel_figure(gen_audio_np, gen_mel, sample_rate, step=None, ref_audio_np=None, ref_mel=None):
     """
-    Create mel spectrogram figure: show comparison if reference audio exists, otherwise show generated only
+    创建 Mel 频谱图对比可视化图表
+
+    功能说明:
+        使用 matplotlib 生成 Mel 频谱图。如果提供了参考音频，则生成上下对比图：
+        上方为参考音频（Ground Truth，绿色标题），下方为生成音频（红色标题）。
+        如果没有参考音频，则只显示生成音频的频谱图。图表使用 Agg 后端，
+        无需 GUI 环境即可运行，适合服务器端 TensorBoard 记录。
+
+    Args:
+        gen_audio_np: 生成的音频波形 numpy 数组
+        gen_mel: 生成音频的 Mel 频谱图
+        sample_rate: 音频采样率
+        step: 当前训练步数，显示在标题中（可选）
+        ref_audio_np: 参考音频波形 numpy 数组（可选，用于对比模式）
+        ref_mel: 参考音频的 Mel 频谱图（可选，用于对比模式）
+
+    Returns:
+        matplotlib.figure.Figure: 生成的图表对象，可直接写入 TensorBoard
+
+    图表布局:
+        - 对比模式: 2行1列子图，上参考、下生成，附带颜色条
+        - 单图模式: 单个子图，显示生成音频频谱图
+        - 时间轴以秒为单位，频率轴为 Mel 刻度
     """
     import matplotlib
 
@@ -531,7 +775,20 @@ def create_mel_figure(gen_audio_np, gen_mel, sample_rate, step=None, ref_audio_n
 
 
 def normalize_audio(audio_np):
-    """Normalize audio to [-0.9, 0.9]"""
+    """
+    音频响度归一化到 [-0.9, 0.9] 范围
+
+    功能说明:
+        将音频波形的峰值归一化到 0.9，避免削波（clipping）失真，
+        同时保留动态范围。归一化后的音频适合播放和 TensorBoard 记录。
+
+    Args:
+        audio_np: numpy 数组格式的音频波形
+
+    Returns:
+        numpy.ndarray: 归一化后的音频波形，幅值范围在 [-0.9, 0.9]
+        注意：静音音频（全零）直接返回，不做处理避免除零错误
+    """
     import numpy as np
 
     max_val = np.abs(audio_np).max()
@@ -553,7 +810,44 @@ def generate_sample_audio(
     valid_interval=1000,
     tracker=None,
 ):
-    """Select 2 fixed validation samples, generate audio and log to TensorBoard"""
+    """
+    生成验证样本音频并记录到 TensorBoard
+
+    功能说明:
+        从验证集中选取固定的 2 个样本，使用当前模型生成语音，
+        并将生成音频、参考音频、Mel 频谱对比图记录到 TensorBoard，
+        用于直观监控训练过程中音频质量的变化。
+
+    Args:
+        model: 当前训练的模型（会临时切换到 eval 模式）
+        val_ds: 验证数据集，用于提取参考音频
+        audio_vae: AudioVAE 解码器，用于将潜变量解码为音频波形
+        writer: TensorBoard SummaryWriter 实例
+        step: 当前训练步数
+        accelerator: Accelerator 实例
+        sample_rate: 编码器输入采样率
+        out_sample_rate: 解码器输出采样率，0 则使用 sample_rate
+        val_texts: 验证集原始文本列表
+        tokenizer: 文本分词器（保留参数，当前未使用）
+        pretrained_path: 预训练模型路径（保留参数）
+        valid_interval: 验证间隔（保留参数）
+        tracker: TrainingTracker 实例，用于日志输出
+
+    处理流程:
+        1. 选择前 2 个验证样本
+        2. 加载参考音频（如存在），必要时重采样
+        3. 临时切换模型到 eval 模式，挂载 AudioVAE
+        4. 使用 bfloat16 混合精度生成音频
+        5. 归一化生成音频
+        6. 记录生成音频和参考音频到 TensorBoard
+        7. 计算并记录 Mel 频谱对比图
+        8. 恢复模型到训练状态
+
+    注意事项:
+        - 所有异常都会被捕获，避免影响主训练流程
+        - 生成完成后在 finally 块中确保恢复模型状态
+        - 即使只有主进程（rank 0）执行音频生成
+    """
     import numpy as np
 
     log = tracker.print if tracker else print
@@ -660,9 +954,36 @@ def generate_sample_audio(
 
 def load_checkpoint(model, optimizer, scheduler, save_dir: Path, rank: int = 0):
     """
-    Load the latest checkpoint if it exists.
-    Called by all ranks so that distributed state stays aligned.
-    Returns the step number to resume from, or 0 if no checkpoint found.
+    加载最新检查点以恢复训练
+
+    功能说明:
+        从 save_dir 目录加载最新的训练检查点，支持断点续训。
+        所有 rank（分布式进程）都会调用此函数以保持状态同步。
+        支持 LoRA 权重和全模型权重两种格式，优先使用 safetensors。
+
+    Args:
+        model: 模型对象，加载权重到此模型
+        optimizer: 优化器对象，加载优化器状态
+        scheduler: 学习率调度器对象，加载调度器状态
+        save_dir: 检查点保存目录路径
+        rank: 当前进程的分布式 rank，仅 rank 0 打印日志
+
+    Returns:
+        int: 恢复训练的起始步数，0 表示未找到检查点（从头开始训练）
+
+    加载顺序:
+        1. 优先检查 latest/ 目录（最新检查点副本）
+        2. LoRA 模式: 加载 lora_weights.safetensors 或 lora_weights.ckpt
+        3. 全参数模式: 加载 model.safetensors 或 pytorch_model.bin
+        4. 加载 optimizer.pth（优化器状态）
+        5. 加载 scheduler.pth（调度器状态）
+        6. 读取 training_state.json 获取步数
+        7. 兼容旧格式: 查找 step_xxxxxx 目录取最大步数
+
+    注意事项:
+        - 使用 strict=False 加载权重，允许 LoRA 模式下缺失/多余的键
+        - 权重默认加载到 CPU，避免 GPU 显存问题
+        - 找不到检查点时静默返回 0，不报错
     """
     latest_folder = save_dir / "latest"
     if not latest_folder.exists():
@@ -755,9 +1076,40 @@ def save_checkpoint(
     distribute: bool = False,
 ):
     """
-    Save checkpoint with different strategies for full finetune vs LoRA:
-    - Full finetune: save non-vae weights to model.safetensors (or pytorch_model.bin if safetensors unavailable)
-    - LoRA: save only lora weights to lora_weights.safetensors (or lora_weights.ckpt if safetensors unavailable)
+    保存训练检查点
+
+    功能说明:
+        根据训练模式（LoRA 或全参数微调）采用不同策略保存检查点：
+        - LoRA 微调: 仅保存 lora_A/lora_B 权重矩阵，体积小
+        - 全参数微调: 保存除 AudioVAE 外的所有权重
+        同时保存优化器状态、调度器状态和训练元数据，支持断点续训。
+        保存完成后更新 latest/ 目录指向最新检查点。
+
+    Args:
+        model: 当前训练的模型对象
+        optimizer: 优化器对象，保存其状态字典
+        scheduler: 学习率调度器对象，保存其状态字典
+        save_dir: 检查点根目录
+        step: 当前训练步数，用于命名检查点目录
+        pretrained_path: 预训练模型路径（全参数微调时用于复制配置文件）
+        hf_model_id: HuggingFace 模型 ID（LoRA 分发模式时保存引用）
+        distribute: 是否使用分发模式（True 时保存 hf_model_id 而非本地路径）
+
+    保存内容:
+        LoRA 模式:
+            - lora_weights.safetensors: LoRA 权重（safetensors 格式）
+            - lora_config.json: LoRA 配置和基础模型信息
+        全参数模式:
+            - model.safetensors: 模型权重（不含 AudioVAE）
+            - 复制预训练目录的配置文件: config.json、tokenizer 等
+        通用文件:
+            - optimizer.pth: 优化器状态
+            - scheduler.pth: 学习率调度器状态
+            - training_state.json: 包含当前步数的元数据
+        - latest/: 最新检查点的完整副本（用于快速恢复）
+
+    目录命名规则:
+        step_{step:07d}/，例如 step_0001000/ 表示第 1000 步的检查点。
     """
     import shutil
 

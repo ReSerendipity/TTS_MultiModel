@@ -211,6 +211,7 @@
   "select_voice": "音声を選択",
   "use_selected_voice": "選択音声で生成",
   "stream_generate": "ストリーム生成",
+  "stream_need_persona": "ストリーム生成には保存済みの音声を選択してください",
   "save_voice_name": "音声名を入力して保存",
   "generating": "音声を生成中",
   "cloning": "音声をクローン中",
@@ -256,6 +257,10 @@
   "switching_engine": "エンジン切り替え中...",
   "unloading_model": "モデルアンロード中...",
   "model_none": "なし",
+  "model_not_loaded_hint": "生成する前にモデルを読み込んでください",
+  "model_loading_hint": "モデルを読み込み中です。しばらくお待ちください...",
+  "model_error_hint": "モデルの読み込みに失敗しました。確認して再試行してください",
+  "generation_in_progress": "生成中です。しばらくお待ちください...",
   "gpu_short": "GPU",
   "click_for_details": "詳細モニタリングを表示",
   "stage": "段階",
@@ -772,5 +777,10 @@
   "auto_play_hint": "生成完了後に自動再生",
   "auto_save_hint": "生成結果を履歴に自動保存",
   "notifications_hint": "操作通知トーストを表示",
-  "default_output_format_hint": "デフォルト音声出力形式（wav/mp3/flac/ogg）"
+  "default_output_format_hint": "デフォルト音声出力形式（wav/mp3/flac/ogg）",
+  "main_navigation": "メインナビゲーション",
+  "advanced": "詳細",
+  "enter_text_and_click_generate": "テキストを入力して生成をクリックすると、AI音声合成を体験できます",
+  "ready_to_create": "あなた専用の音声を作成しましょう",
+  "try_sample_text": "サンプルテキストを試す"
 }

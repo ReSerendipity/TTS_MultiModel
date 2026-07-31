@@ -1,7 +1,18 @@
-"""FastAPI 应用入口。
+"""TTS_MultiModel FastAPI 应用核心入口模块。
 
-负责创建 FastAPI 实例、注册中间件（CORS、CSRF、API Auth、Request ID）、
-自动发现并挂载路由、配置静态文件服务和模板引擎、管理模型的启动加载。
+架构说明：
+    本模块负责创建 FastAPI 应用实例、管理应用生命周期（lifespan）、
+    注册中间件（RequestID/CORS/CSRF/APIAuth/error_handler）、
+    通过 pkgutil 自动发现并挂载路由、配置静态文件服务和模板引擎。
+
+启动链路：
+    start.bat → bin/clean_launch.py → bin/integrated_app/app_server.py
+    → uvicorn.run(create_app()) → lifespan(startup) → 路由自动注册 → 服务监听
+
+硬约束（AGENTS.md §6）：
+    - workers=1：GPU 单 Worker 串行，避免并发显存爆炸
+    - server.auto_load_model=true：lifespan startup 阶段自动预加载模型
+    - 模型加载失败不阻止应用启动：用户可手动在 Settings 页加载模型
 """
 
 import asyncio
@@ -11,7 +22,9 @@ import os
 import pkgutil
 import threading
 import time
+from collections.abc import AsyncGenerator, Callable
 from logging.handlers import RotatingFileHandler
+from typing import Any, Optional
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -31,23 +44,25 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_BASE_DIR))
 logger = logging.getLogger("tts_multimodel")
 
-# Reference to the running event loop, captured at startup so background
-# threads can safely schedule state updates back onto the main loop.
-_event_loop: asyncio.AbstractEventLoop | None = None
+_event_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
-def _set_event_loop(loop: asyncio.AbstractEventLoop | None) -> None:
-    """Store the running event loop for cross-thread state updates."""
+def _set_event_loop(loop: Optional[asyncio.AbstractEventLoop]) -> None:
+    """Store the running event loop for cross-thread state updates.
+
+    Args:
+        loop: 当前运行的 asyncio 事件循环，None 表示清除引用。
+    """
     global _event_loop
     _event_loop = loop
 
 
 # --- Cache-aware StaticFiles ---
 
-_CACHE_MAX_AGE = {
-    ".css": 86400 * 7,  # 7 days
-    ".js": 86400 * 7,  # 7 days
-    ".png": 86400 * 30,  # 30 days
+_CACHE_MAX_AGE: dict[str, int] = {
+    ".css": 86400 * 7,
+    ".js": 86400 * 7,
+    ".png": 86400 * 30,
     ".jpg": 86400 * 30,
     ".jpeg": 86400 * 30,
     ".gif": 86400 * 30,
@@ -58,10 +73,10 @@ _CACHE_MAX_AGE = {
     ".woff2": 86400 * 30,
     ".ttf": 86400 * 30,
     ".eot": 86400 * 30,
-    ".map": 86400 * 7,  # source maps
+    ".map": 86400 * 7,
 }
 
-_NO_CACHE_EXTENSIONS = {".html", ".json"}
+_NO_CACHE_EXTENSIONS: set[str] = {".html", ".json"}
 
 
 class CachedStaticFiles(StaticFiles):
@@ -72,7 +87,39 @@ class CachedStaticFiles(StaticFiles):
     - HTML/JSON: no-cache to ensure fresh content
     """
 
-    async def get_response(self, path: str, scope) -> Response:
+    async def get_response(self, path: str, scope: dict[str, Any]) -> Response:
+        """重写父类 StaticFiles.get_response，根据文件类型添加 Cache-Control 缓存头。
+
+        缓存策略：
+            - 版本化静态资源（CSS/JS/图片/字体等）：设置长期缓存，配合 immutable 指令，
+              浏览器在 max-age 有效期内不会重新验证，直接使用本地缓存。
+            - HTML/JSON 等动态内容：设置 no-cache 强制每次验证，确保用户获取最新内容。
+            - 其他未在配置中的文件类型：不设置 Cache-Control 头，使用浏览器默认行为。
+
+        不同文件类型的 Cache-Control 设置：
+            - .html / .json：
+                - Cache-Control: no-cache, no-store, must-revalidate
+                - Pragma: no-cache（兼容 HTTP/1.0）
+                - Expires: 0（兼容旧代理）
+                效果：完全禁用缓存，每次请求都从服务器获取最新版本。
+            - .css / .js / .map（7天）：
+                Cache-Control: public, max-age=604800, immutable
+            - .png / .jpg / .jpeg / .gif / .svg / .ico / .webp（30天）：
+                Cache-Control: public, max-age=2592000, immutable
+            - .woff / .woff2 / .ttf / .eot 字体文件（30天）：
+                Cache-Control: public, max-age=2592000, immutable
+                public 允许 CDN 和代理服务器缓存，immutable 告知浏览器资源
+                不会变化，无需条件请求（如 If-Modified-Since）。
+
+        Args:
+            path: 请求的静态文件相对路径（相对于 static 目录）。
+            scope: ASGI scope 字典，包含请求的完整上下文信息。
+
+        Returns:
+            Response: 带有相应 Cache-Control 头的 HTTP 响应对象。
+                仅当响应状态码为 200 且存在 headers 属性时才添加缓存头，
+                错误响应（如 404）不修改头信息。
+        """
         response = await super().get_response(path, scope)
         if hasattr(response, "headers") and response.status_code == 200:
             ext = os.path.splitext(path)[1].lower()
@@ -86,17 +133,16 @@ class CachedStaticFiles(StaticFiles):
         return response
 
 
-def setup_logging():
+def setup_logging() -> None:
     """配置日志轮转：单个文件 10MB，保留 3 个备份。所有入口点均可调用。"""
     root_logger = logging.getLogger()
-    # 避免重复添加 handler
     if any(isinstance(h, RotatingFileHandler) for h in root_logger.handlers):
         return
     log_dir = os.path.join(_PROJECT_ROOT, "logs")
     os.makedirs(log_dir, exist_ok=True)
     file_handler = RotatingFileHandler(
         os.path.join(log_dir, "app.log"),
-        maxBytes=10 * 1024 * 1024,  # 10MB
+        maxBytes=10 * 1024 * 1024,
         backupCount=3,
         encoding="utf-8",
     )
@@ -112,20 +158,63 @@ def setup_logging():
         root_logger.setLevel(logging.INFO)
 
 
-def _auto_discover_routers(routes_package, prefix: str = ""):
+def _discover_routes(package_name: str = ".routes") -> list[str]:
+    """使用 pkgutil 递归发现路由模块名列表。
+
+    通过 ``pkgutil.walk_packages`` 遍历指定包下的所有模块和子包，
+    返回完整的相对模块名列表（不含 router 实例提取）。
+    实际的模块导入和 router 提取由调用方在 try/except 中执行。
+
+    Why 传 package=__package__:
+        相对导入路径（如 ``.routes.api.persona``）需要包上下文才能正确解析。
+        不传 ``package`` 参数会导致 ``importlib.import_module`` 抛出
+        ``ImportError: attempted relative import with no known parent package``。
+
+    Args:
+        package_name: 要扫描的包路径，默认 ``.routes`` 相对当前包。
+
+    Returns:
+        已发现的模块相对路径列表，例如 ``["routes.pages", "routes.api.model"]``。
+    """
+    discovered: list[str] = []
+    try:
+        base_pkg = importlib.import_module(package_name, package=__package__)
+    except ImportError as e:
+        logger.warning(f"[路由发现] 导入基础包 {package_name} 失败: {e}")
+        return discovered
+
+    if not hasattr(base_pkg, "__path__"):
+        return discovered
+
+    for _importer, modname, ispkg in pkgutil.walk_packages(
+        base_pkg.__path__,
+        prefix=base_pkg.__name__ + ".",
+    ):
+        try:
+            discovered.append(modname)
+        except Exception as e:
+            logger.warning(f"[路由发现] 记录模块名 {modname} 失败: {e}")
+            continue
+
+    return discovered
+
+
+def _auto_discover_routers(routes_package: Any, prefix: str = "") -> list[Any]:
     """Recursively discover and collect routers from routes package.
 
     Handles both top-level modules (e.g., pages.py) and sub-packages
     (e.g., system/health.py, generate/voxcpm2/design.py).
 
     Args:
-        routes_package: The routes package to scan.
+        routes_package: The routes package to scan (must have __path__ attribute).
         prefix: Current import prefix for nested packages.
 
     Returns:
         List of FastAPI APIRouter instances.
     """
-    routers = []
+    routers: list[Any] = []
+    if not hasattr(routes_package, "__path__"):
+        return routers
     for _importer, modname, ispkg in pkgutil.iter_modules(routes_package.__path__):
         full_name = f"{prefix}{modname}" if prefix else modname
         try:
@@ -133,38 +222,278 @@ def _auto_discover_routers(routes_package, prefix: str = ""):
             if hasattr(mod, "router"):
                 routers.append(mod.router)
         except Exception as e:
-            logger.debug(f"[路由发现] 导入 {full_name} 失败: {e}")
+            logger.warning(f"[路由发现] 导入 {full_name} 失败: {e}")
 
-        # Recurse into sub-packages
         if ispkg:
             try:
                 subpkg = importlib.import_module(f".routes.{full_name}", package="integrated_app")
-                routers.extend(_auto_discover_routers(subpkg.__path__, f"{full_name}."))
+                routers.extend(_auto_discover_routers(subpkg, f"{full_name}."))
             except Exception as e:
-                logger.debug(f"[路由发现] 递归扫描 {full_name} 失败: {e}")
+                logger.warning(f"[路由发现] 递归扫描 {full_name} 失败: {e}")
 
     return routers
 
 
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """FastAPI 生命周期上下文管理器（async contextmanager 风格）。
+
+    Startup 阶段（进入 ``yield`` 前）：
+        1. 捕获当前事件循环引用，供后台线程安全调度协程
+        2. 初始化 app.state 模型加载状态
+        3. 同步历史记录数据库（history_db.sync_from_filesystem）
+        4. 加载声明式引擎规格（load_engine_specs_from_config）
+        5. 预热 Persona 缓存（如可用）
+        6. 若 auto_load_model=true，后台线程预加载模型
+        7. 启动 HealthMonitor 健康监控线程
+
+    Shutdown 阶段（离开 ``yield`` 后）：
+        1. 先 unload 所有模型（模型卸载会触发 history 写入）
+        2. 再关闭 history_db 连接池（确保写入完成后再关 DB）
+        3. 清理临时文件目录
+
+    Why 先 unload 模型再 close_all DB：
+        模型卸载流程（``model_manager.unload_all``）会将最终推理状态、
+        显存释放记录等写入 history 数据库。如果先关闭 DB 连接池，
+        这些写入会抛异常并丢失审计日志。
+
+    Args:
+        app: FastAPI 应用实例。
+
+    Yields:
+        None: 应用运行期间挂起，直到接收到 shutdown 信号。
+    """
+    _set_event_loop(asyncio.get_running_loop())
+
+    app.state.models_ok = False
+    app.state.model_loading = False
+    app.state.model_load_progress = "等待手动加载模型"
+
+    try:
+        from .history_db import get_history_db
+
+        history_manager = get_history_db()
+        await run_in_threadpool(history_manager.sync_from_filesystem)
+        logger.info("[lifespan] 历史记录全量同步完成")
+    except Exception as e:
+        logger.exception(f"[lifespan] 历史记录全量同步失败: {e}")
+
+    try:
+        from .model_registry import load_engine_specs_from_config
+        load_engine_specs_from_config()
+        logger.info("[lifespan] 引擎规格加载完成")
+    except Exception as e:
+        logger.debug(f"[lifespan] 引擎规格加载失败（使用默认值）: {e}")
+
+    try:
+        from .persona_manager import get_persona_manager
+        pm = get_persona_manager()
+        await run_in_threadpool(pm.warmup_cache)
+        logger.info("[lifespan] Persona 缓存预热完成")
+    except Exception as e:
+        logger.debug(f"[lifespan] Persona 缓存预热跳过: {e}")
+
+    try:
+        from .monitor import get_health_monitor
+        hm = get_health_monitor()
+        hm.start_background(delay_seconds=30)
+        logger.info("[lifespan] HealthMonitor 后台线程已启动")
+    except Exception as e:
+        logger.debug(f"[lifespan] HealthMonitor 启动跳过: {e}")
+
+    # 初始化异步生成任务队列（参考 VoiceBox 串行队列设计）
+    try:
+        from .task_queue import init_queue
+        await init_queue()
+        logger.info("[lifespan] 异步生成任务队列已初始化")
+    except Exception as e:
+        logger.debug(f"[lifespan] 任务队列初始化失败（将使用信号量机制）: {e}")
+
+    auto_load = os.environ.get("TTS_AUTO_LOAD_MODEL", "0") == "1"
+    if auto_load:
+        auto_engine = os.environ.get("TTS_AUTO_LOAD_ENGINE", "voxcpm2")
+        app.state.model_loading = True
+        app.state.model_load_progress = "正在初始化..."
+
+        def _load_in_background() -> None:
+            from .middleware.request_id import set_request_id
+            set_request_id(f"bg-{threading.current_thread().name}")
+
+            async def _update_state(**kwargs: Any) -> None:
+                for k, v in kwargs.items():
+                    setattr(app.state, k, v)
+
+            def _schedule_state_update(**kwargs: Any) -> None:
+                loop = _event_loop
+                if loop is not None and not loop.is_closed():
+                    asyncio.run_coroutine_threadsafe(_update_state(**kwargs), loop)
+                else:
+                    for k, v in kwargs.items():
+                        setattr(app.state, k, v)
+
+            try:
+                if auto_engine == EngineName.INDEXTTS2.value:
+                    from .model_manager import load_indextts2
+                    logger.info("[lifespan] 后台加载 IndexTTS 2.0 模型中...")
+                    gen = load_indextts2()
+                else:
+                    from .model_manager import load_voxcpm2
+                    logger.info("[lifespan] 后台加载 VoxCPM2 模型中...")
+                    gen = load_voxcpm2()
+                last_status = ""
+                for status_text, _, _, _ in gen:
+                    last_status = status_text
+                    _schedule_state_update(model_load_progress=status_text)
+                    logger.info(f"[lifespan] {status_text}")
+                if "失败" in last_status or "error" in last_status.lower():
+                    _schedule_state_update(
+                        models_ok=False,
+                        model_loading=False,
+                        model_load_progress=last_status,
+                    )
+                    logger.error(f"[lifespan] {auto_engine} 加载失败: {last_status}")
+                else:
+                    _schedule_state_update(
+                        models_ok=True,
+                        model_loading=False,
+                        model_load_progress="模型已就绪",
+                    )
+                    logger.info(f"[lifespan] {auto_engine} 模型已就绪，服务完全启动")
+            except Exception:
+                # Why try/except Exception + logger.exception 不抛出:
+                # 模型加载失败（OOM / 文件损坏 / 权限不足）不应阻止整个应用启动，
+                # 用户可以进入 Settings 页面手动重新加载模型。
+                logger.exception(f"[lifespan] {auto_engine} 模型后台加载异常")
+                _schedule_state_update(
+                    models_ok=False,
+                    model_loading=False,
+                    model_load_progress="加载失败，请查看日志",
+                )
+                logger.info("[lifespan] 用户可通过界面手动加载模型")
+
+        load_thread = threading.Thread(
+            target=_load_in_background, daemon=True, name="model-startup-load",
+        )
+        load_thread.start()
+        logger.info("[lifespan] 服务已启动，模型正在后台加载...")
+    else:
+        logger.info("[lifespan] 自动加载已禁用，请通过界面手动加载模型")
+
+    # RB-2: 启动临时文件定期清理后台任务（每30分钟清理一次）
+    _temp_cleanup_stop = asyncio.Event()
+
+    async def _periodic_temp_cleanup() -> None:
+        """定期清理过期临时文件，避免长时间运行后临时目录堆积。"""
+        from .utils import cleanup_temp_files
+        while not _temp_cleanup_stop.is_set():
+            try:
+                await asyncio.wait_for(_temp_cleanup_stop.wait(), timeout=1800)  # 30分钟
+            except asyncio.TimeoutError:
+                pass
+            if _temp_cleanup_stop.is_set():
+                break
+            try:
+                removed = await run_in_threadpool(cleanup_temp_files)
+                if removed > 0:
+                    logger.info(f"[periodic-cleanup] 定期清理完成，删除 {removed} 个过期临时文件")
+            except Exception:
+                logger.debug("[periodic-cleanup] 定期清理异常（忽略）", exc_info=True)
+
+    _cleanup_task = asyncio.create_task(_periodic_temp_cleanup())
+    logger.info("[lifespan] 临时文件定期清理任务已启动（30分钟间隔）")
+
+    yield
+
+    logger.info("[lifespan] Shutdown 阶段开始")
+
+    # 停止定期清理任务
+    _temp_cleanup_stop.set()
+    try:
+        await asyncio.wait_for(_cleanup_task, timeout=5)
+    except (asyncio.TimeoutError, Exception):
+        _cleanup_task.cancel()
+
+    try:
+        from .model_manager import unload_all_models
+        logger.info("[lifespan] 正在卸载所有模型...")
+        unload_all_models()
+        logger.info("[lifespan] 所有模型已卸载")
+    except Exception:
+        logger.exception("[lifespan] 模型卸载过程出现异常")
+
+    try:
+        from .history_db import get_history_db
+        history_manager = get_history_db()
+        history_manager.close_all()
+        logger.info("[lifespan] 历史记录数据库连接池已关闭")
+    except Exception:
+        logger.exception("[lifespan] 历史记录数据库关闭异常")
+
+    try:
+        from .utils import cleanup_temp_files
+        removed = cleanup_temp_files()
+        logger.info(f"[lifespan] 临时文件清理完成，删除 {removed} 个文件")
+    except Exception:
+        logger.exception("[lifespan] 临时文件清理异常")
+
+    # 关闭异步生成任务队列
+    try:
+        from .task_queue import shutdown_queue
+        await shutdown_queue()
+        logger.info("[lifespan] 异步生成任务队列已关闭")
+    except Exception:
+        logger.debug("[lifespan] 任务队列关闭异常")
+
+    _set_event_loop(None)
+    logger.info("[lifespan] Shutdown 阶段完成")
+
+
 def create_app() -> FastAPI:
+    """创建并返回配置完整的 FastAPI 应用实例。
+
+    中间件注册顺序（按 ASGI 调用栈从外到内，请求先经过先注册的）：
+        1. RequestIDMiddleware：最早注入 request_id，后续所有 logger/异常处理
+           都能读取到 request_id（Why：CSRF/APIAuth/error_handler 日志中都要
+           带 request_id 做链路追踪，所以必须在最外层）
+        2. CORSMiddleware：处理跨域预检 OPTIONS，放行后才进入业务中间件
+        3. CSRFMiddleware：在 CORS 之后（Why：CORS 预检 OPTIONS 请求不携带
+           CSRF Token，如果 CSRF 在 CORS 之前会拦截 OPTIONS 导致跨域失败）
+        4. APIAuthMiddleware：在 CSRF 之后，对程序化 Bearer Token 调用做认证
+        5. error_handler（通过 add_exception_handler 注册）：最内层捕获异常
+
+    路由挂载：
+        - ``/static``：CachedStaticFiles 静态资源（带 Cache-Control）
+        - ``/api/persona``、``/api/model``、``/api/generate/*`` 等：
+          通过 ``_auto_discover_routers`` 自动发现并 include_router
+
+    Raises:
+        无：模板目录不存在时会回退到最小模板，不会抛出异常。
+
+    Returns:
+        配置完成的 FastAPI 实例。
+    """
     app = FastAPI(
         title="TTS MultiModel Voice Studio",
         description="多模型语音合成平台，支持 VoxCPM2 和 IndexTTS2 引擎",
         version="2.0.2",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
-    # 注册全局异常处理器
+    # --- 异常处理器：注册顺序不敏感，按 Exception 子类匹配 ---
     app.add_exception_handler(TTSError, tts_error_handler)
     app.add_exception_handler(ValidationError, validation_error_handler)
     app.add_exception_handler(Exception, generic_error_handler)
 
-    app.add_middleware(
-        RequestIDMiddleware,
-    )
+    # --- 中间件注册顺序（重要！先注册的先处理请求）---
+    # Why RequestIDMiddleware 必须是第一个：
+    #   后续 CSRF、APIAuth、路由 handler、异常 handler 中的所有 logger
+    #   都依赖 RequestIDLogFilter 读取 request_id。如果 RequestID 注入晚了，
+    #   前面中间件的日志会丢失 request_id，链路追踪断链。
+    app.add_middleware(RequestIDMiddleware)
 
-    # CORS: support Docker deployment via TTS_CORS_ORIGINS env var
+    # CORS 在 CSRF 之前：CORS 预检 OPTIONS 不携带 CSRF Token，
+    # 必须先由 CORSMiddleware 放行 OPTIONS，否则 CSRF 会拦截预检请求。
     cors_origins_str = os.environ.get("TTS_CORS_ORIGINS", "")
     if cors_origins_str:
         cors_origins = [o.strip() for o in cors_origins_str.split(",") if o.strip()]
@@ -186,12 +515,9 @@ def create_app() -> FastAPI:
         allow_headers=["Content-Type", "Authorization", "X-CSRF-Token", "HX-Request", "HX-Target", "HX-Trigger"],
     )
 
-    app.add_middleware(
-        CSRFMiddleware,
-    )
+    app.add_middleware(CSRFMiddleware)
 
     from .config import get_config
-
     api_auth = get_config().api_auth_dict
     app.add_middleware(
         APIAuthMiddleware,
@@ -199,34 +525,58 @@ def create_app() -> FastAPI:
         token=api_auth.get("token", ""),
     )
 
+    # --- 静态文件挂载：/static ---
     static_dir = os.path.join(_BASE_DIR, "static")
     os.makedirs(static_dir, exist_ok=True)
     app.mount("/static", CachedStaticFiles(directory=static_dir), name="static")
 
-    # 配置日志轮转（如果调用方未配置）
     setup_logging()
 
+    # --- Jinja2 模板初始化，模板缺失时回退到最小模板 ---
     templates_dir = os.path.join(_BASE_DIR, "templates")
     os.makedirs(templates_dir, exist_ok=True)
-    templates = Jinja2Templates(directory=templates_dir)
-    debug_mode = os.environ.get("TTS_DEBUG", "0") == "1"
-    templates.env.auto_reload = debug_mode
-    from .i18n import register_i18n_filters
+    templates: Optional[Jinja2Templates] = None
+    try:
+        templates = Jinja2Templates(directory=templates_dir)
+        debug_mode = os.environ.get("TTS_DEBUG", "0") == "1"
+        templates.env.auto_reload = debug_mode
+        from .i18n import register_i18n_filters
+        register_i18n_filters(templates.env)
+    except Exception as e:
+        logger.exception(f"[create_app] 模板环境初始化失败: {e}")
+        templates = None
 
-    register_i18n_filters(templates.env)
+    if templates is None:
+        try:
+            from jinja2 import Environment, DictLoader
+            minimal_templates = {
+                "download_guide.html": """
+<html><body><h1>TTS_MultiModel 下载引导</h1>
+<p>缺失模型文件，请参照文档放置模型。</p></body></html>
+""",
+            }
+            env = Environment(loader=DictLoader(minimal_templates))
+            templates = Jinja2Templates(env=env)
+            templates.env.globals["app_version"] = "fallback"
+            logger.error("[create_app] 模板目录不可用，已回退到最小内置模板")
+        except Exception:
+            logger.exception("[create_app] 最小模板回退也失败，应用将无模板支持")
 
-    # Static asset cache-busting version (app version > env var > startup timestamp)
-    app_version = getattr(app.state, "version", None) or os.environ.get("TTS_APP_VERSION")
-    if not app_version:
-        app_version = str(int(time.time()))
-    templates.env.globals["app_version"] = app_version
+    if templates is not None:
+        app_version = getattr(app.state, "version", None) or os.environ.get("TTS_APP_VERSION")
+        if not app_version:
+            app_version = str(int(time.time()))
+        templates.env.globals["app_version"] = app_version
+        app.state.templates = templates
 
-    app.state.templates = templates
-
-    # Lightweight health ping endpoint (no heavy dependencies)
+    # --- 轻量级健康检查端点 ---
     @app.get("/api/health/ping")
-    async def health_ping():
-        """Quick liveness probe -- returns 200 if the server is running."""
+    async def health_ping() -> dict[str, Any]:
+        """Quick liveness probe -- returns 200 if the server is running.
+
+        Returns:
+            包含 status / timestamp / version 的健康心跳响应。
+        """
         return {
             "status": "ok",
             "timestamp": time.time(),
@@ -234,8 +584,13 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/health/ready")
-    async def health_ready():
-        """Readiness probe -- checks if core models are available, with loading progress."""
+    async def health_ready() -> dict[str, Any]:
+        """Readiness probe -- checks if core models are available, with loading progress.
+
+        Returns:
+            包含 status / models_available / loading / progress / missing_models
+            的就绪状态响应；模型缺失时附加 download_hints。
+        """
         models_ok = getattr(app.state, "models_ok", False)
         model_loading = getattr(app.state, "model_loading", False)
         model_load_progress = getattr(app.state, "model_load_progress", "")
@@ -247,7 +602,7 @@ def create_app() -> FastAPI:
         else:
             status = "degraded"
 
-        result = {
+        result: dict[str, Any] = {
             "status": status,
             "models_available": models_ok,
             "loading": model_loading,
@@ -255,7 +610,6 @@ def create_app() -> FastAPI:
             "missing_models": getattr(app.state, "missing_models", []),
         }
 
-        # #26: 模型缺失时附加下载提示
         if not models_ok:
             try:
                 from .config import get_download_hints
@@ -265,128 +619,42 @@ def create_app() -> FastAPI:
 
         return result
 
+    # --- 自动发现并挂载路由，单个模块失败不影响其他路由 ---
     from . import routes
 
-    for r in _auto_discover_routers(routes):
-        app.include_router(r)
-
-    async def startup_event():
-        """后台加载模型，服务器立即可接受请求。"""
-        # Capture the event loop so background threads can dispatch state updates.
-        _set_event_loop(asyncio.get_running_loop())
-
-        # Initialize model loading state via the event loop for thread safety.
-        app.state.models_ok = False
-        app.state.model_loading = False
-        app.state.model_load_progress = "等待手动加载模型"
-
-        # Sync existing audio files into the history database once at startup.
+    route_modules = _discover_routes(".routes")
+    for mod_name in route_modules:
         try:
-            from .history_db import get_history_db
-
-            history_manager = get_history_db()
-            await run_in_threadpool(history_manager.sync_from_filesystem)
-            logger.info("[启动] 历史记录全量同步完成")
+            mod = importlib.import_module(mod_name)
+            if hasattr(mod, "router"):
+                app.include_router(mod.router)
         except Exception as e:
-            logger.error(f"[启动] 历史记录全量同步失败: {e}")
+            logger.warning(f"[create_app] 路由模块 {mod_name} 导入失败: {e}")
+            continue
 
-        auto_load = os.environ.get("TTS_AUTO_LOAD_MODEL", "0") == "1"
-
-        # 从 config.yaml 加载声明式引擎规格（替换硬编码常量）
-        try:
-            from .model_registry import load_engine_specs_from_config
-            load_engine_specs_from_config()
-        except Exception as e:
-            logger.debug(f"[启动] 引擎规格加载失败（使用默认值）: {e}")
-
-        if not auto_load:
-            logger.info("[启动] 自动加载已禁用，请通过界面手动加载模型")
-            return
-
-        auto_engine = os.environ.get("TTS_AUTO_LOAD_ENGINE", "voxcpm2")
-
-        app.state.model_loading = True
-        app.state.model_load_progress = "正在初始化..."
-
-        def _load_in_background():
-            from .middleware.request_id import set_request_id
-
-            set_request_id(f"bg-{threading.current_thread().name}")
-
-            async def _update_state(**kwargs):
-                for k, v in kwargs.items():
-                    setattr(app.state, k, v)
-
-            def _schedule_state_update(**kwargs):
-                loop = _event_loop
-                if loop is not None and not loop.is_closed():
-                    asyncio.run_coroutine_threadsafe(_update_state(**kwargs), loop)
-                else:
-                    # Fallback only when loop is unavailable (should not happen
-                    # after startup); not safe across threads but preserves behavior.
-                    for k, v in kwargs.items():
-                        setattr(app.state, k, v)
-
-            try:
-                if auto_engine == EngineName.INDEXTTS2.value:
-                    from .model_manager import load_indextts2
-
-                    logger.info("[启动] 后台加载 IndexTTS 2.0 模型中...")
-                    gen = load_indextts2()
-                else:
-                    from .model_manager import load_voxcpm2
-
-                    logger.info("[启动] 后台加载 VoxCPM2 模型中...")
-                    gen = load_voxcpm2()
-                last_status = ""
-                for status_text, _, _, _ in gen:
-                    last_status = status_text
-                    _schedule_state_update(model_load_progress=status_text)
-                    logger.info(f"[启动] {status_text}")
-                # Only mark as ready if the last status does NOT indicate failure
-                if "失败" in last_status or "error" in last_status.lower():
-                    _schedule_state_update(
-                        models_ok=False,
-                        model_loading=False,
-                        model_load_progress=last_status,
-                    )
-                    logger.error(f"[启动] {auto_engine} 加载失败: {last_status}")
-                else:
-                    _schedule_state_update(
-                        models_ok=True,
-                        model_loading=False,
-                        model_load_progress="模型已就绪",
-                    )
-                    logger.info(f"[启动] {auto_engine} 模型已就绪，服务完全启动")
-            except Exception as e:
-                _schedule_state_update(
-                    models_ok=False,
-                    model_loading=False,
-                    model_load_progress=f"加载失败: {e}",
-                )
-                logger.error(f"[启动] {auto_engine} 模型后台加载失败: {e}")
-                logger.info("[启动] 用户可通过界面手动加载模型")
-
-        load_thread = threading.Thread(target=_load_in_background, daemon=True, name="model-startup-load")
-        load_thread.start()
-        logger.info("[启动] 服务已启动，模型正在后台加载...")
-
-    # Compatible with both old and new FastAPI versions
-    try:
-        app.add_event_handler("startup", startup_event)  # type: ignore[attr-defined]
-    except AttributeError:
-
-        @app.on_event("startup")
-        async def _startup():
-            await startup_event()
+    # 兼容旧的 _auto_discover_routers 逻辑（兜底）
+    legacy_routers = _auto_discover_routers(routes)
+    for r in legacy_routers:
+        already_mounted = False
+        for existing in app.routes:
+            if getattr(existing, "path_prefix", None) == getattr(r, "prefix", None):
+                already_mounted = True
+                break
+        if not already_mounted:
+            app.include_router(r)
 
     return app
 
 
-def run_server(ip="127.0.0.1", port=7869):
-    from .config import check_models_available, force_load_config
+def run_server(ip: str = "127.0.0.1", port: int = 7869) -> None:
+    """启动 uvicorn 服务器。
 
-    # Force config loading before create_app() to set up env vars and dirs
+    Args:
+        ip: 监听地址，默认 ``127.0.0.1``。
+        port: 监听端口，默认 ``7869``。
+    """
+    from .config import check_models_available, force_load_config, get_config
+
     force_load_config()
 
     app = create_app()
@@ -396,15 +664,10 @@ def run_server(ip="127.0.0.1", port=7869):
     version = get_config().version
     app.state.version = version
 
+    # 即使模型文件缺失，也正常启动应用，让用户可以通过界面加载模型
+    # 前端会通过 /api/model/status 检查模型状态并显示相应提示
     if not models_ok:
-
-        @app.route("/{path:path}", methods=["GET"])
-        async def download_guide(request: Request, path: str = ""):
-            templates: Jinja2Templates = request.app.state.templates
-            return templates.TemplateResponse(
-                request=request,
-                name="download_guide.html",
-                context={"missing": missing, "version": version},
-            )
+        logger.warning(f"[run_server] 模型文件不完整: {missing}")
+        logger.warning("[run_server] 应用正常启动，用户可通过界面加载模型")
 
     uvicorn.run(app, host=ip, port=int(port))
