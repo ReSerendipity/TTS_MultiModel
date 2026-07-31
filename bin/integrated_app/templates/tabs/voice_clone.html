@@ -72,6 +72,10 @@
                                 </div>
                             </div>
                             <div id="vc-persona-desc" class="hint-text" style="display:none"></div>
+                            <div class="filter-bar" style="margin-top:8px">
+                                <button type="button" class="btn btn-p btn-sm" onclick="document.getElementById('vc-form').requestSubmit()">{{ "generate_btn"|t(lang) }}</button>
+                                <button type="button" class="btn btn-o btn-sm stream-btn" onclick="submitCloneStreaming()">{{ "stream_generate"|t(lang) }}</button>
+                            </div>
                         </div>
 
                         <!-- Panel: 上传参考 -->
@@ -373,6 +377,187 @@
                 filenameSpan.style.color = 'var(--t3)';
             }
         });
+    }
+
+    // UX-2: Streaming generation for voice clone (saved personas only)
+    window.submitCloneStreaming = async function() {
+        var form = document.getElementById('vc-form');
+        if (!form) return;
+
+        var text = form.querySelector('textarea[name=text]').value;
+        var personaName = form.querySelector('select[name=persona_name]').value;
+        var lang = form.querySelector('select[name=lang]').value;
+
+        if (!text.trim()) {
+            var resultEl = document.getElementById('vc-result');
+            if (resultEl) {
+                resultEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">{{ "text_empty"|t(lang) }}</div></div>';
+            }
+            return;
+        }
+
+        if (!personaName) {
+            if (window.Toast) Toast.show('{{ "stream_need_persona"|t(lang) }}', 'warning');
+            return;
+        }
+
+        var statusEl = document.getElementById('vc-result');
+        if (!statusEl) return;
+        statusEl.innerHTML = '<div class="hint-text">{{ "streaming_gen"|t(lang) }}<div class="progress-bar" style="margin-top:6px"><div class="progress-fill" style="width:0%"></div></div></div>';
+
+        var formData = new FormData();
+        formData.append('text', text);
+        formData.append('persona_name', personaName || '');
+        formData.append('lang', lang || 'Auto');
+
+        var audioChunks = [];
+        var sampleRate = 48000;
+        var totalSegments = 1;
+        var fillEl = statusEl.querySelector('.progress-fill');
+
+        function updateProgress(pct, msg) {
+            if (fillEl) fillEl.style.width = pct + '%';
+            var hintEl = statusEl.querySelector('.hint-text');
+            if (hintEl && msg) {
+                hintEl.innerHTML = msg + '<div class="progress-bar" style="margin-top:6px"><div class="progress-fill" style="width:' + pct + '%"></div></div>';
+            }
+        }
+
+        function createWavBlob(pcmData, sampleRate) {
+            var bufLen = pcmData.length;
+            var byteLen = bufLen * 2;
+            var buffer = new ArrayBuffer(44 + byteLen);
+            var view = new DataView(buffer);
+            function writeString(offset, str) {
+                for (var i = 0; i < str.length; i++) { view.setUint8(offset + i, str.charCodeAt(i)); }
+            }
+            writeString(0, 'RIFF'); view.setUint32(4, 36 + byteLen, true); writeString(8, 'WAVE');
+            writeString(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeString(36, 'data');
+            view.setUint32(40, byteLen, true);
+            for (var i = 0; i < bufLen; i++) { view.setInt16(44 + i * 2, pcmData[i], true); }
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        try {
+            var csrfToken = window.getCsrfToken ? window.getCsrfToken() : '';
+            const response = await fetch('/api/generate/streaming_sse', {
+                method: 'POST',
+                body: formData,
+                headers: csrfToken ? {'X-CSRF-Token': csrfToken} : {}
+            });
+
+            if (!response.ok) {
+                var errMsg = 'HTTP ' + response.status;
+                if (response.status === 403) {
+                    errMsg = (window.I18N && window.I18N['csrf_error']) || 'CSRF error';
+                }
+                statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">' + errMsg + '</div></div>';
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let currentEvent = '';
+            let currentData = '';
+
+            function processEvent() {
+                if (!currentEvent || !currentData) return;
+                switch (currentEvent) {
+                    case 'meta':
+                        try {
+                            var meta = JSON.parse(currentData);
+                            totalSegments = meta.total_segments || 1;
+                            sampleRate = meta.sample_rate || 48000;
+                            updateProgress(0, '{{ "streaming_gen"|t(lang) }} - ' + totalSegments + ' {{ "segments"|t(lang) }}');
+                        } catch(e) {}
+                        break;
+                    case 'progress':
+                        try {
+                            var p = JSON.parse(currentData);
+                            var seg = p.segment || 0;
+                            var pct = Math.round((seg / totalSegments) * 100);
+                            updateProgress(pct, '{{ "streaming_gen"|t(lang) }} (' + seg + '/' + totalSegments + ')');
+                        } catch(e) {}
+                        break;
+                    case 'audio':
+                        try {
+                            var audioData = JSON.parse(currentData);
+                            if (audioData && audioData.pcm) {
+                                var pcm16 = base64ToPCM16(audioData.pcm);
+                                audioChunks.push(pcm16);
+                            }
+                        } catch(e) {}
+                        break;
+                    case 'done':
+                        try {
+                            var done = JSON.parse(currentData);
+                            var merged = mergePCMChunks(audioChunks);
+                            var blob = createWavBlob(merged, sampleRate);
+                            var url = URL.createObjectURL(blob);
+                            updateProgress(100, '{{ "sse_generation_complete"|t(lang) }}');
+                            if (window.globalAudioPlayer) {
+                                window.globalAudioPlayer.play(url, done.filename || '{{ "streaming_gen"|t(lang) }}');
+                            } else {
+                                var a = new Audio(url); a.play();
+                            }
+                            if (window.Toast) Toast.show('{{ "sse_generation_complete"|t(lang) }}', 'success');
+                        } catch(e) {}
+                        break;
+                    case 'error':
+                        try {
+                            var err = JSON.parse(currentData);
+                            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">' + (err.message || err.error || 'Unknown error') + '</div></div>';
+                        } catch(e) {}
+                        break;
+                }
+                currentEvent = '';
+                currentData = '';
+            }
+
+            function base64ToPCM16(base64) {
+                var binary = atob(base64);
+                var bytes = new Uint8Array(binary.length);
+                for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+                return new Int16Array(bytes.buffer);
+            }
+
+            function mergePCMChunks(chunks) {
+                var totalLen = 0;
+                for (var i = 0; i < chunks.length; i++) { totalLen += chunks[i].length; }
+                var merged = new Int16Array(totalLen);
+                var offset = 0;
+                for (var i = 0; i < chunks.length; i++) {
+                    merged.set(chunks[i], offset);
+                    offset += chunks[i].length;
+                }
+                return merged;
+            }
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                var lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (var li = 0; li < lines.length; li++) {
+                    var line = lines[li].replace(/\r$/, '');
+                    if (line.indexOf('event:') === 0) {
+                        currentEvent = line.substring(6).trim();
+                    } else if (line.indexOf('data:') === 0) {
+                        currentData += line.substring(5).trim();
+                    } else if (line === '') {
+                        processEvent();
+                    }
+                }
+            }
+            processEvent();
+        } catch (err) {
+            statusEl.innerHTML = '<div class="tts-error-block"><div class="error-title">{{ "gen_failed"|t(lang) }}</div><div class="error-message">' + err.message + '</div></div>';
+            if (window.Toast) Toast.show(err.message, 'error');
+        }
     }
 })();
 </script>

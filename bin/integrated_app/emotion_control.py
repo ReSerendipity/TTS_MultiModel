@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """情感/风格/韵律控制模块（第 7 章）
 
 提供统一的情感向量、韵律标签解析、CFG 控制和自然语言指令解析能力，
@@ -234,6 +233,11 @@ class EmotionVector:
         return EmotionVector(**kwargs)
 
     def __repr__(self) -> str:
+        """返回情感向量的字符串表示（仅显示非零维度）。
+
+        Returns:
+            str: 如 "EmotionVector(happy=0.90, calm=0.10)" 或 "EmotionVector(neutral)"
+        """
         parts = []
         for dim in EMOTION_DIMENSION_NAMES:
             val = getattr(self, dim)
@@ -602,8 +606,6 @@ _LANGUAGE_HINTS_EN: dict[str, list[str]] = {
 
 # 方言标识列表
 _DIALECT_KEYS = frozenset({"cantonese", "sichuan", "northeast"})
-# 语言标识列表
-_LANG_KEYS = ("zh", "en", "ja", "ko")
 
 
 @dataclass
@@ -807,6 +809,7 @@ class InstructParser:
                         return "zh", dialect_key
 
         # 再检测语言
+        _LANG_KEYS = ("zh", "en", "ja", "ko")
         for lang, keywords in _LANGUAGE_HINTS_ZH.items():
             if lang in _LANG_KEYS:
                 for kw in keywords:

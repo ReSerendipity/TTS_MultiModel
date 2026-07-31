@@ -209,6 +209,7 @@
   "select_voice": "음성 선택",
   "use_selected_voice": "선택 음성으로 생성",
   "stream_generate": "스트림 생성",
+  "stream_need_persona": "스트림 생성에는 저장된 음성을 먼저 선택해 주세요",
   "save_voice_name": "저장할 음성 이름 입력",
   "generating": "음성 생성 중",
   "cloning": "음성 클론 중",
@@ -254,6 +255,10 @@
   "switching_engine": "엔진 전환 중...",
   "unloading_model": "모델 언로드 중...",
   "model_none": "없음",
+  "model_not_loaded_hint": "생성하기 전에 모델을 먼저 로드해 주세요",
+  "model_loading_hint": "모델을 로드하는 중입니다. 잠시만 기다려 주세요...",
+  "model_error_hint": "모델 로드에 실패했습니다. 확인 후 다시 시도해 주세요",
+  "generation_in_progress": "생성 중입니다. 잠시만 기다려 주세요...",
   "gpu_short": "GPU",
   "click_for_details": "자세한 모니터링 보기",
   "stage": "단계",
@@ -772,5 +777,10 @@
   "auto_play_hint": "생성 완료 후 자동 재생",
   "auto_save_hint": "생성 결과를 히스토리에 자동 저장",
   "notifications_hint": "작업 알림 토스트 표시",
-  "default_output_format_hint": "기본 오디오 출력 형식 (wav/mp3/flac/ogg)"
+  "default_output_format_hint": "기본 오디오 출력 형식 (wav/mp3/flac/ogg)",
+  "main_navigation": "메인 내비게이션",
+  "advanced": "고급",
+  "enter_text_and_click_generate": "텍스트를 입력하고 생성을 클릭하여 AI 음성 합성을 경험하세요",
+  "ready_to_create": "나만의 음성을 만들어 보세요",
+  "try_sample_text": "샘플 텍스트 사용해 보기"
 }

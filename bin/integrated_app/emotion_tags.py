@@ -1,190 +1,305 @@
-"""Emotion tag system for TTS generation.
-
-Inspired by Fish Speech's emotion tag design, provides fine-grained
-emotional control through inline tags in text input.
-
-Supported tag formats:
-  - Bracket style: [whisper], [excited], [angry]
-  - Parenthetical: (whisper), (excited)
-  - Chinese tags: [耳语], [兴奋], [生气]
-
-Tags are parsed, validated, and can be converted to control instructions
-for the underlying TTS engine.
 """
+情感标签系统 - 为情感控制和 RAG 风格的情感指令提供内联情感标签解析。
 
+支持 [happy]、[sad:0.8]、[whisper] 等英文标签，以及中文标签如 [温柔]、[悲伤] 等。
+标签可通过 EmotionControlManager 转换为情感向量或 CFG 控制指令。
+"""
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass, field
+from typing import Optional
 
-logger = logging.getLogger("tts_multimodel.emotion_tags")
+from utils import get_logger
+
+logger = get_logger(__name__)
 
 
-@dataclass(frozen=True)
+# ---------------------------------------------------------------------------
+# 正则模式
+# ---------------------------------------------------------------------------
+
+# 匹配 [tagname] 或 [tagname:intensity] 格式的标签
+# 强度为 0.0-1.0 之间的小数
+_TAG_PATTERN = re.compile(
+    r"\[([a-zA-Z\u4e00-\u9fff]+)(?::([0-9]*\.?[0-9]+))?\]",
+)
+
+
+# ---------------------------------------------------------------------------
+# 数据结构
+# ---------------------------------------------------------------------------
+
+
+@dataclass
 class EmotionTag:
-    """Represents a parsed emotion tag."""
+    """从文本中解析出的单个情感标签。
+
+    Attributes:
+        name: 标准化情感名称（英文，小写）。
+        intensity: 情感强度 0.0-1.0，默认 1.0。
+        raw_text: 标签在原始文本中的字符串（如 "[sad:0.8]"）。
+    """
 
     name: str
-    intensity: float = 1.0  # 0.0 - 1.0
+    intensity: float = 1.0
     raw_text: str = ""
 
-    @property
-    def is_valid(self) -> bool:
-        return self.name in EMOTION_REGISTRY
+    def __post_init__(self) -> None:
+        self.name = self.name.lower().strip()
+        self.intensity = max(0.0, min(1.0, self.intensity))
 
 
-@dataclass(frozen=True)
+@dataclass
 class EmotionDefinition:
-    """Definition of an emotion tag in the registry."""
+    """情感标签的定义，包含映射信息。
+
+    Attributes:
+        name: 标准英文名称（小写）。
+        display_name_zh: 中文显示名称。
+        emotion_vector: 映射到 8 维情感向量的值（happy, angry, sad, afraid,
+            disgusted, melancholic, surprised, calm），每个值 0-1。
+        cfg_instruction: 用于 CFG 的情感控制提示词。
+        aliases: 替代名称列表（中英文均可）。
+        is_prosody: 是否为韵律标签（如 whisper、shout），这类标签
+            映射到 cfg_instruction 而非情感向量。
+    """
 
     name: str
-    category: str  # basic, advanced, prosody, style
-    description_en: str
-    description_zh: str
-    synonyms: tuple[str, ...] = ()
-    default_intensity: float = 1.0
-    tags: tuple[str, ...] = ()
+    display_name_zh: str
+    emotion_vector: Optional[dict[str, float]] = None
+    cfg_instruction: Optional[str] = None
+    aliases: list[str] = field(default_factory=list)
+    is_prosody: bool = False
+
+    def matches(self, tag_name: str) -> bool:
+        """检查标签名称是否匹配此情感定义（包括别名）。
+
+        Args:
+            tag_name: 要检查的标签名称（不区分大小写）。
+
+        Returns:
+            如果匹配则返回 True。
+        """
+        lower = tag_name.lower().strip()
+        if lower == self.name:
+            return True
+        return lower in [a.lower() for a in self.aliases]
 
 
-# ============================================================================
-# Emotion Tag Registry
-# ============================================================================
+# ---------------------------------------------------------------------------
+# 情感标签库
+# ---------------------------------------------------------------------------
 
 EMOTION_REGISTRY: dict[str, EmotionDefinition] = {}
 
 
 def _register(defn: EmotionDefinition) -> None:
-    """Register an emotion definition and all its synonyms."""
+    """向全局注册表中注册情感定义。
+
+    Args:
+        defn: 要注册的 EmotionDefinition。
+    """
     EMOTION_REGISTRY[defn.name] = defn
-    for syn in defn.synonyms:
-        if syn not in EMOTION_REGISTRY:
-            EMOTION_REGISTRY[syn] = defn
 
 
-# --- Basic Emotions ---
-_register(EmotionDefinition("happy", "basic", "Happy/Joyful", "高兴/快乐", ("joy", "glad", "cheerful", "高兴", "开心")))
-_register(EmotionDefinition("sad", "basic", "Sad/Sorrowful", "悲伤/难过", ("sorrow", "grief", "melancholy", "悲伤", "难过")))
-_register(EmotionDefinition("angry", "basic", "Angry/Furious", "愤怒/生气", ("fury", "rage", "mad", "愤怒", "生气", "恼怒")))
-_register(EmotionDefinition("fear", "basic", "Fearful/Scared", "恐惧/害怕", ("scared", "afraid", "terrified", "恐惧", "害怕")))
-_register(EmotionDefinition("surprise", "basic", "Surprised/Amazed", "惊讶/惊奇", ("amazed", "astonished", "shocked", "惊讶", "惊奇")))
-_register(EmotionDefinition("disgust", "basic", "Disgusted/Repulsed", "厌恶/反感", ("repulsed", "revolted", "厌恶", "反感")))
-_register(EmotionDefinition("calm", "basic", "Calm/Peaceful", "平静/安宁", ("peaceful", "serene", "relaxed", "平静", "安宁", "平和")))
-_register(EmotionDefinition("neutral", "basic", "Neutral/Default", "中性/默认", ("default", "normal", "中性", "默认")))
+# --- 基础情感 ---
 
-# --- Advanced Emotions ---
-_register(EmotionDefinition("excited", "advanced", "Excited/Enthusiastic", "兴奋/热情", ("enthusiastic", "thrilled", "兴奋", "热情")))
-_register(EmotionDefinition("tender", "advanced", "Tender/Gentle", "温柔/柔和", ("gentle", "soft", "warm", "温柔", "柔和", "轻柔")))
-_register(EmotionDefinition("confident", "advanced", "Confident/Assured", "自信/坚定", ("assured", "bold", "自信", "坚定")))
-_register(EmotionDefinition("anxious", "advanced", "Anxious/Worried", "焦虑/担忧", ("worried", "nervous", "uneasy", "焦虑", "担忧")))
-_register(EmotionDefinition("desperate", "advanced", "Desperate/Urgent", "绝望/迫切", ("urgent", "despairing", "绝望", "迫切")))
-_register(EmotionDefinition("proud", "advanced", "Proud/Arrogant", "骄傲/傲慢", ("arrogant", "haughty", "骄傲", "傲慢")))
-_register(EmotionDefinition("melancholic", "advanced", "Melancholic/Nostalgic", "忧郁/怀旧", ("nostalgic", "wistful", "忧郁", "怀旧")))
-
-# --- Prosody / Speaking Style Tags ---
-_register(EmotionDefinition("whisper", "prosody", "Whispering", "耳语", ("soft_speak", "hushed", "耳语", "低声")))
-_register(EmotionDefinition("shout", "prosody", "Shouting/Loud", "大声喊", ("yell", "loud", "大声", "喊叫")))
-_register(EmotionDefinition("slow", "prosody", "Slow pace", "慢速", ("slower", "unhurried", "慢速", "缓慢")))
-_register(EmotionDefinition("fast", "prosody", "Fast pace", "快速", ("quicker", "rapid", "快速", "急速")))
-_register(EmotionDefinition("breathy", "prosody", "Breathy voice", "气声", ("airy", "breathy", "气声", "喘息")))
-_register(EmotionDefinition("nasal", "prosody", "Nasal voice", "鼻音", ("nasally", "鼻音")))
-_register(EmotionDefinition("creaky", "prosody", "Creaky voice (vocal fry)", "嘎裂声", ("vocal_fry", "嘎裂声")))
-
-# --- Style / Context Tags ---
-_register(EmotionDefinition("narration", "style", "Narration style", "旁白风格", ("narrator", "旁白", "叙述")))
-_register(EmotionDefinition("dialogue", "style", "Dialogue/conversational", "对话风格", ("conversational", "chat", "对话", "聊天")))
-_register(EmotionDefinition("reading", "style", "Reading/audiobook style", "朗读风格", ("audiobook", "朗读", "读书")))
-_register(EmotionDefinition("news", "style", "News/broadcast style", "新闻播报", ("broadcast", "新闻", "播报")))
-_register(EmotionDefinition("storytelling", "style", "Storytelling style", "讲故事风格", ("story", "讲述", "故事")))
-
-# ============================================================================
-# Tag Parser
-# ============================================================================
-
-# Regex to match tags: [tag_name], [tag_name:intensity], or (tag_name)
-_TAG_PATTERN = re.compile(
-    r"""
-    [\[\(]                    # opening bracket
-    \s*                       # optional whitespace
-    ([a-zA-Z_\u4e00-\u9fff]+) # tag name (English or Chinese)
-    (?:                        # optional intensity
-        [\s:：]\s*             # separator (colon or space)
-        (\d+(?:\.\d+)?)        # intensity value
-    )?
-    \s*                       # optional whitespace
-    [\]\)]                    # closing bracket
-    """,
-    re.VERBOSE,
+_register(
+    EmotionDefinition(
+        name="happy",
+        display_name_zh="开心",
+        emotion_vector={"happy": 1.0, "calm": 0.3},
+        cfg_instruction="cheerful and happy tone, smiling voice, upbeat",
+        aliases=["joy", "joyful", "cheerful", "开心", "高兴", "快乐", "喜悦"],
+    )
 )
 
-# Chinese to English mapping for common emotion terms
-_CHINESE_TO_ENGLISH: dict[str, str] = {
-    "高兴": "happy",
-    "开心": "happy",
-    "快乐": "happy",
-    "悲伤": "sad",
-    "难过": "sad",
-    "伤心": "sad",
-    "愤怒": "angry",
-    "生气": "angry",
-    "恼怒": "angry",
-    "恐惧": "fear",
-    "害怕": "fear",
-    "惊讶": "surprise",
-    "惊奇": "surprise",
-    "厌恶": "disgust",
-    "反感": "disgust",
-    "平静": "calm",
-    "安宁": "calm",
-    "平和": "calm",
-    "兴奋": "excited",
-    "热情": "excited",
-    "温柔": "tender",
-    "柔和": "tender",
-    "轻柔": "tender",
-    "自信": "confident",
-    "坚定": "confident",
-    "焦虑": "anxious",
-    "担忧": "anxious",
-    "绝望": "desperate",
-    "迫切": "desperate",
-    "骄傲": "proud",
-    "傲慢": "proud",
-    "忧郁": "melancholic",
-    "怀旧": "melancholic",
-    "耳语": "whisper",
-    "低声": "whisper",
-    "大声": "shout",
-    "喊叫": "shout",
-    "慢速": "slow",
-    "缓慢": "slow",
-    "快速": "fast",
-    "急速": "fast",
-    "气声": "breathy",
-    "鼻音": "nasal",
-    "嘎裂声": "creaky",
-    "旁白": "narration",
-    "叙述": "narration",
-    "对话": "dialogue",
-    "聊天": "dialogue",
-    "朗读": "reading",
-    "读书": "reading",
-    "新闻": "news",
-    "播报": "news",
-    "讲故事": "storytelling",
-    "故事": "storytelling",
-}
+_register(
+    EmotionDefinition(
+        name="sad",
+        display_name_zh="悲伤",
+        emotion_vector={"sad": 1.0, "melancholic": 0.7},
+        cfg_instruction="sad and sorrowful tone, crying voice, melancholic",
+        aliases=["sorrow", "sorrowful", "unhappy", "悲伤", "难过", "伤心", "哀伤"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="angry",
+        display_name_zh="愤怒",
+        emotion_vector={"angry": 1.0},
+        cfg_instruction="angry and furious tone, raised voice, aggressive",
+        aliases=["anger", "furious", "mad", "愤怒", "生气", "恼怒"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="afraid",
+        display_name_zh="恐惧",
+        emotion_vector={"afraid": 1.0, "sad": 0.2},
+        cfg_instruction="scared and fearful tone, trembling voice, anxious",
+        aliases=["fear", "fearful", "scared", "fearful", "恐惧", "害怕", "惊恐"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="surprised",
+        display_name_zh="惊讶",
+        emotion_vector={"surprised": 1.0},
+        cfg_instruction="surprised and astonished tone, excited exclamation",
+        aliases=["surprise", "shocked", "astonished", "惊讶", "吃惊", "惊奇"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="calm",
+        display_name_zh="平静",
+        emotion_vector={"calm": 1.0},
+        cfg_instruction="calm and neutral tone, peaceful, steady voice",
+        aliases=["neutral", "peaceful", "steady", "平静", "冷静", "平和", "淡定"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="disgusted",
+        display_name_zh="厌恶",
+        emotion_vector={"disgusted": 1.0, "angry": 0.3},
+        cfg_instruction="disgusted and repulsed tone, contemptuous voice",
+        aliases=["disgust", "repulsed", "contempt", "厌恶", "反感", "憎恶"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="melancholic",
+        display_name_zh="忧郁",
+        emotion_vector={"melancholic": 1.0, "sad": 0.5, "calm": 0.2},
+        cfg_instruction="melancholic and wistful tone, nostalgic, gentle sadness",
+        aliases=["melancholy", "wistful", "nostalgic", "忧郁", "惆怅", "忧伤"],
+    )
+)
+
+
+# --- 复杂情感 ---
+
+_register(
+    EmotionDefinition(
+        name="excited",
+        display_name_zh="兴奋",
+        emotion_vector={"happy": 0.9, "surprised": 0.6},
+        cfg_instruction="excited and enthusiastic tone, energetic, animated",
+        aliases=["excitement", "enthusiastic", "energetic", "兴奋", "激动", "热情"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="gentle",
+        display_name_zh="温柔",
+        emotion_vector={"calm": 0.7, "happy": 0.2, "melancholic": 0.1},
+        cfg_instruction="gentle and soft tone, warm, tender voice, caring",
+        aliases=["soft", "tender", "warm", "kind", "温柔", "柔和", "温和", "亲切"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="serious",
+        display_name_zh="严肃",
+        emotion_vector={"calm": 0.6, "melancholic": 0.2},
+        cfg_instruction="serious and solemn tone, formal, grave voice",
+        aliases=["solemn", "grave", "formal", "严肃", "庄重", "郑重"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="nervous",
+        display_name_zh="紧张",
+        emotion_vector={"afraid": 0.6, "surprised": 0.3},
+        cfg_instruction="nervous and anxious tone, hesitant, shaky voice",
+        aliases=["anxious", "tense", "worried", "紧张", "焦虑", "不安"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="proud",
+        display_name_zh="自豪",
+        emotion_vector={"happy": 0.7, "calm": 0.3},
+        cfg_instruction="proud and confident tone, dignified, self-assured",
+        aliases=["confident", "dignified", "自豪", "骄傲", "自信"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="whisper",
+        display_name_zh="耳语",
+        cfg_instruction="whispering, very quiet voice, breathy, hushed tone, secretive",
+        aliases=["whispering", "whispered", "hushed", "耳语", "低声", "悄悄话", "小声"],
+        is_prosody=True,
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="shout",
+        display_name_zh="大喊",
+        cfg_instruction="shouting, loud voice, yelling, raised volume, forceful",
+        aliases=["shouting", "yell", "yelling", "loud", "大喊", "大叫", "喊叫", "大声"],
+        is_prosody=True,
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="laughing",
+        display_name_zh="大笑",
+        emotion_vector={"happy": 1.0, "surprised": 0.3},
+        cfg_instruction="laughing while speaking, giggling, cheerful laughter in voice",
+        aliases=["laugh", "laughter", "giggle", "giggling", "大笑", "笑", "笑着说"],
+    )
+)
+
+_register(
+    EmotionDefinition(
+        name="crying",
+        display_name_zh="哭泣",
+        emotion_vector={"sad": 1.0, "melancholic": 0.5},
+        cfg_instruction="crying while speaking, sobbing, tearful voice, choked up",
+        aliases=["cry", "sobbing", "tearful", "weep", "哭泣", "哭", "哭着说", "抽泣"],
+    )
+)
+
+# 中文到英文的反向映射（用于快速查找）
+_CHINESE_TO_ENGLISH: dict[str, str] = {}
+for _defn in EMOTION_REGISTRY.values():
+    for _alias in _defn.aliases:
+        if any("\u4e00" <= c <= "\u9fff" for c in _alias):
+            _CHINESE_TO_ENGLISH[_alias] = _defn.name
+
+
+# ---------------------------------------------------------------------------
+# 公共 API
+# ---------------------------------------------------------------------------
 
 
 def parse_tags(text: str) -> tuple[list[EmotionTag], str]:
-    """Parse emotion tags from text and return (tags, cleaned_text).
+    """从文本中解析情感标签，返回 (标签列表, 清理后文本)。
 
     Args:
-        text: Input text potentially containing emotion tags like
-              "[whisper]Hello world" or "你好[温柔]世界"
+        text: 可能包含情感标签的输入文本，如
+              "[whisper]Hello world" 或 "你好[温柔]世界"
 
     Returns:
-        Tuple of (list of parsed EmotionTag, text with tags removed).
+        (解析后的 EmotionTag 列表, 移除标签后的文本) 元组。
 
     Examples:
         >>> tags, clean = parse_tags("[whisper]Hello [excited:0.8]world")
@@ -200,7 +315,7 @@ def parse_tags(text: str) -> tuple[list[EmotionTag], str]:
         raw_name = match.group(1)
         intensity_str = match.group(2)
 
-        # Resolve Chinese to English
+        # 中文转英文
         name = _CHINESE_TO_ENGLISH.get(raw_name, raw_name.lower())
         intensity = float(intensity_str) if intensity_str else 1.0
         intensity = max(0.0, min(1.0, intensity))
@@ -209,134 +324,113 @@ def parse_tags(text: str) -> tuple[list[EmotionTag], str]:
         tags.append(tag)
 
         if name not in EMOTION_REGISTRY:
-            logger.warning(f"Unknown emotion tag: '{raw_name}' -> '{name}'")
+            logger.warning(f"未知情感标签: '{raw_name}' -> '{name}'")
 
-    # Remove tags from text
+    # 从文本中移除标签
     cleaned = _TAG_PATTERN.sub("", text).strip()
-    # Collapse multiple spaces
+    # 合并多个空格
     cleaned = re.sub(r"\s+", " ", cleaned)
 
     return tags, cleaned
 
 
-def tags_to_control_instruction(tags: list[EmotionTag]) -> str:
-    """Convert parsed emotion tags to a control instruction string.
+def tags_to_control_instruction(
+    tags: list[EmotionTag],
+) -> tuple[Optional[dict[str, float]], Optional[str]]:
+    """将情感标签转换为 (情感向量, CFG 控制指令)。
 
-    The control instruction is used by the VoxCPM2 engine to guide
-    the voice generation style.
+    当多个情感标签存在时，情感向量按强度加权取平均；
+    CFG 指令则合并所有标签的指令文本。
 
     Args:
-        tags: List of parsed EmotionTag objects.
+        tags: parse_tags() 返回的 EmotionTag 列表。
 
     Returns:
-        Control instruction string like "warm female voice, whispering".
-
-    Examples:
-        >>> tags_to_control_instruction([
-        ...     EmotionTag(name="whisper", intensity=1.0),
-        ...     EmotionTag(name="sad", intensity=0.8),
-        ... ])
-        'whispering, sad'
+        (emotion_vector, cfg_instruction) 元组。如果无对应映射则值为 None。
+        emotion_vector 是 8 维情感字典，cfg_instruction 是 CFG 提示文本。
     """
-    if not tags:
-        return ""
+    emotion_vecs: list[dict[str, float]] = []
+    cfg_parts: list[str] = []
 
-    parts = []
     for tag in tags:
-        if tag.name not in EMOTION_REGISTRY:
+        defn = EMOTION_REGISTRY.get(tag.name)
+        if defn is None:
             continue
 
-        defn = EMOTION_REGISTRY[tag.name]
+        if defn.emotion_vector:
+            weighted = {k: v * tag.intensity for k, v in defn.emotion_vector.items()}
+            emotion_vecs.append(weighted)
 
-        # Map intensity to descriptive modifier
-        if tag.intensity < 0.3:
-            modifier = "slightly"
-        elif tag.intensity < 0.7:
-            modifier = ""
-        else:
-            modifier = "very" if tag.intensity >= 0.9 else ""
+        if defn.cfg_instruction:
+            if tag.intensity < 1.0:
+                cfg_parts.append(f"{defn.cfg_instruction} (intensity: {tag.intensity:.1f})")
+            else:
+                cfg_parts.append(defn.cfg_instruction)
 
-        # Use the English description for the instruction
-        desc = defn.description_en.split("/")[0].lower()
-        if modifier:
-            parts.append(f"{modifier} {desc}")
-        else:
-            parts.append(desc)
+    # 合并情感向量
+    merged_vec: Optional[dict[str, float]] = None
+    if emotion_vecs:
+        all_keys: set[str] = set()
+        for v in emotion_vecs:
+            all_keys.update(v.keys())
+        merged_vec = {}
+        for key in all_keys:
+            values = [v.get(key, 0.0) for v in emotion_vecs]
+            merged_vec[key] = min(1.0, sum(values) / len(emotion_vecs))
 
-    return ", ".join(parts)
+    cfg_instruction = ", ".join(cfg_parts) if cfg_parts else None
+
+    return merged_vec, cfg_instruction
 
 
 def strip_all_tags(text: str) -> str:
-    """Remove all emotion tags from text, returning clean text.
-
-    This is useful when the engine does not support emotion tags
-    and we want to pass plain text.
-    """
-    cleaned = _TAG_PATTERN.sub("", text).strip()
-    return re.sub(r"\s+", " ", cleaned)
-
-
-def get_emotion_library() -> dict[str, list[dict]]:
-    """Get the full emotion tag library organized by category.
-
-    Returns:
-        Dict mapping category name to list of emotion definitions.
-    """
-    categories: dict[str, list[dict]] = {}
-    seen_names: set[str] = set()
-
-    for defn in EMOTION_REGISTRY.values():
-        if defn.name in seen_names:
-            continue
-        seen_names.add(defn.name)
-
-        cat = defn.category
-        if cat not in categories:
-            categories[cat] = []
-
-        categories[cat].append({
-            "name": defn.name,
-            "description_en": defn.description_en,
-            "description_zh": defn.description_zh,
-            "synonyms": list(defn.synonyms),
-            "default_intensity": defn.default_intensity,
-        })
-
-    return categories
-
-
-def validate_tags(tags: list[EmotionTag]) -> tuple[list[EmotionTag], list[str]]:
-    """Validate tags and return (valid_tags, warnings).
+    """从文本中移除所有情感标签，返回清理后的文本。
 
     Args:
-        tags: List of parsed emotion tags.
+        text: 输入文本。
 
     Returns:
-        Tuple of (valid tags, list of warning messages).
+        移除标签后的纯文本。
     """
-    valid = []
+    return _TAG_PATTERN.sub("", text).strip()
+
+
+def get_emotion_library() -> list[dict]:
+    """获取所有已注册情感标签的列表（用于 UI 展示）。
+
+    Returns:
+        情感字典列表，每个字典包含 name、display_name_zh、aliases、is_prosody 字段。
+    """
+    result = []
+    for defn in EMOTION_REGISTRY.values():
+        result.append(
+            {
+                "name": defn.name,
+                "display_name_zh": defn.display_name_zh,
+                "aliases": defn.aliases,
+                "is_prosody": defn.is_prosody,
+            }
+        )
+    return result
+
+
+def validate_tags(tags: list[EmotionTag]) -> list[str]:
+    """验证情感标签，返回未知标签的警告信息列表。
+
+    Args:
+        tags: 要验证的 EmotionTag 列表。
+
+    Returns:
+        警告信息字符串列表。如果所有标签均已知则返回空列表。
+    """
     warnings = []
-
     for tag in tags:
-        if tag.name in EMOTION_REGISTRY:
-            valid.append(tag)
-        else:
-            warnings.append(f"Unknown emotion tag: '{tag.raw_text}' (resolved to '{tag.name}')")
-
-    # Check for conflicting emotions
-    if len(valid) > 1:
-        conflicting_pairs = {
-            frozenset({"happy", "sad"}),
-            frozenset({"angry", "calm"}),
-            frozenset({"excited", "calm"}),
-            frozenset({"whisper", "shout"}),
-        }
-        tag_names = {t.name for t in valid}
-        for pair in conflicting_pairs:
-            if pair.issubset(tag_names):
-                warnings.append(
-                    f"Potentially conflicting emotions: {', '.join(sorted(pair))}. "
-                    f"The last tag will take priority."
-                )
-
-    return valid, warnings
+        if tag.name not in EMOTION_REGISTRY:
+            suggestions = [
+                name for name in EMOTION_REGISTRY if name.startswith(tag.name[:2])
+            ]
+            msg = f"未知情感标签: '{tag.name}'"
+            if suggestions:
+                msg += f"，您是否想要: {', '.join(suggestions[:3])}?"
+            warnings.append(msg)
+    return warnings

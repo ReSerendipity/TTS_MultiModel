@@ -223,7 +223,16 @@ class MixedPrecisionContext:
         config: Optional[MixedPrecisionConfig] = None,
         use_grad_scaler: bool = False,
         device: Optional[str] = None,
-    ):
+    ) -> None:
+        """初始化混合精度上下文管理器。
+
+        Args:
+            config: 混合精度配置，为 None 时使用默认配置（auto 模式）。
+            use_grad_scaler: 是否启用 GradScaler（主要用于训练场景，
+                推理时通常不需要）。仅在 FP16 模式下有效。
+            device: 指定 autocast 的目标设备类型（如 "cuda", "cpu", "mps"）。
+                为 None 时自动检测当前后端。
+        """
         self.config = config or MixedPrecisionConfig()
         self.use_grad_scaler = use_grad_scaler
         self.device = device
@@ -231,41 +240,41 @@ class MixedPrecisionContext:
         self.autocast_ctx = None
         self.grad_scaler = None
 
-    def __enter__(self):
-        """进入混合精度上下文。"""
+    def __enter__(self) -> "MixedPrecisionContext":
+        """进入混合精度推理上下文，启用 torch.autocast。
+
+        根据配置检测最优精度类型，创建对应的 autocast 上下文管理器。
+        如果配置为 FP32 或禁用混合精度，则不做任何操作直接返回。
+
+        Returns:
+            self，支持 with 语句的 as 绑定。
+        """
         import torch
 
         from .gpu_backend import GPUBackendManager
 
-        # 未启用混合精度，无需 autocast
         if not self.config.enabled or not self.config.autocast_enabled:
             logger.debug("[混合精度] autocast 未启用，跳过上下文设置")
             self.dtype = torch.float32
             return self
 
-        # 确定目标 dtype
         self.dtype = detect_optimal_dtype(self.config)
 
         if self.dtype == torch.float32:
-            # FP32 不需要 autocast
             logger.debug("[混合精度] FP32 模式，跳过 autocast")
             return self
 
-        # 确定设备类型
         if self.device is not None:
             device_type = self.device
         else:
             device_type = GPUBackendManager.get_autocast_device_type()
 
-        # 创建 autocast 上下文
-        # torch.amp.autocast 在 PyTorch 2.x+ 中使用 device_type 参数
         self.autocast_ctx = torch.amp.autocast(
             device_type=device_type,
             dtype=self.dtype,
         )
         self.autocast_ctx.__enter__()
 
-        # 可选 GradScaler（主要用于训练场景）
         if self.use_grad_scaler:
             self.grad_scaler = GPUBackendManager.get_grad_scaler(
                 enabled=(self.dtype == torch.float16)
@@ -280,14 +289,23 @@ class MixedPrecisionContext:
         )
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """退出混合精度上下文。"""
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+        """退出混合精度上下文，关闭 autocast 并清理资源。
+
+        Args:
+            exc_type: 异常类型（如果 with 块内发生异常）。
+            exc_val: 异常值（如果 with 块内发生异常）。
+            exc_tb: 异常回溯（如果 with 块内发生异常）。
+
+        Returns:
+            False，表示不抑制异常，异常会继续向上传播。
+        """
         if self.autocast_ctx is not None:
             self.autocast_ctx.__exit__(exc_type, exc_val, exc_tb)
             self.autocast_ctx = None
 
         logger.debug("[混合精度] 已退出 autocast 上下文")
-        return False  # 不抑制异常
+        return False
 
     def scale_loss(self, loss):
         """使用 GradScaler 缩放损失值（训练场景）。

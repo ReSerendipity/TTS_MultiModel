@@ -395,6 +395,8 @@ class TTSGenerationService:
     ) -> GenerationResult:
         """语音克隆生成。
 
+        使用参考音频进行声音克隆，生成与参考音色相似的语音。
+
         Args:
             text: 输入文本。
             reference_audio: 参考音频路径。
@@ -407,6 +409,11 @@ class TTSGenerationService:
 
         Returns:
             GenerationResult 包含音频路径和元信息。
+
+        Raises:
+            EngineNotLoadedError: 引擎未加载。
+            GenerationError: 生成失败。
+            InsufficientVRAMError: 显存不足。
         """
         self._ensure_engine_ready()
         if _check_vram_circuit_breaker():
@@ -482,6 +489,8 @@ class TTSGenerationService:
     ) -> GenerationResult:
         """终极克隆生成（完整参数控制）。
 
+        仅支持 VoxCPM2 引擎，提供完整的高级参数控制，包括降噪强度、随机种子等。
+
         Args:
             text: 输入文本。
             instruction: 语音描述指令。
@@ -495,6 +504,12 @@ class TTSGenerationService:
 
         Returns:
             GenerationResult 包含音频路径和元信息。
+
+        Raises:
+            EngineNotLoadedError: 引擎未加载。
+            EngineSwitchError: 当前引擎不是 voxcpm2。
+            GenerationError: 生成失败。
+            InsufficientVRAMError: 显存不足。
         """
         self._ensure_engine_ready(expected_engine="voxcpm2")
         if _check_vram_circuit_breaker():
@@ -567,6 +582,8 @@ class TTSGenerationService:
     ) -> GenerationResult:
         """剧本工坊生成（多角色对话）。
 
+        支持多角色对话剧本生成，通过 speaker_map 和 persona_map 指定角色音色映射。
+
         Args:
             text: 剧本文本。
             speaker_map: 说话人映射。
@@ -575,6 +592,11 @@ class TTSGenerationService:
 
         Returns:
             GenerationResult 包含音频路径和元信息。
+
+        Raises:
+            EngineNotLoadedError: 引擎未加载。
+            GenerationError: 生成失败。
+            InsufficientVRAMError: 显存不足。
         """
         self._ensure_engine_ready()
         if _check_vram_circuit_breaker():
@@ -847,7 +869,11 @@ class ModelService:
             )
 
     def unload_model(self) -> None:
-        """卸载当前模型。"""
+        """卸载当前加载的模型，释放显存资源。
+
+        Raises:
+            TTSError: 卸载过程出错。
+        """
         from .model_manager import unload_model
 
         logger.info("[ModelService] 正在卸载模型...")
@@ -948,18 +974,23 @@ class PersonaService:
         deleted = svc.delete_persona("old_voice")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """初始化 PersonaService，创建带 TTL 的音色信息缓存。"""
         self._cache: dict[str, PersonaInfo] = {}
         self._cache_lock = threading.Lock()
         self._cache_timestamp: float = 0.0
-        self._cache_ttl: float = 30.0  # 缓存有效期（秒）
+        self._cache_ttl: float = 30.0
 
     def _is_cache_valid(self) -> bool:
-        """检查缓存是否在有效期内。"""
+        """检查缓存是否在有效期内。
+
+        Returns:
+            True 表示缓存有效可使用，False 表示需要重新加载。
+        """
         return (time.time() - self._cache_timestamp) < self._cache_ttl
 
     def _invalidate_cache(self) -> None:
-        """使缓存失效。"""
+        """清除所有缓存数据并重置时间戳，在音色创建/删除后调用。"""
         with self._cache_lock:
             self._cache.clear()
             self._cache_timestamp = 0.0
@@ -1164,7 +1195,11 @@ class PersonaService:
 
     @staticmethod
     def _get_persona_dir() -> str:
-        """获取音色目录路径（延迟导入）。"""
+        """获取音色存储目录路径（延迟导入避免循环依赖）。
+
+        Returns:
+            音色目录的绝对路径字符串。
+        """
         from .config import PERSONA_DIR
         return PERSONA_DIR
 

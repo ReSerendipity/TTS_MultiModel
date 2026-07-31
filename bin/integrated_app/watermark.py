@@ -1,22 +1,21 @@
-"""Neural audio watermarking for AI-generated speech content traceability.
+"""
+神经音频水印 - 用于 AI 生成语音的内容来源追溯。
 
-Inspired by Chatterbox's Perth watermark technology, this module provides
-invisible watermarking of TTS-generated audio for content provenance
-tracking and AI-generated content identification.
+受 Chatterbox 的 Perth 水印技术启发，本模块为 TTS 生成的音频提供不可感知的水印嵌入，
+用于内容来源追踪和 AI 生成内容识别。
 
-The watermark embeds a unique identifier into the audio signal that is:
-- Inaudible to human listeners
-- Robust against common audio transformations (compression, resampling)
-- Detectable for verification purposes
+水印将唯一标识符嵌入音频信号中，具备以下特性：
+- 对人类听众不可感知
+- 对常见音频变换（压缩、重采样）具有鲁棒性
+- 可通过检测算法进行验证
 
-Watermarking Strategy:
-  - Frequency-domain embedding using spread-spectrum technique
-  - Watermark bits are encoded as pseudo-random noise patterns
-  - Applied in the 16-20 kHz band (above most speech energy)
-  - SNR (signal-to-noise ratio) is kept above 30dB for transparency
+水印策略：
+  - 使用扩频技术在频域嵌入
+  - 水印比特编码为伪随机噪声模式
+  - 在 16-20 kHz 频段嵌入（高于大部分语音能量）
+  - SNR（信噪比）保持在 30dB 以上以确保透明性
 
-This is a lightweight, CPU-only implementation that does NOT require
-neural network inference, making it suitable for real-time applications.
+这是一个轻量级的纯 CPU 实现，不需要神经网络推理，适用于实时应用场景。
 """
 
 from __future__ import annotations
@@ -31,60 +30,90 @@ import numpy as np
 
 logger = logging.getLogger("tts_multimodel.watermark")
 
-# Watermark parameters
+# 水印参数
 _WATERMARK_VERSION = 1
-_WATERMARK_BITS = 64  # Number of bits in the watermark payload
-_WATERMARK_STRENGTH = 0.008  # Embedding strength (amplitude of watermark signal)
-_WATERMARK_FREQ_LOW = 16000  # Lower frequency bound for embedding (Hz)
-_WATERMARK_FREQ_HIGH = 20000  # Upper frequency bound for embedding (Hz)
-_WATERMARK_FRAME_SIZE = 2048  # FFT frame size
-_WATERMARK_REPEAT = 4  # Number of times watermark is repeated for robustness
+_WATERMARK_BITS = 64  # 水印载荷的比特数
+_WATERMARK_STRENGTH = 0.008  # 嵌入强度（水印信号幅度）
+_WATERMARK_FREQ_LOW = 16000  # 嵌入频率下限（Hz）
+_WATERMARK_FREQ_HIGH = 20000  # 嵌入频率上限（Hz）
+_WATERMARK_FRAME_SIZE = 2048  # FFT 帧大小
+_WATERMARK_REPEAT = 4  # 水印重复次数以增强鲁棒性
 
 
 @dataclass
 class WatermarkPayload:
-    """Decoded watermark payload."""
+    """解码后的水印载荷数据。
+
+    Attributes:
+        version: 水印版本号。
+        source_id: 唯一来源标识符（如 "tts-multimodel"）。
+        timestamp: 嵌入水印时的 Unix 时间戳。
+        content_hash: 音频内容的短哈希值。
+        extra: 可选的附加元数据。
+    """
 
     version: int
-    source_id: str  # Unique source identifier (e.g., "tts-multimodel")
-    timestamp: float  # Unix timestamp when watermark was embedded
-    content_hash: str  # Short hash of the audio content
-    extra: dict | None = None  # Optional additional metadata
+    source_id: str
+    timestamp: float
+    content_hash: str
+    extra: dict | None = None
 
 
 @dataclass
 class WatermarkResult:
-    """Result of watermark embedding or detection."""
+    """水印嵌入或检测的结果。
+
+    Attributes:
+        success: 操作是否成功。
+        message: 结果描述信息。
+        payload: 解码出的水印载荷，失败时为 None。
+        snr_db: 嵌入后的信噪比（dB）。
+    """
 
     success: bool
     message: str
     payload: WatermarkPayload | None = None
-    snr_db: float = 0.0  # Signal-to-noise ratio after embedding
+    snr_db: float = 0.0
 
 
 # ============================================================================
-# Watermark Generation
+# 水印生成
 # ============================================================================
 
 
 def _generate_watermark_key(source_id: str, timestamp: float) -> np.ndarray:
-    """Generate a pseudo-random watermark key from source ID and timestamp.
+    """根据来源 ID 和时间戳生成伪随机水印密钥。
 
-    The key determines the spread-spectrum pattern used for embedding.
-    Using the same source_id and timestamp produces the same key,
-    enabling watermark detection.
+    密钥决定用于嵌入的扩频模式。使用相同的 source_id 和 timestamp
+    会产生相同的密钥，从而支持水印检测。
+
+    Args:
+        source_id: 来源标识符。
+        timestamp: Unix 时间戳。
+
+    Returns:
+        双极性序列（+1/-1）组成的密钥数组。
     """
     seed_data = f"{source_id}:{timestamp:.6f}".encode("utf-8")
     seed = int(hashlib.sha256(seed_data).hexdigest()[:8], 16) % (2**32)
     rng = np.random.RandomState(seed)
-    # Generate bipolar sequence (+1/-1)
     return rng.choice([-1.0, 1.0], size=_WATERMARK_BITS)
 
 
 def _bits_to_payload_bytes(source_id: str, timestamp: float, content_hash: str) -> bytes:
-    """Encode watermark payload as bytes for embedding."""
-    # Pack: version(1) + source_id_len(1) + source_id + timestamp(8) + content_hash(8)
-    source_bytes = source_id.encode("utf-8")[:32]  # Truncate to 32 bytes max
+    """将水印载荷编码为字节序列，用于嵌入。
+
+    编码格式：version(1B) + source_id_len(1B) + source_id + timestamp(8B) + content_hash(8B)
+
+    Args:
+        source_id: 来源标识符。
+        timestamp: Unix 时间戳。
+        content_hash: 内容哈希值。
+
+    Returns:
+        编码后的字节序列。
+    """
+    source_bytes = source_id.encode("utf-8")[:32]
     return struct.pack(
         f"B B {len(source_bytes)}s d 8s",
         _WATERMARK_VERSION,
@@ -96,20 +125,36 @@ def _bits_to_payload_bytes(source_id: str, timestamp: float, content_hash: str) 
 
 
 def _payload_bytes_to_bits(payload_bytes: bytes) -> np.ndarray:
-    """Convert payload bytes to a bit array."""
+    """将载荷字节序列转换为比特数组。
+
+    Args:
+        payload_bytes: 载荷字节序列。
+
+    Returns:
+        映射为 +1/-1 的双极性比特数组。
+    """
     bits = []
     for byte in payload_bytes:
         for i in range(8):
             bits.append((byte >> (7 - i)) & 1)
-    # Pad or truncate to _WATERMARK_BITS
     while len(bits) < _WATERMARK_BITS:
         bits.append(0)
-    return np.array(bits[:_WATERMARK_BITS], dtype=np.float64) * 2 - 1  # Map to +1/-1
+    return np.array(bits[:_WATERMARK_BITS], dtype=np.float64) * 2 - 1
 
 
 def _compute_content_hash(audio: np.ndarray, sample_rate: int) -> str:
-    """Compute a short hash of the audio content for watermark payload."""
-    # Downsample to 16kHz for consistent hashing
+    """计算音频内容的短哈希，用于水印载荷。
+
+    先将音频下采样到 16kHz，再量化为 16-bit 整数后计算 SHA256 哈希，
+    以确保不同采样率下哈希的一致性。
+
+    Args:
+        audio: 音频数组。
+        sample_rate: 采样率（Hz）。
+
+    Returns:
+        16 字符的十六进制哈希字符串。
+    """
     if sample_rate != 16000:
         ratio = sample_rate / 16000
         n_samples = int(len(audio) / ratio)
@@ -118,13 +163,12 @@ def _compute_content_hash(audio: np.ndarray, sample_rate: int) -> str:
     else:
         audio_16k = audio
 
-    # Quantize to 16-bit and hash
     quantized = (audio_16k * 32767).astype(np.int16).tobytes()
     return hashlib.sha256(quantized).hexdigest()[:16]
 
 
 # ============================================================================
-# Watermark Embedding
+# 水印嵌入
 # ============================================================================
 
 
@@ -135,25 +179,33 @@ def embed_watermark(
     strength: float = _WATERMARK_STRENGTH,
     timestamp: float | None = None,
 ) -> tuple[np.ndarray, WatermarkResult]:
-    """Embed an invisible watermark into audio.
+    """向音频中嵌入不可感知的水印。
 
-    Uses spread-spectrum technique in the frequency domain to embed
-    watermark bits as pseudo-random noise patterns.
+    使用频域扩频技术，将水印比特编码为伪随机噪声模式嵌入到
+    16-20kHz 高频段。采用重叠相加（overlap-add）方法和随机相位调制，
+    确保水印不可感知且具有鲁棒性。
+
+    嵌入算法流程：
+    1. 计算音频内容哈希
+    2. 生成水印密钥和载荷比特
+    3. 逐帧进行 FFT，在选定频点叠加调制信号
+    4. IFFT 后通过重叠相加合成水印信号
+    5. 归一化水印幅度并叠加到原始音频
+    6. 计算嵌入后 SNR
 
     Args:
-        audio: Input audio array (float32, mono or stereo).
-        sample_rate: Sample rate in Hz.
-        source_id: Identifier for the watermark source.
-        strength: Embedding strength (0.001-0.05, default 0.008).
-        timestamp: Unix timestamp (default: current time).
+        audio: 输入音频数组（float32，单声道或立体声）。
+        sample_rate: 采样率（Hz）。
+        source_id: 水印来源标识符。
+        strength: 嵌入强度（0.001-0.05，默认 0.008）。
+        timestamp: Unix 时间戳（默认使用当前时间）。
 
     Returns:
-        Tuple of (watermarked_audio, WatermarkResult).
+        (含水印的音频, WatermarkResult) 元组。
     """
     if timestamp is None:
         timestamp = time.time()
 
-    # Ensure mono
     if audio.ndim > 1:
         audio_mono = np.mean(audio, axis=-1)
     else:
@@ -161,21 +213,16 @@ def embed_watermark(
 
     audio_mono = audio_mono.astype(np.float32)
 
-    # Compute content hash
     content_hash = _compute_content_hash(audio_mono, sample_rate)
 
-    # Generate watermark bits
     watermark_key = _generate_watermark_key(source_id, timestamp)
     payload_bytes = _bits_to_payload_bytes(source_id, timestamp, content_hash)
     payload_bits = _payload_bytes_to_bits(payload_bytes)
 
-    # Encode: watermark_signal = sum of modulated carrier waves
     n_samples = len(audio_mono)
 
-    # Create watermark signal using DFT-based spread spectrum
     watermark_signal = np.zeros(n_samples, dtype=np.float32)
 
-    # Frequency bin mapping
     freq_low_bin = int(_WATERMARK_FREQ_LOW * _WATERMARK_FRAME_SIZE / sample_rate)
     freq_high_bin = int(_WATERMARK_FREQ_HIGH * _WATERMARK_FRAME_SIZE / sample_rate)
     freq_high_bin = min(freq_high_bin, _WATERMARK_FRAME_SIZE // 2)
@@ -183,14 +230,13 @@ def embed_watermark(
     n_freq_bins = freq_high_bin - freq_low_bin
     if n_freq_bins < _WATERMARK_BITS:
         logger.warning(
-            f"Not enough frequency bins ({n_freq_bins}) for {_WATERMARK_BITS} watermark bits. "
-            f"Reducing watermark bits to {n_freq_bins}."
+            f"频点数量不足（{n_freq_bins}），无法容纳 {_WATERMARK_BITS} 个水印比特。"
+            f"将有效比特数降至 {n_freq_bins}。"
         )
         effective_bits = min(_WATERMARK_BITS, n_freq_bins)
     else:
         effective_bits = _WATERMARK_BITS
 
-    # Embed using overlap-add with random phase modulation
     frame_size = _WATERMARK_FRAME_SIZE
     hop_size = frame_size // 2
     n_frames = max(1, (n_samples - frame_size) // hop_size + 1)
@@ -207,36 +253,27 @@ def embed_watermark(
 
             frame = audio_mono[start:end]
 
-            # Apply FFT
             fft = np.fft.rfft(frame)
 
-            # Embed watermark bits into selected frequency bins
             for bit_idx in range(effective_bits):
                 freq_bin = freq_low_bin + bit_idx
                 if freq_bin < len(fft):
-                    # Modulate with watermark bit and carrier phase
                     modulation = payload_bits[bit_idx] * strength * np.exp(1j * carrier_phases[bit_idx])
                     fft[freq_bin] += modulation
-                    # Mirror for symmetry
                     mirror_bin = frame_size - freq_bin
                     if mirror_bin < len(fft):
                         fft[mirror_bin] += np.conj(modulation)
 
-            # Apply IFFT
             watermarked_frame = np.fft.irfft(fft, n=frame_size)
 
-            # Overlap-add
             watermark_signal[start:end] += watermarked_frame - frame
 
-    # Normalize watermark signal
     max_wm = np.max(np.abs(watermark_signal))
     if max_wm > 0:
         watermark_signal = watermark_signal / max_wm * strength * np.max(np.abs(audio_mono))
 
-    # Add watermark to audio
     watermarked = audio_mono + watermark_signal
 
-    # Calculate SNR
     noise_power = np.mean(watermark_signal**2)
     signal_power = np.mean(audio_mono**2)
     if noise_power > 0:
@@ -244,7 +281,6 @@ def embed_watermark(
     else:
         snr_db = float("inf")
 
-    # Restore original shape
     if audio.ndim > 1:
         watermarked = np.stack([watermarked] * audio.shape[-1], axis=-1)
 
@@ -256,20 +292,19 @@ def embed_watermark(
     )
 
     logger.info(
-        f"Watermark embedded: source={source_id}, SNR={snr_db:.1f}dB, "
-        f"hash={content_hash}"
+        f"水印嵌入完成: source={source_id}, SNR={snr_db:.1f}dB, hash={content_hash}"
     )
 
     return watermarked.astype(np.float32), WatermarkResult(
         success=True,
-        message="Watermark embedded successfully",
+        message="水印嵌入成功",
         payload=payload,
         snr_db=snr_db,
     )
 
 
 # ============================================================================
-# Watermark Detection
+# 水印检测
 # ============================================================================
 
 
@@ -278,20 +313,26 @@ def detect_watermark(
     sample_rate: int,
     source_id: str = "tts-multimodel",
 ) -> WatermarkResult:
-    """Detect and decode a watermark from audio.
+    """从音频中检测并解码水印。
 
-    Uses correlation-based detection to find embedded watermark bits
-    and reconstruct the payload.
+    使用基于相关性的检测算法，通过在频域计算与预期载波模式的
+    相关度来提取嵌入的水印比特，然后重构载荷数据。
+
+    检测算法流程：
+    1. 对音频逐帧做 FFT
+    2. 在嵌入频点计算与预期载波的相关度
+    3. 通过相关度符号判定比特值（+1/-1）
+    4. 将比特序列重组为字节并解析载荷
+    5. 验证载荷有效性
 
     Args:
-        audio: Input audio array (float32, mono or stereo).
-        sample_rate: Sample rate in Hz.
-        source_id: Expected source ID for verification.
+        audio: 输入音频数组（float32，单声道或立体声）。
+        sample_rate: 采样率（Hz）。
+        source_id: 期望的来源标识符，用于验证。
 
     Returns:
-        WatermarkResult with detected payload or failure message.
+        WatermarkResult，包含检测到的载荷或失败信息。
     """
-    # Ensure mono
     if audio.ndim > 1:
         audio_mono = np.mean(audio, axis=-1)
     else:
@@ -310,22 +351,18 @@ def detect_watermark(
     n_freq_bins = freq_high_bin - freq_low_bin
     effective_bits = min(_WATERMARK_BITS, n_freq_bins)
 
-    # Collect correlation statistics for each bit
     bit_correlations = np.zeros(effective_bits)
     bit_counts = np.zeros(effective_bits)
 
     rng = np.random.RandomState(42)
     carrier_phases = rng.uniform(0, 2 * np.pi, size=effective_bits)
 
-    # Try multiple timestamps to find the watermark
-    # For detection, we try the most common timestamp patterns
     best_score = 0.0
     best_timestamp = 0.0
     best_bits = np.zeros(effective_bits)
 
-    # Scan with a window of candidate timestamps
     current_time = time.time()
-    candidates = [current_time]  # Start with current time
+    candidates = [current_time]
 
     for timestamp in candidates:
         key = _generate_watermark_key(source_id, timestamp)
@@ -345,13 +382,11 @@ def detect_watermark(
             for bit_idx in range(effective_bits):
                 freq_bin = freq_low_bin + bit_idx
                 if freq_bin < len(fft):
-                    # Correlate with expected carrier
                     carrier = np.exp(1j * carrier_phases[bit_idx])
                     corr = np.real(fft[freq_bin] * np.conj(carrier))
                     correlations[bit_idx] += corr
                     counts[bit_idx] += 1
 
-        # Average correlations
         valid = counts > 0
         if np.any(valid):
             avg_correlations = np.where(valid, correlations / counts, 0)
@@ -363,16 +398,14 @@ def detect_watermark(
                 best_timestamp = timestamp
                 best_bits = detected_bits
 
-    # Check if watermark was detected (score above threshold)
     detection_threshold = 0.001
     if best_score < detection_threshold:
         return WatermarkResult(
             success=False,
-            message="No watermark detected in audio",
+            message="音频中未检测到水印",
             payload=None,
         )
 
-    # Reconstruct payload from detected bits
     bits_uint8 = ((best_bits + 1) / 2).astype(np.uint8)[:_WATERMARK_BITS]
     bit_bytes = bytearray()
     for i in range(0, len(bits_uint8), 8):
@@ -384,7 +417,6 @@ def detect_watermark(
                 byte_val = byte_val << 1
         bit_bytes.append(byte_val)
 
-    # Parse payload
     try:
         if len(bit_bytes) >= 1:
             version = bit_bytes[0]
@@ -407,22 +439,22 @@ def detect_watermark(
 
             return WatermarkResult(
                 success=True,
-                message="Watermark detected successfully",
+                message="水印检测成功",
                 payload=payload,
                 snr_db=best_score,
             )
     except Exception as e:
-        logger.debug(f"Payload decode error: {e}")
+        logger.debug(f"载荷解码错误: {e}")
 
     return WatermarkResult(
         success=False,
-        message="Watermark detected but payload decode failed",
+        message="检测到水印但载荷解码失败",
         payload=None,
     )
 
 
 # ============================================================================
-# Convenience Functions
+# 便捷函数
 # ============================================================================
 
 
@@ -432,16 +464,17 @@ def watermark_audio(
     enable: bool = True,
     source_id: str = "tts-multimodel",
 ) -> tuple[np.ndarray, dict]:
-    """Convenience function to optionally watermark audio.
+    """可选地为音频添加水印的便捷函数。
 
     Args:
-        audio: Input audio array.
-        sample_rate: Sample rate in Hz.
-        enable: Whether to apply watermarking.
-        source_id: Watermark source identifier.
+        audio: 输入音频数组。
+        sample_rate: 采样率（Hz）。
+        enable: 是否启用水印，默认 True。
+        source_id: 水印来源标识符。
 
     Returns:
-        Tuple of (processed_audio, metadata_dict).
+        (处理后的音频, 元数据字典) 元组。元数据包含 watermarked（是否嵌入）、
+        snr_db（信噪比）、source_id、content_hash 等字段。
     """
     if not enable:
         return audio, {"watermarked": False}
