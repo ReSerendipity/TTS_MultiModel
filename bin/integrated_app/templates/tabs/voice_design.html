@@ -64,6 +64,7 @@
                             <div class="fg" style="margin-top:8px">
                                 <input type="text" id="vd-tag-search" class="fi" placeholder="{{ 'search_voice_tag'|t(lang) }}" aria-label="{{ 'search_voice_tag'|t(lang) }}">
                             </div>
+                            <div class="tag-count-hint" id="vd-tag-count" style="display:none">{{ "selected"|t(lang, default="已选") }}: <span class="count-num">1</span> {{ "tag"|t(lang, default="个标签") }}</div>
                             <div class="tags">
                                 <button type="button" class="tag voice-tag" data-tag="sweet" onclick="fillVdInstruct(this)" aria-label="{{ 'loli_voice'|t(lang) }}">{{ 'loli_voice'|t(lang) }}</button>
                                 <button type="button" class="tag voice-tag" data-tag="mature" onclick="fillVdInstruct(this)" aria-label="{{ 'mature_voice'|t(lang) }}">{{ 'mature_voice'|t(lang) }}</button>
@@ -101,8 +102,8 @@
                         </div>
 
                         <!-- Collapsible: 高级参数 -->
-                        <div style="margin-top:8px">
-                            <div class="collapse-header" onclick="toggleCollapse(this)">
+                        <div id="advanced-params-collapse" style="margin-top:8px" data-collapsed="true">
+                            <div class="collapse-header" onclick="toggleVdAdvancedParams(this)">
                                 <span>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                                     {{ "advanced_params"|t(lang) }}
@@ -112,21 +113,21 @@
                             <div class="collapse-body">
                                 <div class="form-row" style="margin-top:8px">
                                     <div class="form-col">
-                                        <label class="fl" for="vd-cfg-value">CFG Scale</label>
+                                        <label class="fl" for="vd-cfg-value">CFG Scale<span class="help-icon" title="Classifier Free Guidance Scale - 控制生成语音与提示文本的一致性。值越高越贴合描述，但可能降低音质。推荐值：0.1-10，推荐值：2.0">?</span></label>
                                         <input type="number" id="vd-cfg-value" name="cfg" class="fi" value="2.0" step="0.1" min="0.1" max="10">
                                     </div>
                                     <div class="form-col">
-                                        <label class="fl" for="vd-inference-steps">{{ "inference_steps"|t(lang) }}</label>
+                                        <label class="fl" for="vd-inference-steps">{{ "inference_steps"|t(lang) }}<span class="help-icon" title="推理步数 - 生成音频质量的迭代次数。步数越多质量越好，但生成越慢。推荐值：1-200，推荐值：32">?</span></label>
                                         <input type="number" id="vd-inference-steps" name="steps" class="fi" value="32" min="1" max="200">
                                     </div>
                                 </div>
                                 <div class="form-row">
                                     <div class="form-col">
-                                        <label class="fl" for="vd-seed-input">{{ "random_seed"|t(lang) }}</label>
+                                        <label class="fl" for="vd-seed-input">{{ "random_seed"|t(lang) }}<span class="help-icon" title="随机种子 - 用于复现相同的生成结果。相同的种子和参数会产生相同的语音。">?</span></label>
                                         <input type="number" id="vd-seed-input" name="seed" class="fi" value="42">
                                     </div>
                                     <div class="form-col">
-                                        <label class="fl" for="vd-denoise">{{ "denoise"|t(lang) }}</label>
+                                        <label class="fl" for="vd-denoise">{{ "denoise"|t(lang) }}<span class="help-icon" title="降噪处理 - 减少生成音频中的背景噪声。启用可提升音质，但可能轻微改变音色。">?</span></label>
                                         <select id="vd-denoise" name="denoise" class="fs">
                                             <option value="true" selected>{{ "enabled"|t(lang) }}</option>
                                             <option value="false">{{ "disabled"|t(lang) }}</option>
@@ -135,7 +136,7 @@
                                 </div>
                                 <div class="form-row">
                                     <div class="form-col">
-                                        <label class="fl" for="vd-norm">{{ "text_normalization"|t(lang) }}</label>
+                                        <label class="fl" for="vd-norm">{{ "text_normalization"|t(lang) }}<span class="help-icon" title="文本归一化 - 自动处理数字、符号等文本格式，提升朗读自然度。建议启用。">?</span></label>
                                         <select id="vd-norm" name="norm" class="fs">
                                             <option value="true" selected>{{ "enabled"|t(lang) }}</option>
                                             <option value="false">{{ "disabled"|t(lang) }}</option>
@@ -145,11 +146,20 @@
                             </div>
                         </div>
 
-                        <!-- Generate Button -->
-                        <button type="submit" class="btn-generate" style="margin-top:10px">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2h7.6l-6 4.8 2.4 7.2-6-4.8-6.4 4.8L8 14l-6-4.8h7.6z"/></svg>
-                            {{ "generate_btn"|t(lang) }}
-                        </button>
+                        <!-- Generate Button Row -->
+                        <div class="generate-row">
+                            <button type="submit" class="btn-generate"
+                                    data-loading-text="{{ "generating"|t(lang) }}"
+                                    data-success-text="{{ "gen_success"|t(lang, default="生成完成") }}">
+                                <span class="btn-spinner"></span>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg"><path d="M12 2l2.4 7.2h7.6l-6 4.8 2.4 7.2-6-4.8-6.4 4.8L8 14l-6-4.8h7.6z"/></svg>
+                                <span class="btn-text">{{ "generate_btn"|t(lang) }}</span>
+                            </button>
+                            <button type="button" class="advanced-quick-entry" onclick="scrollToAdvancedParams()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                {{ "advanced"|t(lang) }}
+                            </button>
+                        </div>
                         <div class="gen-hint">Ctrl+Enter</div>
 
                         <!-- Voice name + save -->
@@ -179,14 +189,42 @@
                 <div class="card-body">
                     <div id="vd-result" aria-live="polite">
                         <div id="vd-spinner" class="htmx-indicator" style="display:none">
-                            <div class="hint-text">{{ "generating"|t(lang) }}</div>
-                            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+                            <div class="gen-progress-wrap">
+                                <div class="gen-progress-header">
+                                    <span class="gen-progress-phase" id="vd-progress-phase">{{ "preparing"|t(lang, default="准备中") }}</span>
+                                    <span class="gen-progress-pct" id="vd-progress-pct">0%</span>
+                                </div>
+                                <div class="progress-bar" style="height:10px">
+                                    <div class="progress-fill" id="vd-progress-fill" style="width:0%"></div>
+                                </div>
+                                <div class="gen-progress-steps" id="vd-progress-steps">
+                                    <div class="gen-step gen-step-active" data-step="prep">
+                                        <div class="gen-step-dot"></div>
+                                        <span>{{ "step_preprocess"|t(lang, default="文本预处理") }}</span>
+                                    </div>
+                                    <div class="gen-step" data-step="infer">
+                                        <div class="gen-step-dot"></div>
+                                        <span>{{ "step_inference"|t(lang, default="模型推理") }}</span>
+                                    </div>
+                                    <div class="gen-step" data-step="post">
+                                        <div class="gen-step-dot"></div>
+                                        <span>{{ "step_postprocess"|t(lang, default="音频后处理") }}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="status-message" id="vd-status" aria-live="polite"></div>
                         <div class="empty-state" id="vd-empty-state">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:0.35;margin-bottom:12px"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
-                            <p class="empty-state-title">{{ "no_result_yet"|t(lang) }}</p>
-                            <p class="empty-state-desc">{{ "fill_form_then_generate"|t(lang) }}</p>
+                            <svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:80px;height:48px;opacity:0.35;margin-bottom:12px">
+                                <path d="M5 30 Q 12.5 10, 20 30 T 35 30" stroke-opacity="0.4"/>
+                                <path d="M15 30 Q 25 5, 35 30 T 55 30" stroke-opacity="0.6"/>
+                                <path d="M25 30 Q 37.5 0, 50 30 T 75 30" stroke-width="2.5"/>
+                                <path d="M45 30 Q 57.5 5, 70 30 T 95 30" stroke-opacity="0.6"/>
+                                <path d="M65 30 Q 75 10, 85 30 T 100 30" stroke-opacity="0.4"/>
+                            </svg>
+                            <p class="empty-state-title">{{ "ready_to_create"|t(lang, default="准备好创建你的专属音色了吗？") }}</p>
+                            <p class="empty-state-desc">{{ "enter_text_and_click_generate"|t(lang, default="输入文本，点击生成，即可体验AI语音合成") }}</p>
+                            <button type="button" class="btn-empty-sample" onclick="fillSampleText()">{{ "try_sample_text"|t(lang, default="试试示例文本") }}</button>
                         </div>
                     </div>
                     <audio class="tts-audio-hidden" id="vd-audio" style="display:none"></audio>
@@ -303,6 +341,12 @@
         if (input) { input.value = el.textContent; input.focus(); }
         document.querySelectorAll('#vd-tab-create .tag').forEach(function(t){ t.classList.remove('active'); });
         el.classList.add('active');
+        var countHint = document.getElementById('vd-tag-count');
+        if (countHint) {
+            countHint.style.display = '';
+            var countNum = countHint.querySelector('.count-num');
+            if (countNum) countNum.textContent = '1';
+        }
     };
 
     window.setVdMode = function(mode) {
@@ -330,11 +374,110 @@
         var statusEl = document.getElementById('vd-status');
         var ppSection = document.getElementById('vd-pp-section');
         if (resultEl) {
-            resultEl.innerHTML = '<div class="empty-state" id="vd-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:0.35;margin-bottom:12px"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg><p class="empty-state-title">{{ "no_result_yet"|t(lang) }}</p><p class="empty-state-desc">{{ "fill_form_then_generate"|t(lang) }}</p></div>';
+            resultEl.innerHTML = '<div class="empty-state" id="vd-empty-state"><svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:80px;height:48px;opacity:0.35;margin-bottom:12px"><path d="M5 30 Q 12.5 10, 20 30 T 35 30" stroke-opacity="0.4"/><path d="M15 30 Q 25 5, 35 30 T 55 30" stroke-opacity="0.6"/><path d="M25 30 Q 37.5 0, 50 30 T 75 30" stroke-width="2.5"/><path d="M45 30 Q 57.5 5, 70 30 T 95 30" stroke-opacity="0.6"/><path d="M65 30 Q 75 10, 85 30 T 100 30" stroke-opacity="0.4"/></svg><p class="empty-state-title">{{ "ready_to_create"|t(lang, default="准备好创建你的专属音色了吗？") }}</p><p class="empty-state-desc">{{ "enter_text_and_click_generate"|t(lang, default="输入文本，点击生成，即可体验AI语音合成") }}</p><button type="button" class="btn-empty-sample" onclick="fillSampleText()">{{ "try_sample_text"|t(lang, default="试试示例文本") }}</button></div>';
         }
         if (statusEl) statusEl.innerHTML = '';
         if (ppSection) ppSection.style.display = 'none';
     };
+
+    window.toggleVdAdvancedParams = function(el) {
+        var collapseEl = document.getElementById('advanced-params-collapse');
+        if (!collapseEl) return;
+        var isCollapsed = collapseEl.getAttribute('data-collapsed') === 'true';
+        var header = collapseEl.querySelector('.collapse-header');
+        var body = collapseEl.querySelector('.collapse-body');
+        if (isCollapsed) {
+            collapseEl.setAttribute('data-collapsed', 'false');
+            if (header) header.classList.add('open');
+            if (body) body.classList.add('open');
+            try { localStorage.setItem('vd_advanced_expanded', 'true'); } catch(e) {}
+        } else {
+            collapseEl.setAttribute('data-collapsed', 'true');
+            if (header) header.classList.remove('open');
+            if (body) body.classList.remove('open');
+            try { localStorage.setItem('vd_advanced_expanded', 'false'); } catch(e) {}
+        }
+    };
+
+    window.scrollToAdvancedParams = function() {
+        var collapseEl = document.getElementById('advanced-params-collapse');
+        if (!collapseEl) return;
+        var isCollapsed = collapseEl.getAttribute('data-collapsed') === 'true';
+        if (isCollapsed) {
+            window.toggleVdAdvancedParams();
+        }
+        setTimeout(function() {
+            collapseEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    };
+
+    window.fillSampleText = function() {
+        var textarea = document.getElementById('vd-text');
+        if (textarea) {
+            textarea.value = '{{ "sample_text"|t(lang, default="欢迎使用AI语音合成系统，这是一段演示文本，您可以听到自然流畅的语音效果。") }}';
+            textarea.focus();
+            var event = new Event('input');
+            textarea.dispatchEvent(event);
+        }
+        var instructionInput = document.getElementById('vd-instruction');
+        if (instructionInput && !instructionInput.value) {
+            instructionInput.value = '{{ "sample_voice_desc"|t(lang, default="温柔甜美的女声") }}';
+        }
+    };
+
+    function initVdGenerateBtn() {
+        var form = document.getElementById('vd-form');
+        var btn = form ? form.querySelector('.btn-generate') : null;
+        if (!form || !btn) return;
+
+        form.addEventListener('htmx:beforeRequest', function() {
+            btn.classList.add('loading');
+            btn.disabled = true;
+            var loadingText = btn.getAttribute('data-loading-text');
+            var btnText = btn.querySelector('.btn-text');
+            if (btnText && loadingText) {
+                btn.setAttribute('data-original-text', btnText.textContent);
+                btnText.textContent = loadingText;
+            }
+        });
+
+        form.addEventListener('htmx:afterRequest', function(e) {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            var btnText = btn.querySelector('.btn-text');
+            var originalText = btn.getAttribute('data-original-text');
+            if (btnText && originalText) {
+                btnText.textContent = originalText;
+            }
+            if (e.detail && e.detail.successful) {
+                var successText = btn.getAttribute('data-success-text');
+                if (successText && btnText) {
+                    var prevText = btnText.textContent;
+                    btn.classList.add('success');
+                    btnText.textContent = '✓ ' + successText;
+                    setTimeout(function() {
+                        btn.classList.remove('success');
+                        btnText.textContent = prevText;
+                    }, 2000);
+                }
+            }
+        });
+    }
+
+    function initVdAdvancedState() {
+        var collapseEl = document.getElementById('advanced-params-collapse');
+        if (!collapseEl) return;
+        try {
+            var saved = localStorage.getItem('vd_advanced_expanded');
+            if (saved === 'true') {
+                collapseEl.setAttribute('data-collapsed', 'false');
+                var header = collapseEl.querySelector('.collapse-header');
+                var body = collapseEl.querySelector('.collapse-body');
+                if (header) header.classList.add('open');
+                if (body) body.classList.add('open');
+            }
+        } catch(e) {}
+    }
 
     // Submit form using selected persona for voice cloning
     window.submitWithPersona = function() {
@@ -752,6 +895,109 @@
             });
         });
     }
+
+    initVdGenerateBtn();
+    initVdAdvancedState();
+    initVdSSEProgress();
+    }
+
+    function initVdSSEProgress() {
+        var vdForm = document.getElementById('vd-form');
+        if (!vdForm) return;
+
+        var isVdGenerating = false;
+
+        vdForm.addEventListener('htmx:beforeRequest', function() {
+            isVdGenerating = true;
+            resetVdProgress();
+            updateVdStep('prep');
+        });
+
+        vdForm.addEventListener('htmx:afterRequest', function() {
+            isVdGenerating = false;
+        });
+
+        vdForm.addEventListener('htmx:afterSettle', function(e) {
+            if (e.detail.successful) {
+                updateVdStep('post');
+                setTimeout(function() {
+                    setVdProgress(100);
+                    updateVdStep('done');
+                }, 300);
+            }
+        });
+
+        var origUpdateProgressDetail = window.updateProgressDetail;
+        window.updateProgressDetail = function(phase, progress, speed, remaining) {
+            if (origUpdateProgressDetail) {
+                origUpdateProgressDetail(phase, progress, speed, remaining);
+            }
+            if (!isVdGenerating) return;
+
+            var phaseEl = document.getElementById('vd-progress-phase');
+            var pctEl = document.getElementById('vd-progress-pct');
+            var fillEl = document.getElementById('vd-progress-fill');
+
+            if (phaseEl && phase) {
+                phaseEl.textContent = phase;
+            }
+
+            if (pctEl && progress) {
+                pctEl.textContent = progress;
+            }
+
+            if (fillEl && progress) {
+                var pctValue = parseInt(progress) || 0;
+                fillEl.style.width = pctValue + '%';
+            }
+
+            if (phase) {
+                var phaseLower = phase.toLowerCase();
+                if (phaseLower.indexOf('预处理') !== -1 || phaseLower.indexOf('文本') !== -1 || phaseLower.indexOf('preprocess') !== -1) {
+                    updateVdStep('prep');
+                } else if (phaseLower.indexOf('推理') !== -1 || phaseLower.indexOf('生成') !== -1 || phaseLower.indexOf('infer') !== -1 || phaseLower.indexOf('generate') !== -1) {
+                    updateVdStep('infer');
+                } else if (phaseLower.indexOf('后处理') !== -1 || phaseLower.indexOf('后处理') !== -1 || phaseLower.indexOf('post') !== -1) {
+                    updateVdStep('post');
+                }
+            }
+        };
+    }
+
+    function updateVdStep(step) {
+        var steps = document.querySelectorAll('#vd-progress-steps .gen-step');
+        if (!steps || steps.length === 0) return;
+
+        var stepOrder = ['prep', 'infer', 'post'];
+        var currentIdx = stepOrder.indexOf(step);
+
+        steps.forEach(function(s, idx) {
+            s.classList.remove('gen-step-active', 'gen-step-done');
+            if (step === 'done') {
+                s.classList.add('gen-step-done');
+            } else if (idx < currentIdx) {
+                s.classList.add('gen-step-done');
+            } else if (idx === currentIdx) {
+                s.classList.add('gen-step-active');
+            }
+        });
+    }
+
+    function resetVdProgress() {
+        var fillEl = document.getElementById('vd-progress-fill');
+        var pctEl = document.getElementById('vd-progress-pct');
+        var phaseEl = document.getElementById('vd-progress-phase');
+        if (fillEl) fillEl.style.width = '0%';
+        if (pctEl) pctEl.textContent = '0%';
+        if (phaseEl) phaseEl.textContent = '{{ "preparing"|t(lang, default="准备中") }}';
+        updateVdStep('prep');
+    }
+
+    function setVdProgress(pct) {
+        var fillEl = document.getElementById('vd-progress-fill');
+        var pctEl = document.getElementById('vd-progress-pct');
+        if (fillEl) fillEl.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = pct + '%';
     }
 
     if (document.readyState === 'loading') {

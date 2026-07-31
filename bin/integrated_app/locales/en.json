@@ -212,6 +212,7 @@
   "select_voice": "Select Voice",
   "use_selected_voice": "Generate with Selected",
   "stream_generate": "Stream Generate",
+  "stream_need_persona": "Streaming requires a saved persona to be selected first",
   "save_voice_name": "Enter voice name to save",
   "generating": "Generating audio",
   "cloning": "Cloning voice",
@@ -257,6 +258,10 @@
   "switching_engine": "Switching engine...",
   "unloading_model": "Unloading model...",
   "model_none": "None",
+  "model_not_loaded_hint": "Please load a model first before generating",
+  "model_loading_hint": "Model is loading, please wait...",
+  "model_error_hint": "Model failed to load, please check and retry",
+  "generation_in_progress": "Generation in progress, please wait...",
   "gpu_short": "GPU",
   "click_for_details": "Click for detailed monitoring",
   "stage": "Stage",
@@ -776,5 +781,10 @@
   "duration_control_mode": "Duration Control Mode",
   "custom_speed": "Custom Speed",
   "upload_duration_ref": "Upload reference audio (WAV, MP3, FLAC, OGG)",
-  "default_output_format_hint": "Default audio output format (wav/mp3/flac/ogg)"
+  "default_output_format_hint": "Default audio output format (wav/mp3/flac/ogg)",
+  "main_navigation": "Main Navigation",
+  "advanced": "Advanced",
+  "enter_text_and_click_generate": "Enter text and click generate to experience AI voice synthesis",
+  "ready_to_create": "Ready to create your unique voice?",
+  "try_sample_text": "Try Sample Text"
 }

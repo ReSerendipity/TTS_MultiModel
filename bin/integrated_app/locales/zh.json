@@ -216,6 +216,7 @@
   "select_voice": "选择音色",
   "use_selected_voice": "使用选中音色生成",
   "stream_generate": "流式生成",
+  "stream_need_persona": "流式生成需要先选择已保存的音色",
   "save_voice_name": "输入音色名称用于固化",
   "generating": "正在生成语音",
   "cloning": "正在克隆语音",
@@ -261,6 +262,10 @@
   "switching_engine": "切换引擎...",
   "unloading_model": "卸载模型...",
   "model_none": "无",
+  "model_not_loaded_hint": "请先加载模型后再生成",
+  "model_loading_hint": "模型加载中，请稍候...",
+  "model_error_hint": "模型加载失败，请检查后重试",
+  "generation_in_progress": "正在生成中，请稍候...",
   "gpu_short": "GPU",
   "click_for_details": "点击查看详细监控",
   "stage": "阶段",
@@ -777,5 +782,10 @@
   "current_iter": "当前迭代",
   "duration_free_hint": "模型自由生成，忠实再现参考音频的韵律特征",
   "duration_fixed_hint": "通过调整时长倍速精确控制生成音频长度",
-  "default_output_format_hint": "默认音频输出格式（wav/mp3/flac/ogg）"
+  "default_output_format_hint": "默认音频输出格式（wav/mp3/flac/ogg）",
+  "main_navigation": "主导航",
+  "advanced": "高级",
+  "enter_text_and_click_generate": "输入文本，点击生成，即可体验AI语音合成",
+  "ready_to_create": "准备好创建你的专属音色了吗？",
+  "try_sample_text": "试试示例文本"
 }

@@ -80,44 +80,6 @@ class BatchSpeechRequest(BaseModel):
         raise ValueError(f"未知模型 '{v}'，可选: tts-1, tts-1-hd")
 
 
-class BatchSpeechRequest(BaseModel):
-    """批量语音合成请求模型。"""
-
-    texts: list[str] = Field(
-        ...,
-        min_length=1,
-        max_length=100,
-        description="要合成的文本列表（最多 100 条）",
-    )
-    model: str = Field(
-        default="tts-1",
-        description="模型名称: tts-1 (VoxCPM2) 或 tts-1-hd (IndexTTS2)",
-    )
-    voice: str = Field(
-        default="alloy",
-        description="音色名称或声音描述",
-    )
-    response_format: str = Field(
-        default="wav",
-        description="输出音频格式: wav, mp3, opus, aac",
-    )
-    speed: float = Field(
-        default=1.0,
-        ge=0.25,
-        le=4.0,
-        description="语速倍率 (0.25-4.0)",
-    )
-
-    @field_validator("model")
-    @classmethod
-    def validate_model(cls, v: str) -> str:
-        """验证并规范化模型名称。"""
-        v_lower = v.strip().lower()
-        if v_lower in ("tts-1", "tts-1-hd"):
-            return v_lower
-        raise ValueError(f"未知模型 '{v}'，可选: tts-1, tts-1-hd")
-
-
 class SpeechRequest(BaseModel):
     """OpenAI /v1/audio/speech 请求模型。
 

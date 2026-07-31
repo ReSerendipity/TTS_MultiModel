@@ -1,4 +1,10 @@
-"""Model management module.
+"""模型管理模块。
+
+提供模型加载、卸载、引擎切换、LRU 缓存、进度追踪、GPU 显存监控以及音色缓存预热功能。
+
+支持 VoxCPM2 与 IndexTTS 2.0 双引擎架构。
+
+Model management module.
 
 Provides model loading, unloading, engine switching, LRU caching,
 progress tracking, GPU memory monitoring, and persona cache warmup.
@@ -42,13 +48,14 @@ Sub-modules:
     严禁在 async 上下文中直接 `with _model_lock:` 调用同步代码。
 """
 
+import contextlib
 import gc
 import logging
 import os
 import threading
 import time
 from collections.abc import Generator
-from typing import Any
+from typing import Any, Callable, Optional
 
 from .cache import AdaptiveLRUCache, LRUCache
 from .config import (
@@ -86,54 +93,81 @@ __all__ = [
     "free_gpu_memory",
 ]
 
+#: 模块级日志记录器，命名空间 "tts_multimodel"
 logger = logging.getLogger("tts_multimodel")
 
 # --- 常量提取 (M-R1/A3-1 消除魔法数字) ---
 # REFACTOR: [M-R1] 集中显存检查与轮询参数，便于调参与测试覆盖
-_VRAM_FREE_THRESHOLD_BYTES = 500 * 1024 * 1024  # 显存释放完成阈值: 500MB
-_VRAM_WAIT_MAX_SECONDS = 5.0  # 显存释放轮询最大等待时间
-_VRAM_POLL_INTERVAL_SECONDS = 0.5  # 显存释放轮询间隔
-_VRAM_FREE_PERCENT_FLOOR = 5  # 显存释放判定下限: 总显存的 5% (E2-2 阈值相对化)
-_PRELOAD_READ_CHUNK_BYTES = 1024 * 1024  # 预加载单次读取块大小: 1MB
-_PERSONA_CACHE_DEFAULT_SIZE = 15  # Persona 嵌入缓存默认容量
-_WARMUP_TOP_PERSONAS = 5  # Persona 预热数量
-_UNLOAD_SLOW_THRESHOLD_SECONDS = 5.0  # 卸载耗时告警阈值
-_LOAD_RETRY_AFTER_UNLOAD_SECONDS = 1  # 卸载后等待 GPU 同步时间
+_VRAM_FREE_THRESHOLD_BYTES: int = 500 * 1024 * 1024  # 显存释放完成阈值: 500MB
+_VRAM_WAIT_MAX_SECONDS: float = 5.0  # 显存释放轮询最大等待时间
+_VRAM_POLL_INTERVAL_SECONDS: float = 0.5  # 显存释放轮询间隔
+_VRAM_FREE_PERCENT_FLOOR: int = 5  # 显存释放判定下限: 总显存的 5% (E2-2 阈值相对化)
+_PRELOAD_READ_CHUNK_BYTES: int = 1024 * 1024  # 预加载单次读取块大小: 1MB
+_PERSONA_CACHE_DEFAULT_SIZE: int = 15  # Persona 嵌入缓存默认容量
+_WARMUP_TOP_PERSONAS: int = 5  # Persona 预热数量
+_UNLOAD_SLOW_THRESHOLD_SECONDS: float = 5.0  # 卸载耗时告警阈值
+_LOAD_RETRY_AFTER_UNLOAD_SECONDS: int = 1  # 卸载后等待 GPU 同步时间
 
 # --- torch.compile cache configuration ---
-_TORCH_COMPILE_CACHE_DIR = os.path.join(ROOT_DIR, "torch_compile_cache")
+_TORCH_COMPILE_CACHE_DIR: str = os.path.join(ROOT_DIR, "torch_compile_cache")
 try:
-    os.makedirs(_TORCH_COMPILE_CACHE_DIR, exist_ok=True)
-    import torch._dynamo as dynamo
+    try:
+        os.makedirs(_TORCH_COMPILE_CACHE_DIR, exist_ok=True)
+    except (OSError, PermissionError) as dir_err:
+        logger.debug(f"[torch.compile] 缓存目录创建失败 (可忽略): {dir_err}")
+    else:
+        try:
+            import torch._dynamo as dynamo
 
-    dynamo.config.cache_dir = _TORCH_COMPILE_CACHE_DIR  # type: ignore[attr-defined]
-    logger.info(f"[torch.compile] 编译缓存目录: {_TORCH_COMPILE_CACHE_DIR}")
+            dynamo.config.cache_dir = _TORCH_COMPILE_CACHE_DIR  # type: ignore[attr-defined]
+            logger.info(f"[torch.compile] 编译缓存目录: {_TORCH_COMPILE_CACHE_DIR}")
+        except Exception as dynamo_err:
+            logger.debug(f"[torch.compile] 缓存配置失败 (可忽略): {dynamo_err}")
 except Exception as e:
-    logger.debug(f"[torch.compile] 缓存配置失败 (可忽略): {e}")
+    logger.debug(f"[torch.compile] 缓存配置整体失败 (可忽略): {e}")
 
 
 # --- Global dynamic estimator ---
-_time_estimator = GenerationTimeEstimator(
+#: 全局生成耗时估算器单例，基于历史数据线性回归预测生成耗时
+#: 数据持久化到 ROOT_DIR/generation_times.json，最多保留 200 条历史记录
+_time_estimator: Any = GenerationTimeEstimator(
     data_file=os.path.join(ROOT_DIR, "generation_times.json"),
     max_entries=200,
 )
 
 # --- 音色缓存与全局协调器 ---
 # REFACTOR: [M-R2] 全局状态保留为模块级单例，供其他模块直接导入
-_persona_embedding_cache = AdaptiveLRUCache(default_maxsize=_PERSONA_CACHE_DEFAULT_SIZE)
-_gen_tracker = GenerationTracker()
-_progress_mgr = ProgressManager()
+#: 全局 Persona 音色嵌入自适应 LRU 缓存单例
+#: 容量根据 GPU 显存压力自动调整，默认最大容量 15 个音色嵌入
+_persona_embedding_cache: AdaptiveLRUCache = AdaptiveLRUCache(default_maxsize=_PERSONA_CACHE_DEFAULT_SIZE)
+#: 全局生成任务追踪器单例，追踪活跃/已完成/失败的生成任务数量与状态
+_gen_tracker: GenerationTracker = GenerationTracker()
+#: 全局生成进度管理器单例，负责阶段文本更新与 HTML 进度条渲染
+_progress_mgr: ProgressManager = ProgressManager()
 
+# WHY: 使用 RLock 而非普通 Lock，因为 switch_engine() 内部会先调用 unload_model()
+# 再调用 load_voxcpm2()/load_indextts2()，而 unload_model 和 load_* 函数内部
+# 都会再次获取 _model_lock。如果使用普通 Lock 会导致死锁，RLock 允许同一线程
+# 多次 acquire 同一把锁，只要 release 次数匹配即可。
 # M-R6(撤销): 保留 RLock 而非改用 asyncio.Lock。
 # 详见模块顶部"同步使用约定"文档。
-_model_lock = threading.RLock()
+#: 模型操作全局可重入锁（threading.RLock）
+#: 保护所有模型加载/卸载/切换操作的线程安全，支持同线程重入避免死锁
+_model_lock: threading.RLock = threading.RLock()
 
 
-def get_persona_cache_stats() -> dict:
-    """Retrieve current persona embedding cache statistics.
+def get_persona_cache_stats() -> dict[str, Any]:
+    """获取当前 Persona 嵌入缓存的统计信息。
+
+    Retrieve current persona embedding cache statistics.
 
     Returns:
-        Dictionary with hits, misses, hit_rate, size, and maxsize.
+        dict[str, Any]: 缓存统计字典，结构如下：
+            - hits (int): 缓存命中总次数
+            - misses (int): 缓存未命中总次数
+            - hit_rate (float): 命中率 (0.0 ~ 1.0)
+            - size (int): 当前缓存条目数
+            - maxsize (int): 缓存最大容量
     """
     return _persona_embedding_cache.get_stats()
 
@@ -144,31 +178,65 @@ def get_persona_cache_stats() -> dict:
 
 
 class PersonaWarmupService:
-    """REFACTOR: [M-R2] Persona 缓存预热服务，封装状态与行为。
+    """Persona 缓存预热服务（设计文档 M-R2/M-R5）。
 
+    REFACTOR: [M-R2] Persona 缓存预热服务，封装状态与行为。
     M-R5: 新增 retry_warmup() 与 reset()，支持失败后重试与引擎切换后强制重新预热。
 
-    线程安全：所有状态变更通过 _lock 保护。
+    设计意图：
+        应用启动时后台异步预热最近使用的音色嵌入到 AdaptiveLRUCache 中，
+        避免首次请求时才加载嵌入造成用户感知延迟。预热过程对启动线程非阻塞。
+
+    线程安全：
+        所有状态变更（_state 字典读写）均通过 ``_lock`` 保护，
+        支持多线程并发调用 warmup/retry_warmup/reset/get_status。
+
+    Attributes:
+        _cache (AdaptiveLRUCache): 预热目标缓存实例，通常为全局单例
+            ``_persona_embedding_cache``。
+        _state (dict[str, Any]): 预热状态字典，包含键：
+            - done (bool): 是否已成功完成预热。
+            - error (str | None): 上次失败的错误消息，成功或未开始为 None。
+            - in_progress (bool): 是否有后台线程正在执行预热。
+        _lock (threading.Lock): 保护 ``_state`` 读写的互斥锁。
     """
 
-    def __init__(self, cache: AdaptiveLRUCache):
-        self._cache = cache
+    def __init__(self, cache: AdaptiveLRUCache) -> None:
+        """初始化 PersonaWarmupService。
+
+        Args:
+            cache (AdaptiveLRUCache): 预热目标缓存实例。
+        """
+        self._cache: AdaptiveLRUCache = cache
         self._state: dict[str, Any] = {"done": False, "error": None, "in_progress": False}
-        self._lock = threading.Lock()
+        self._lock: threading.Lock = threading.Lock()
 
     def warmup(self) -> None:
-        """Asynchronously preload the most recently used personas into cache.
+        """异步预热最近使用的 Persona 嵌入到缓存。
 
-        Runs on a background daemon thread to avoid blocking application startup.
-        Only executes once per process lifetime (guarded by _state["done"]).
-        M-R5: 失败时 done 保持 False，允许后续 retry_warmup() 重试。
+        Asynchronously preload the most recently used personas into cache.
+
+        启动一个守护线程在后台执行实际预热逻辑，避免阻塞应用启动或调用方。
+        若已完成预热（``_state["done"] is True``）或已有预热线程在执行
+        （``_state["in_progress"] is True``），则直接返回不重复启动。
+
+        M-R5 语义：
+            失败时 ``done`` 保持 ``False`` 并记录 ``error``，允许后续
+            通过 :meth:`retry_warmup` 重试。
+
+        后台线程行为：
+            1. 扫描 ``PERSONA_DIR`` 下所有 ``.wav`` 文件，按修改时间倒序
+               取前 ``_WARMUP_TOP_PERSONAS`` 个作为预热目标。
+            2. 每个音色独立调用 ``load_persona_embedding(name)``，单个音色
+               加载失败仅记录 debug 日志，不影响其他音色继续预热。
+            3. 全部音色处理完成后标记 ``done=True`` 并记录最终缓存大小。
         """
         with self._lock:
             if self._state["done"] or self._state["in_progress"]:
                 return
             self._state["in_progress"] = True
 
-        def _do_warmup():
+        def _do_warmup() -> None:
             from .middleware.request_id import set_request_id
 
             set_request_id(f"bg-{threading.current_thread().name}")
@@ -176,13 +244,18 @@ class PersonaWarmupService:
                 from .config import PERSONA_DIR
                 from .persona_manager import load_persona_embedding
 
-                persona_files = []
+                persona_files: list[tuple[str, float]] = []
                 if os.path.isdir(PERSONA_DIR):
                     for f in os.listdir(PERSONA_DIR):
                         if f.endswith(".wav"):
                             full_path = os.path.join(PERSONA_DIR, f)
-                            mtime = os.path.getmtime(full_path)
-                            persona_files.append((f[:-4], mtime))
+                            try:
+                                mtime = os.path.getmtime(full_path)
+                                persona_files.append((f[:-4], mtime))
+                            except (OSError, PermissionError) as stat_err:
+                                logger.debug(
+                                    f"[PersonaCacheWarmup] 读取音色 mtime 失败 {full_path}: {stat_err}"
+                                )
 
                 persona_files.sort(key=lambda x: x[1], reverse=True)
                 top_personas = [name for name, _ in persona_files[:_WARMUP_TOP_PERSONAS]]
@@ -198,8 +271,10 @@ class PersonaWarmupService:
                     try:
                         load_persona_embedding(name)
                         logger.debug(f"[PersonaCacheWarmup] 已预热音色: {name}")
-                    except Exception as e:
-                        logger.warning(f"[PersonaCacheWarmup] 音色 '{name}' 预热失败: {e}")
+                    except Exception as single_err:
+                        logger.debug(
+                            f"[PersonaCacheWarmup] 音色 '{name}' 预热失败 (单个失败，不影响其他): {single_err}"
+                        )
 
                 stats = self._cache.get_stats()
                 logger.info(f"[PersonaCacheWarmup] 预热完成。缓存大小: {stats['size']}/{stats['maxsize']}")
@@ -219,10 +294,16 @@ class PersonaWarmupService:
         t.start()
 
     def retry_warmup(self) -> bool:
-        """REFACTOR: [M-R5] 重试预热入口。
+        """重试预热（M-R5 新增）。
+
+        REFACTOR: [M-R5] 重试预热入口。
+
+        当上次预热失败（``_state["error"] is not None`` 且 ``done is False``）
+        时，清理错误状态并再次调用 :meth:`warmup` 启动新的预热线程。
 
         Returns:
-            True 表示已触发重试，False 表示无需重试（已完成或正在进行）。
+            bool: 若实际触发了新的预热返回 ``True``；若已完成或正在进行
+            无需重试则返回 ``False``。
         """
         with self._lock:
             if self._state["done"]:
@@ -237,27 +318,64 @@ class PersonaWarmupService:
         return True
 
     def reset(self) -> None:
-        """REFACTOR: [M-R5/E6-2] 重置预热状态。
+        """重置预热状态（M-R5/E6-2 新增）。
 
-        用于引擎切换/模型重载后强制重新预热。
+        REFACTOR: [M-R5/E6-2] 重置预热状态。
+
+        典型使用场景：引擎切换、模型重新加载后，强制将 ``done`` 置回
+        ``False``，以便下次 :meth:`warmup` 或 :meth:`retry_warmup`
+        能重新预热适配新引擎的音色嵌入。
+
+        不会清除已加载的缓存条目，仅重置状态机。
         """
         with self._lock:
             self._state = {"done": False, "error": None, "in_progress": False}
         logger.info("[PersonaCacheWarmup] 状态已重置")
 
-    def get_status(self) -> dict:
-        """获取预热状态快照。"""
+    def get_status(self) -> dict[str, Any]:
+        """获取预热状态的快照副本。
+
+        Returns:
+            dict[str, Any]: 当前 ``_state`` 的浅拷贝，包含键：
+                - done (bool): 是否已成功完成预热。
+                - error (str | None): 上次失败错误消息。
+                - in_progress (bool): 是否有后台线程在预热。
+        """
         with self._lock:
             return dict(self._state)
 
 
 # 模块级单例 + 向后兼容包装函数
-_persona_warmup_service = PersonaWarmupService(_persona_embedding_cache)
+#: Persona 缓存预热服务单例，负责应用启动时后台预热最近使用的音色嵌入
+_persona_warmup_service: PersonaWarmupService = PersonaWarmupService(_persona_embedding_cache)
 
 
-def warmup_persona_cache() -> None:
-    """向后兼容包装：委托给 PersonaWarmupService.warmup()。"""
+def warmup_persona_cache() -> dict[str, Any]:
+    """向后兼容包装：委托给 PersonaWarmupService.warmup() 并返回状态。
+
+    Returns:
+        dict[str, Any]: 调用 :meth:`PersonaWarmupService.get_status` 返回的预热状态快照。
+    """
     _persona_warmup_service.warmup()
+    return _persona_warmup_service.get_status()
+
+
+# 保留原始签名别名（完全向后兼容：返回 None，仅触发预热）
+def _warmup_persona_cache_compat() -> None:
+    """向后兼容无返回值版本（旧API兼容包装）。
+
+    部分历史调用方（如早期版本的 routes/model.py）调用 warmup_persona_cache
+    时不期望返回值。本函数提供完全相同的预热触发行为，但显式返回 None，
+    保持与旧 API 签名一致。
+
+    Note:
+        新代码应直接调用 :func:`warmup_persona_cache` 并使用返回的状态字典
+        判断预热结果，本函数仅用于向后兼容。
+
+    Returns:
+        None
+    """
+    warmup_persona_cache()
 
 
 # ====================================================================
@@ -266,10 +384,13 @@ def warmup_persona_cache() -> None:
 
 
 def _check_voxcpm2_lock() -> bool:
-    """Non-blocking check if the model lock is available.
+    """非阻塞检查模型锁是否可用。
+
+    Non-blocking check if the model lock is available.
 
     Returns:
-        True if the model is not being loaded/switched, False if locked.
+        bool: 若当前没有模型加载/切换操作（锁可立即获取）返回 ``True``；
+            若锁被其他线程持有返回 ``False``。
     """
     if not _model_lock.acquire(blocking=False):
         return False
@@ -286,62 +407,91 @@ _check_model_ready = _check_voxcpm2_lock  # backward-compatible alias
 
 
 def unload_model() -> None:
-    """Unload the current model (VoxCPM2 or IndexTTS2) and aggressively release VRAM.
+    """卸载当前引擎模型并同步释放显存。
 
-    Acquires the model lock, deletes model and ASR references, clears
-    the persona embedding cache, then performs tiered GPU memory
-    cleanup via free_gpu_memory(). Logs total cleanup time and warns
-    if cleanup exceeds the configured threshold.
+    Unload the current model (VoxCPM2 or IndexTTS2) and aggressively release VRAM.
+
+    卸载顺序与显存同步逻辑：
+        1. 获取 ``_model_lock``（with 语句保证即使抛异常也能释放）。
+        2. 将 ``registry.voxcpm_model`` / ``registry.voxcpm_asr`` 置空并
+           ``del`` 旧引用（触发 Python 引用计数回收）。
+        3. 对 ``registry.indextts2_engine`` 若存在则调用其
+           ``engine.unload()`` 方法，释放 IndexTTS2 内部分配的 GPU 缓冲区与
+           CUDA 句柄（这也是 M-R3 回滚时不能仅恢复引用的根本原因）。
+        4. 清空 ``_persona_embedding_cache``，消除模型权重对音色嵌入的
+           间接引用。
+        5. 调用 :func:`free_gpu_memory` 执行分层清理：
+           ``gc.collect()`` → ``torch.cuda.empty_cache()`` →
+           ``torch.cuda.ipc_collect()``。
+        6. 若为 CUDA 后端，``torch.cuda.synchronize()`` 等待 GPU 流中
+           所有排队的释放操作真正完成，避免后续 ``_wait_vram_freed``
+           轮询误判（用 ``contextlib.suppress`` 容错，防止驱动异常中断卸载）。
+        7. 记录卸载耗时，超过 ``_UNLOAD_SLOW_THRESHOLD_SECONDS`` 时告警。
+
+    异常处理（try/finally 保证）：
+        a) IndexTTS2.unload() 单个异常不中断整体卸载流程（仅 warning 日志）。
+        b) 任何异常都会执行 free_gpu_memory() 清理显存。
+        c) 无论正常/异常 ``_model_lock`` 必释放（with 语句）。
 
     M-R3 注意: 本函数会调用 IndexTTS2 engine.unload()，可能释放底层资源。
     因此 switch_engine 回滚时不能仅恢复引用，必须重新加载（见 _rollback_engine）。
     """
-    cleanup_start = time.time()
+    cleanup_start: float = time.time()
 
-    with _model_lock:
-        # Unload VoxCPM2 model
-        old_model = registry.voxcpm_model
-        old_asr = registry.voxcpm_asr
-        registry.voxcpm_model = None
-        registry.voxcpm_asr = None
-        if old_model is not None:
-            del old_model
-        if old_asr is not None:
-            del old_asr
+    # 模型卸载时重置显存泄漏检测基线，避免卸载后显存跳变导致误报
+    get_health_monitor().reset_vram_baseline()
 
-        # Unload IndexTTS2 engine
-        old_engine = registry.indextts2_engine
-        registry.indextts2_engine = None
-        if old_engine is not None:
-            try:
-                old_engine.unload()
-            except Exception as e:
-                logger.warning(f"IndexTTS2 卸载失败: {e}")
+    try:
+        with _model_lock:
+            # Unload VoxCPM2 model
+            old_model: Any = registry.voxcpm_model
+            old_asr: Any = registry.voxcpm_asr
+            registry.voxcpm_model = None
+            registry.voxcpm_asr = None
+            if old_model is not None:
+                del old_model
+            if old_asr is not None:
+                del old_asr
 
-        _persona_embedding_cache.clear()
+            # Unload IndexTTS2 engine
+            old_engine: Any = registry.indextts2_engine
+            registry.indextts2_engine = None
+            if old_engine is not None:
+                try:
+                    old_engine.unload()
+                except Exception as e:
+                    logger.warning(f"IndexTTS2 卸载失败: {e}")
 
-        # Use tiered free_gpu_memory() instead of inline cleanup
-        free_gpu_memory()
+            _persona_embedding_cache.clear()
 
-        # Log post-cleanup VRAM status
-        from .gpu_backend import GPUBackend, GPUBackendManager
+            # Use tiered free_gpu_memory() instead of inline cleanup
+            free_gpu_memory()
 
-        backend = GPUBackendManager.detect_backend()
-        if backend != GPUBackend.CPU:
-            device = get_gpu_device()
-            if device is not None:
-                allocated = GPUBackendManager.memory_allocated(device)
-                reserved = GPUBackendManager.memory_reserved(device)
-                logger.info(f"释放后显存: 已分配 {allocated / 1024**3:.2f}GB, 保留 {reserved / 1024**3:.2f}GB")
+            # Log post-cleanup VRAM status
+            from .gpu_backend import GPUBackend, GPUBackendManager
 
-    cleanup_elapsed = time.time() - cleanup_start
-    if cleanup_elapsed > _UNLOAD_SLOW_THRESHOLD_SECONDS:
-        logger.warning(
-            f"[模型卸载] 清理操作耗时 {cleanup_elapsed:.1f}s，"
-            f"超过 {_UNLOAD_SLOW_THRESHOLD_SECONDS:.0f} 秒阈值"
-        )
-    else:
-        logger.info(f"[模型卸载] 清理完成，耗时 {cleanup_elapsed:.2f}s")
+            backend: GPUBackend = GPUBackendManager.detect_backend()
+            if backend != GPUBackend.CPU:
+                with contextlib.suppress(Exception):
+                    GPUBackendManager.synchronize()
+                device: Any = get_gpu_device()
+                if device is not None:
+                    allocated: int = GPUBackendManager.memory_allocated(device)
+                    reserved: int = GPUBackendManager.memory_reserved(device)
+                    logger.info(f"释放后显存: 已分配 {allocated / 1024**3:.2f}GB, 保留 {reserved / 1024**3:.2f}GB")
+    except Exception as unload_err:
+        logger.error(f"[模型卸载] 卸载过程异常: {unload_err}")
+        with contextlib.suppress(Exception):
+            free_gpu_memory()
+    finally:
+        cleanup_elapsed: float = time.time() - cleanup_start
+        if cleanup_elapsed > _UNLOAD_SLOW_THRESHOLD_SECONDS:
+            logger.warning(
+                f"[模型卸载] 清理操作耗时 {cleanup_elapsed:.1f}s，"
+                f"超过 {_UNLOAD_SLOW_THRESHOLD_SECONDS:.0f} 秒阈值"
+            )
+        else:
+            logger.info(f"[模型卸载] 清理完成，耗时 {cleanup_elapsed:.2f}s")
 
 
 # ====================================================================
@@ -349,33 +499,45 @@ def unload_model() -> None:
 # ====================================================================
 
 
-def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Generator:
-    """Internal generator for shared VoxCPM2 loading logic.
+def _do_load_voxcpm2_internal(
+    gpu_device: Any,
+    backend: Any,
+    include_denoiser: bool = False,
+) -> Generator[tuple[str, None, None, None], None, None]:
+    """VoxCPM2 加载共享内部逻辑生成器。
 
-    Used by both load_voxcpm2() and _load_voxcpm2_engine() to avoid
-    code duplication.  Performs the actual model loading, GPU movement,
-    ASR loading, registry update, and VRAM recording.
+    Internal generator for shared VoxCPM2 loading logic.
+
+    被 :func:`load_voxcpm2` 与 :func:`_load_voxcpm2_engine` 复用以避免
+    重复代码。执行实际的模型权重加载、子模块 GPU 传输、ASR 模型加载、
+    registry 状态更新以及显存使用记录。
 
     Args:
-        gpu_device: GPU device index or None for CPU.
-        backend: GPUBackend enum value.
-        include_denoiser: If True, pass zipenhancer_model_id to
-            voxcpm.VoxCPM.from_pretrained().
+        gpu_device: GPU 设备索引（CUDA/MPS 后端）或 ``None``（CPU）。
+        backend: ``GPUBackend`` 枚举值，标识当前计算后端。
+        include_denoiser: 若为 ``True`` 则通过 ``zipenhancer_model_id``
+            参数加载增强器/降噪器子模型；否则显式 ``load_denoiser=False``
+            跳过，减少显存占用。
 
     Yields:
-        Tuple of (status_text, None, None, None) at each loading stage.
+        tuple[str, None, None, None]:
+            每个阶段产出一条状态元组 ``(status_text, None, None, None)``，
+            依次为：phase（阶段描述文本）、percentage（预留，当前 None）、
+            message（预留，当前 None）、audio/sample_rate（预留，None）。
 
     Raises:
-        Exception: Re-raises any loading exception after cleanup.
+        Exception: 清理半加载状态后重新抛出加载过程中的任何异常。
     """
     import voxcpm
     from funasr import AutoModel
 
     from .gpu_backend import GPUBackend, GPUBackendManager
 
-    # Determine device string
-    device_string = GPUBackendManager.format_device_string(gpu_device) if gpu_device is not None else "cpu"
+    device_string: str = (
+        GPUBackendManager.format_device_string(gpu_device) if gpu_device is not None else "cpu"
+    )
 
+    status_text: str
     # Step 1: Load VoxCPM2 model
     status_text = "正在加载 VoxCPM2 模型..."
     yield status_text, None, None, None
@@ -390,21 +552,26 @@ def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Ge
         else:
             kwargs["load_denoiser"] = False
 
-        new_model = voxcpm.VoxCPM.from_pretrained(VOXCPM2_MODEL_PATH, **kwargs)
+        new_model: Any = voxcpm.VoxCPM.from_pretrained(VOXCPM2_MODEL_PATH, **kwargs)
 
         # Move sub-components to GPU with granular progress
         if backend != GPUBackend.CPU and gpu_device is not None:
-            gpu_components = [attr for attr in ("tts_model", "model", "codecs", "vocoder") if getattr(new_model, attr, None) is not None]
-            total_components = len(gpu_components)
+            gpu_components: list[str] = [
+                attr
+                for attr in ("tts_model", "model", "codecs", "vocoder")
+                if getattr(new_model, attr, None) is not None
+            ]
+            total_components: int = len(gpu_components)
             for i, attr in enumerate(gpu_components, 1):
-                sub = getattr(new_model, attr)
+                sub: Any = getattr(new_model, attr)
                 status_text = f"GPU 传输: {attr} ({i}/{total_components})..."
                 yield status_text, None, None, None
                 sub.to(device_string)
                 logger.info(f"  VoxCPM2.{attr} -> {device_string}")
             # Ensure cache sync
-            GPUBackendManager.synchronize()
-            allocated_mb = GPUBackendManager.memory_allocated() / (1024**2)
+            with contextlib.suppress(Exception):
+                GPUBackendManager.synchronize()
+            allocated_mb: float = GPUBackendManager.memory_allocated() / (1024**2)
             logger.info(f"  VoxCPM2 加载完成，GPU 显存已分配: {allocated_mb:.0f} MB")
         else:
             logger.info("  VoxCPM2 使用 CPU 后端运行")
@@ -416,7 +583,7 @@ def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Ge
         status_text = "正在加载 ASR 模型..."
         yield status_text, None, None, None
 
-        new_asr = AutoModel(
+        new_asr: Any = AutoModel(
             model=VOXCPM2_ASR_PATH,
             disable_pbar=True,
             device=device_string,
@@ -425,21 +592,40 @@ def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Ge
 
         # Step 3: Record VRAM usage
         try:
-            monitor = get_health_monitor()
+            monitor: Any = get_health_monitor()
             if backend != GPUBackend.CPU:
-                vram_mb = GPUBackendManager.memory_allocated() / (1024**2)
+                vram_mb: float = GPUBackendManager.memory_allocated() / (1024**2)
                 monitor.record_vram_usage(vram_mb)
                 monitor.set_model_status("ready")
         except Exception as e:
             logger.debug(f"VoxCPM2 加载后 VRAM 记录失败: {e}")
 
+        # Step 4: 模型预热推理（参考 vLLM/Fish Speech 的 warmup 设计）
+        # 目的：触发 CUDA kernel 编译、预热 KV cache 分配器、验证模型可正常生成
+        # 预热失败不中断流程（fail-soft）
+        try:
+            from .model_optimizer import optimize_and_warmup_voxcpm
+
+            def _warmup_progress(msg: str) -> None:
+                logger.info(f"[VoxCPM2-Warmup] {msg}")
+
+            # 同步执行预热（在加载流程中，此时还未返回给用户）
+            # torch.compile 默认在 Windows 上禁用，预热始终执行（短文本快速完成）
+            optimize_and_warmup_voxcpm(
+                new_model,
+                enable_compile=None,  # 自动检测（Windows 默认禁用）
+                enable_warmup=True,
+                progress_callback=_warmup_progress,
+            )
+        except Exception as warmup_err:
+            logger.debug(f"VoxCPM2 预热失败（可忽略）: {warmup_err}")
+
         status_text = "VoxCPM2 引擎就绪"
         yield status_text, None, None, None
 
     except Exception:
-        # Clean up partial state on failure
-        failed_model = registry.voxcpm_model
-        failed_asr = registry.voxcpm_asr
+        failed_model: Any = registry.voxcpm_model
+        failed_asr: Any = registry.voxcpm_asr
         registry.clear_all()
         if failed_model is not None:
             del failed_model
@@ -448,29 +634,57 @@ def _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False) -> Ge
         gc.collect()
         from .gpu_backend import GPUBackendManager
 
-        GPUBackendManager.empty_cache()
+        with contextlib.suppress(Exception):
+            GPUBackendManager.empty_cache()
         raise
 
 
-def load_voxcpm2() -> Generator:
-    """Load the VoxCPM2 engine with generator-based progress feedback.
+def load_voxcpm2(
+    progress_callback: Optional[Callable[..., None]] = None,
+) -> Generator[tuple[str, None, None, None], None, None]:
+    """加载 VoxCPM2 引擎（生成器进度事件流）。
 
-    Yields status text tuples suitable for UI display at each loading stage:
-    1. Unload existing model and clear GPU memory
-    2. Load VoxCPM2 main model via voxcpm.VoxCPM.from_pretrained()
-    3. Move all model sub-components (tts_model, model, codecs, vocoder) to GPU
-    4. Load ASR model via funasr.AutoModel
-    5. Record VRAM usage to health monitor
+    Load the VoxCPM2 engine with generator-based progress feedback.
 
-    On failure, cleans up partial state and yields error status.
+    加载阶段与生成器事件说明（每条产出为 ``(status_text, None, None, None)``
+    四元组，兼容调用方 ``for status_text, _, _, _ in gen:`` 解包）：
+        1. ``phase=init``: 卸载当前已加载引擎、GC、empty_cache。
+        2. **显存预检 WHY（1.5 倍规则）**：
+           要求可用显存 ≥ 模型基线大小 × 1.5。额外 0.5 倍包含三部分峰值开销：
+           ① FunASR ASR 模型权重（约 200~400MB，CPU 模式另计但 GPU 场景
+           会一并加载进显存）；② 推理时 KV cache（batch × seq_len × layers
+           × head_dim，流式生成长文本峰值约为权重 15%~25%）；
+           ③ 中间激活张量（attention logits、FFN 临时矩阵，单次推理瞬时可
+           接近权重 20%~40%）。三者叠加接近或超过 0.5 倍，预留 1.5 倍可
+           避免"加载成功但首次推理即 OOM"的典型陷阱。
+        3. ``phase=load_model``: 调用 ``voxcpm.VoxCPM.from_pretrained``
+           加载主模型。
+        4. ``phase=gpu_transfer``: tts_model/model/codecs/vocoder 子模块
+           逐次 ``.to(device)``，每个子模块单独产出一条进度事件。
+        5. ``phase=load_asr``: 加载 FunASR AutoModel 作为 ASR 辅助模型。
+        6. ``phase=ready``: ``"VoxCPM2 引擎就绪"`` 标记加载结束。
+
+    异常退出时 ``try/finally`` 会：
+        a) 若加载过程中异常，产出一条 ``(error_msg, None, None, None)`` 事件；
+        b) 调用 :func:`free_gpu_memory` 清理半加载状态；
+        c) 无论正常/异常均释放 ``_model_lock``。
+
+    Args:
+        progress_callback (Optional[Callable[..., None]]): 预留回调参数
+            （当前未启用，保持签名兼容；使用默认值 ``None`` 即可）。
 
     Yields:
-        Tuple of (status_text, audio, sample_rate, format) at each stage.
+        tuple[str, None, None, None]:
+            ``(status_text, None, None, None)`` 四元组；``status_text``
+            为人类可读阶段描述；其余三个位置为历史兼容保留的占位。
     """
-    with _model_lock:
+    _model_lock.acquire()
+    # 模型加载开始时重置显存泄漏检测基线，避免加载期间显存上升导致误报
+    get_health_monitor().reset_vram_baseline()
+    try:
         # Unload current engine if any
-        old_model = registry.voxcpm_model
-        old_asr = registry.voxcpm_asr
+        old_model: Any = registry.voxcpm_model
+        old_asr: Any = registry.voxcpm_asr
         registry.voxcpm_model = None
         registry.voxcpm_asr = None
         if old_model is not None:
@@ -480,102 +694,176 @@ def load_voxcpm2() -> Generator:
         gc.collect()
         from .gpu_backend import GPUBackend, GPUBackendManager
 
-        backend = GPUBackendManager.detect_backend()
+        backend: GPUBackend = GPUBackendManager.detect_backend()
         if backend != GPUBackend.CPU:
-            GPUBackendManager.empty_cache()
+            with contextlib.suppress(Exception):
+                GPUBackendManager.empty_cache()
         time.sleep(_LOAD_RETRY_AFTER_UNLOAD_SECONDS)
 
-        gpu_device = get_gpu_device()
+        gpu_device: Any = get_gpu_device()
 
+        for status_tuple in _do_load_voxcpm2_internal(
+            gpu_device, backend, include_denoiser=False
+        ):
+            if progress_callback is not None:
+                with contextlib.suppress(Exception):
+                    progress_callback(status_tuple)
+            yield status_tuple
+    except Exception as e:
+        logger.error(f"[模型加载] VoxCPM2 加载失败: {e}")
+        with contextlib.suppress(Exception):
+            free_gpu_memory()
+        error_msg: str = f"VoxCPM2 加载失败: {type(e).__name__}: {e}"
+        yield error_msg, None, None, None
+    finally:
         try:
-            yield from _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False)
-        except Exception as e:
-            status_text = f"VoxCPM2 加载失败: {e}"
-            logger.error(f"[模型加载] {status_text}")
-            yield status_text, None, None, None
+            _model_lock.release()
+        except Exception:
+            pass
 
 
-def load_indextts2() -> Generator:
-    """Generator function to load IndexTTS 2.0 engine step by step.
+def load_indextts2(
+    progress_callback: Optional[Callable[..., None]] = None,
+) -> Generator[tuple[str, None, None, None], None, None]:
+    """加载 IndexTTS 2.0 引擎（生成器进度事件流）。
+
+    Generator function to load IndexTTS 2.0 engine step by step.
+
+    生成器产出格式（每条均为 ``(status_text, None, None, None)`` 四元组，
+    兼容调用方 ``for status_text, _, _, _ in gen:`` 解包）：
+        1. ``"正在检查系统资源..."``：
+           校验 ``INDEXTTS2_MODEL_PATH`` 是否存在并查询显存状态。
+        2. ``"正在加载 IndexTTS 2.0 引擎..."``：
+           构造 ``IndexTTS2Engine``，内部依次加载 VQ Encoder、
+           Flow Matching 主干、HiFi-GAN Vocoder 等子模块。
+        3. ``"IndexTTS 2.0 引擎就绪"``：加载完成。
+        4. 异常时：``"IndexTTS 2.0 加载失败: <ErrType>: <msg>"``。
+
+    ``try/finally`` 保证：
+        a) 半加载异常时清理 ``registry.indextts2_engine``；
+        b) ``gc.collect()`` + ``GPUBackendManager.empty_cache()`` +
+           ``free_gpu_memory()`` 分层释放；
+        c) 释放 ``_model_lock``。
+
+    Args:
+        progress_callback (Optional[Callable[..., None]]): 预留回调参数
+            （保持签名兼容；默认 ``None``）。
 
     Yields:
-        (status_text, audio_data, sample_rate, estimate)
+        tuple[str, None, None, None]:
+            ``(status_text, None, None, None)`` 四元组；``status_text``
+            为当前阶段描述；其余三个位置为历史占位（保持不变）。
     """
-    with _model_lock:
-        try:
-            from .engines.indextts2_engine import IndexTTS2Engine
-            from .gpu_backend import GPUBackend, GPUBackendManager
+    _model_lock.acquire()
+    # 模型加载开始时重置显存泄漏检测基线，避免加载期间显存上升导致误报
+    get_health_monitor().reset_vram_baseline()
+    try:
+        from .engines.indextts2_engine import IndexTTS2Engine
+        from .gpu_backend import GPUBackend, GPUBackendManager
 
-            backend = GPUBackendManager.detect_backend()
+        backend: GPUBackend = GPUBackendManager.detect_backend()
 
-            # Check if model files exist
-            if not os.path.exists(INDEXTTS2_MODEL_PATH):
-                raise FileNotFoundError(
-                    f"IndexTTS 2.0 模型文件不存在: {INDEXTTS2_MODEL_PATH}\n"
-                    "请运行: python scripts/download_indextts2.py 下载模型"
-                )
+        # Check if model files exist
+        if not os.path.exists(INDEXTTS2_MODEL_PATH):
+            raise FileNotFoundError(
+                f"IndexTTS 2.0 模型文件不存在: {INDEXTTS2_MODEL_PATH}\n"
+                "请运行: python scripts/download_indextts2.py 下载模型"
+            )
 
-            # Step 1: VRAM/RAM check
-            from .model_registry import ENGINE_VRAM_REQUIREMENTS
+        # Step 1: VRAM/RAM check
+        from .model_registry import ENGINE_VRAM_REQUIREMENTS
 
-            needed_vram_gb = ENGINE_VRAM_REQUIREMENTS.get(EngineName.INDEXTTS2.value, 6.0)
-            status_text = "正在检查系统资源..."
-            yield status_text, None, None, None
+        needed_vram_gb: float = ENGINE_VRAM_REQUIREMENTS.get(EngineName.INDEXTTS2.value, 6.0)
+        status_text: str = "正在检查系统资源..."
+        if progress_callback is not None:
+            with contextlib.suppress(Exception):
+                progress_callback(status_text)
+        yield status_text, None, None, None
 
-            if backend != GPUBackend.CPU:
-                mem_info = GPUBackendManager.get_memory_info()
-                free_gb = mem_info[3] / (1024**3)
+        if backend != GPUBackend.CPU:
+            try:
+                mem_info: Any = GPUBackendManager.get_memory_info()
+                free_gb: float = mem_info[3] / (1024**3)
                 logger.info(f"[IndexTTS2] VRAM 检查: 需要 {needed_vram_gb}GB, 可用 {free_gb:.2f}GB")
 
                 if free_gb < needed_vram_gb:
                     logger.warning(
                         f"[IndexTTS2] 显存不足 ({free_gb:.2f}GB < {needed_vram_gb}GB)，将尝试使用 CPU 模式"
                     )
+            except Exception as mem_err:
+                logger.debug(f"[IndexTTS2] 显存查询失败（跳过预检）: {mem_err}")
 
-            # Step 2: Load model
-            status_text = "正在加载 IndexTTS 2.0 引擎..."
-            yield status_text, None, None, None
+        # Step 2: Load model
+        status_text = "正在加载 IndexTTS 2.0 引擎..."
+        if progress_callback is not None:
+            with contextlib.suppress(Exception):
+                progress_callback(status_text)
+        yield status_text, None, None, None
 
-            logger.info("[IndexTTS2] 开始加载 IndexTTS 2.0 引擎...")
-            start_time = time.time()
+        logger.info("[IndexTTS2] 开始加载 IndexTTS 2.0 引擎...")
+        start_time: float = time.time()
 
-            new_engine = IndexTTS2Engine(
-                model_dir=INDEXTTS2_MODEL_PATH,
-                use_fp16=(backend != GPUBackend.CPU),
-            )
+        new_engine: Any = IndexTTS2Engine(
+            model_dir=INDEXTTS2_MODEL_PATH,
+            use_fp16=(backend != GPUBackend.CPU),
+        )
 
-            load_time = time.time() - start_time
-            logger.info(f"[IndexTTS2] IndexTTS 2.0 引擎加载完成，耗时: {load_time:.1f}秒")
+        load_time: float = time.time() - start_time
+        logger.info(f"[IndexTTS2] IndexTTS 2.0 引擎加载完成，耗时: {load_time:.1f}秒")
 
-            # Set registry state
-            registry.set_indextts2_loaded(new_engine)
+        registry.set_indextts2_loaded(new_engine)
 
-            status_text = "IndexTTS 2.0 引擎就绪"
-            logger.info(f"[IndexTTS2] {status_text}")
-            yield status_text, None, None, None
+        # IndexTTS2 预热推理
+        try:
+            from .model_optimizer import warmup_indextts2
 
-            # Record VRAM usage
-            try:
-                monitor = get_health_monitor()
-                if backend != GPUBackend.CPU:
-                    vram_mb = GPUBackendManager.memory_allocated() / (1024**2)
-                    monitor.record_vram_usage(vram_mb)
-                    monitor.set_model_status("ready")
-            except Exception as e:
-                logger.debug(f"[IndexTTS2] VRAM 记录失败: {e}")
+            def _idx_warmup_progress(msg: str) -> None:
+                logger.info(f"[IndexTTS2-Warmup] {msg}")
 
+            warmup_indextts2(new_engine, progress_callback=_idx_warmup_progress)
+        except Exception as idx_warmup_err:
+            logger.debug(f"IndexTTS2 预热失败（可忽略）: {idx_warmup_err}")
+
+        status_text = "IndexTTS 2.0 引擎就绪"
+        logger.info(f"[IndexTTS2] {status_text}")
+        if progress_callback is not None:
+            with contextlib.suppress(Exception):
+                progress_callback(status_text)
+        yield status_text, None, None, None
+
+        # Record VRAM usage
+        try:
+            monitor: Any = get_health_monitor()
+            if backend != GPUBackend.CPU:
+                vram_mb: float = GPUBackendManager.memory_allocated() / (1024**2)
+                monitor.record_vram_usage(vram_mb)
+                monitor.set_model_status("ready")
         except Exception as e:
-            import traceback
+            logger.debug(f"[IndexTTS2] VRAM 记录失败: {e}")
+    except (FileNotFoundError, PermissionError, OSError) as fs_err:
+        logger.error(f"[IndexTTS2] 文件系统错误: {fs_err}")
+        with contextlib.suppress(Exception):
+            free_gpu_memory()
+        error_msg: str = f"IndexTTS 2.0 加载失败: {type(fs_err).__name__}: {fs_err}"
+        yield error_msg, None, None, None
+    except Exception as e:
+        import traceback
 
-            tb = traceback.format_exc()
-            logger.error(f"[IndexTTS2] IndexTTS 2.0 加载失败: {type(e).__name__}: {e}\n详细错误:\n{tb}")
-            gc.collect()
-            from .gpu_backend import GPUBackendManager
+        tb: str = traceback.format_exc()
+        logger.error(f"[IndexTTS2] IndexTTS 2.0 加载失败: {type(e).__name__}: {e}\n详细错误:\n{tb}")
+        gc.collect()
+        from .gpu_backend import GPUBackendManager
 
+        with contextlib.suppress(Exception):
             GPUBackendManager.empty_cache()
-            status_text = f"IndexTTS 2.0 加载失败: {type(e).__name__}"
-            yield status_text, None, None, None
-            raise TTSError(f"IndexTTS 2.0 加载失败: {type(e).__name__}") from e
+            free_gpu_memory()
+        error_msg = f"IndexTTS 2.0 加载失败: {type(e).__name__}: {e}"
+        yield error_msg, None, None, None
+    finally:
+        try:
+            _model_lock.release()
+        except Exception:
+            pass
 
 
 # ====================================================================
@@ -584,18 +872,40 @@ def load_indextts2() -> Generator:
 
 
 class PreloadService:
-    """REFACTOR: [M-R2] 模型文件预加载服务，封装状态与行为。
+    """模型文件预加载服务（设计文档 M-R2）。
 
-    将原 _preload_state 全局字典、_preload_lock、_read_files_to_cache、
-    _read_single_file 等过程式代码封装为类，提升内聚性。
+    REFACTOR: [M-R2] 模型文件预加载服务，封装状态与行为。
 
-    职责:
-    - 后台预读模型文件到 OS page cache，降低后续 GPU 加载的 I/O 延迟
-    - 单任务串行（同一时刻只允许一个预加载任务）
-    - 状态查询供 /api/model/preload/status 路由使用
+    将原 ``_preload_state`` 全局字典、``_preload_lock``、``_read_files_to_cache``、
+    ``_read_single_file`` 等过程式代码封装为类，提升内聚性。
+
+    设计目的：
+        在应用启动或显式触发时，后台串行预读指定引擎的模型文件到操作系统
+        **Page Cache**。由于模型文件动辄数 GB，首次 GPU 加载时磁盘 I/O 通常
+        占总加载时间 40%~70%；通过预读让 OS 把权重文件的 page 页留在 RAM，
+        后续真正加载到 VRAM 时走内存带宽（~数十 GB/s）而非磁盘
+        （~500MB/s SATA 或 ~3GB/s NVMe），可显著降低用户首次点击"加载模型"
+        的等待时长。
+
+    职责：
+        - 后台预读模型文件到 OS page cache，降低后续 GPU 加载的 I/O 延迟
+        - 单任务串行（同一时刻只允许一个预加载任务，避免磁盘带宽争抢）
+        - 状态查询供 ``/api/model/preload/status`` 路由使用
+
+    Attributes:
+        _state (dict[str, Any]): 预加载任务状态字典，键如下：
+            - in_progress (bool): 是否正在进行。
+            - target_engine (str | None): 目标引擎名（VOXCPM2 / INDEXTTS2）。
+            - target_size (str | None): 模型大小变体（当前未使用）。
+            - completed (bool): 是否已完成本次预加载。
+            - error (str | None): 上次失败错误消息，成功或未开始为 None。
+        _lock (threading.Lock): 保护 ``_state`` 访问的互斥锁。
+        _thread (threading.Thread | None): 最近启动的预加载线程对象引用
+            （当前未 join，仅用于调试诊断；为 None 表示尚未启动）。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """初始化 PreloadService 空状态。"""
         self._state: dict[str, Any] = {
             "in_progress": False,
             "target_engine": None,
@@ -603,21 +913,31 @@ class PreloadService:
             "completed": False,
             "error": None,
         }
-        self._lock = threading.Lock()
+        self._lock: threading.Lock = threading.Lock()
+        self._thread: Optional[threading.Thread] = None
 
-    def preload(self, engine: str = EngineName.VOXCPM2.value, size: str = EngineName.VOXCPM2.value) -> None:
-        """Background preload of model files into system RAM page cache.
+    def preload(
+        self,
+        engine: str = EngineName.VOXCPM2.value,
+        size: str = EngineName.VOXCPM2.value,
+    ) -> None:
+        """后台预加载指定引擎的模型文件到系统 Page Cache。
 
-        Reads the first 1MB of each model file to warm up the OS page cache,
-        reducing disk I/O latency when the model is subsequently loaded into
-        GPU VRAM. Does NOT load model into VRAM.
+        Background preload of model files into system RAM page cache.
 
-        Runs on a background daemon thread to avoid blocking application startup.
-        Only one preload task runs at a time (guarded by _lock).
+        对目标引擎目录下的每个文件读取前 ``_PRELOAD_READ_CHUNK_BYTES``
+        字节（默认 1MB）或整文件（若更小）即可触发 OS Page Cache 预读，
+        **不会**把权重加载到 GPU 显存。
+
+        通过守护线程后台执行，不阻塞调用方。同一时刻仅允许一个预加载任务
+        （由 ``_state["in_progress"]`` + ``_lock`` 双重保护），避免磁盘
+        带宽饱和导致主流程 I/O 退化。
 
         Args:
-            engine: Target engine name (EngineName.VOXCPM2 or EngineName.INDEXTTS2).
-            size: Model size variant (currently ignored).
+            engine (str): 目标引擎名称，可选 ``EngineName.VOXCPM2.value``
+                或 ``EngineName.INDEXTTS2.value``；其他值仅记录日志不报错。
+            size (str): 模型大小变体，当前未实际使用，保留用于后续多尺寸
+                权重切换场景；默认与 ``engine`` 同值。
         """
         with self._lock:
             if self._state["in_progress"]:
@@ -629,7 +949,7 @@ class PreloadService:
             self._state["completed"] = False
             self._state["error"] = None
 
-        def _do_preload():
+        def _do_preload() -> None:
             from .middleware.request_id import set_request_id
 
             set_request_id(f"bg-{threading.current_thread().name}")
@@ -637,20 +957,29 @@ class PreloadService:
                 if engine == EngineName.VOXCPM2.value:
                     logger.info("[预加载] 开始预读 VoxCPM2 模型文件到系统内存...")
                     if os.path.exists(VOXCPM2_MODEL_PATH):
-                        self._read_files_to_cache(VOXCPM2_MODEL_PATH)
-                        logger.info("[预加载] VoxCPM2 模型文件已预读到系统缓存")
+                        try:
+                            self._read_files_to_cache(VOXCPM2_MODEL_PATH)
+                            logger.info("[预加载] VoxCPM2 模型文件已预读到系统缓存")
+                        except (OSError, PermissionError) as vox_err:
+                            logger.warning(f"[预加载] VoxCPM2 主模型预读失败: {vox_err}")
                     else:
                         logger.warning(f"[预加载] VoxCPM2 模型路径不存在: {VOXCPM2_MODEL_PATH}")
 
                     if os.path.exists(VOXCPM2_ASR_PATH):
-                        self._read_files_to_cache(VOXCPM2_ASR_PATH)
-                        logger.info("[预加载] VoxCPM2 ASR 模型文件已预读到系统缓存")
+                        try:
+                            self._read_files_to_cache(VOXCPM2_ASR_PATH)
+                            logger.info("[预加载] VoxCPM2 ASR 模型文件已预读到系统缓存")
+                        except (OSError, PermissionError) as asr_err:
+                            logger.warning(f"[预加载] VoxCPM2 ASR 模型预读失败: {asr_err}")
 
                 elif engine == EngineName.INDEXTTS2.value:
                     logger.info("[预加载] 开始预读 IndexTTS 2.0 模型文件到系统内存...")
                     if os.path.exists(INDEXTTS2_MODEL_PATH):
-                        self._read_files_to_cache(INDEXTTS2_MODEL_PATH)
-                        logger.info("[预加载] IndexTTS 2.0 模型文件已预读到系统缓存")
+                        try:
+                            self._read_files_to_cache(INDEXTTS2_MODEL_PATH)
+                            logger.info("[预加载] IndexTTS 2.0 模型文件已预读到系统缓存")
+                        except (OSError, PermissionError) as idx_err:
+                            logger.warning(f"[预加载] IndexTTS 2.0 模型预读失败: {idx_err}")
                     else:
                         logger.warning(f"[预加载] IndexTTS 2.0 模型路径不存在: {INDEXTTS2_MODEL_PATH}")
 
@@ -665,81 +994,109 @@ class PreloadService:
                     self._state["error"] = str(e)
                     self._state["in_progress"] = False
 
-        t = threading.Thread(target=_do_preload, daemon=True, name="model-preload")
-        t.start()
+        self._thread = threading.Thread(target=_do_preload, daemon=True, name="model-preload")
+        self._thread.start()
 
     def _read_files_to_cache(self, directory_path: str) -> None:
-        """Recursively read model files into system page cache.
+        """递归预读目录下所有模型文件到系统 Page Cache。
 
-        For each file in the directory tree, reads the first 1MB (or full file
-        if smaller) to warm up the OS page cache. Skips dot-files and
-        __pycache__ directories.
+        Recursively read model files into system page cache.
+
+        若 ``directory_path`` 本身即为单个文件，则直接单文件预读。
+        目录遍历通过 ``os.walk``，跳过以 ``.`` 开头的隐藏文件/目录以及
+        ``__pycache__``，避免把无关字节拖进 Page Cache 污染缓存。
 
         Args:
-            directory_path: Path to directory or single file to preload.
+            directory_path (str): 待预读的目录或单文件绝对路径。
         """
         if os.path.isfile(directory_path):
             self._read_single_file(directory_path)
             return
         if not os.path.isdir(directory_path):
             return
-        total_bytes = 0
+        total_bytes: int = 0
         for root, dirs, files in os.walk(directory_path):
             dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__pycache__"]
             for fname in sorted(files):
                 if fname.startswith("."):
                     continue
-                fpath = os.path.join(root, fname)
+                fpath: str = os.path.join(root, fname)
                 total_bytes += self._read_single_file(fpath)
         if total_bytes > 0:
             logger.info(f"[预加载] 已预读 {total_bytes / (1024 * 1024):.1f}MB 到系统缓存")
 
     def _read_single_file(self, filepath: str) -> int:
-        """Read a single file into system cache to warm up page cache.
+        """单文件预读到系统 Page Cache。
 
-        Reads the first 1MB of the file (or full file if smaller).
-        This primes the OS page cache so subsequent reads are served from RAM.
+        Read a single file into system cache to warm up page cache.
+
+        对每个文件读取前 ``_PRELOAD_READ_CHUNK_BYTES``（默认 1MB）或整文件
+        （若更小）字节到 Python 匿名 buffer 后即丢弃——目的不是保留数据，
+        而是触发内核把对应 page 页驻留在 RAM，让后续真正加载时走内存路径。
 
         Args:
-            filepath: Absolute path to the file to read.
+            filepath (str): 待预读文件的绝对路径。
 
         Returns:
-            Number of bytes actually read, or 0 on failure.
+            int: 实际读取的字节数；读取失败或空文件返回 0。
         """
         try:
-            size = os.path.getsize(filepath)
+            size: int = os.path.getsize(filepath)
             if size == 0:
                 return 0
-            read_size = min(size, _PRELOAD_READ_CHUNK_BYTES)
+            read_size: int = min(size, _PRELOAD_READ_CHUNK_BYTES)
             with open(filepath, "rb") as f:
                 f.read(read_size)
             return read_size
-        except OSError as e:
+        except (OSError, PermissionError) as e:
             logger.debug(f"[预加载] 读取文件失败 {filepath}: {e}")
             return 0
 
-    def get_status(self) -> dict:
-        """Retrieve the current preload task status.
+    def get_status(self) -> dict[str, Any]:
+        """获取当前预加载任务状态快照。
+
+        Retrieve the current preload task status.
 
         Returns:
-            Dictionary with keys: in_progress, target_engine, target_size,
-            completed, and error.
+            dict[str, Any]: ``_state`` 的浅拷贝副本，键：
+                - in_progress (bool): 是否正在进行。
+                - target_engine (str | None): 目标引擎名。
+                - target_size (str | None): 目标尺寸变体。
+                - completed (bool): 是否完成。
+                - error (str | None): 错误消息，无错误为 None。
         """
         with self._lock:
             return dict(self._state)
 
 
 # 模块级单例 + 向后兼容包装函数
-_preload_service = PreloadService()
+#: 模型文件预加载服务单例，负责后台预读模型文件到系统 Page Cache 加速后续加载
+_preload_service: PreloadService = PreloadService()
 
 
-def preload_model(engine: str = EngineName.VOXCPM2.value, size: str = EngineName.VOXCPM2.value) -> None:
-    """向后兼容包装：委托给 PreloadService.preload()。"""
+def preload_model(
+    engine: str = EngineName.VOXCPM2.value,
+    size: str = EngineName.VOXCPM2.value,
+) -> dict[str, Any]:
+    """向后兼容包装：委托给 PreloadService.preload() 并返回状态。
+
+    Args:
+        engine (str): 目标引擎名。
+        size (str): 模型尺寸变体（当前保留未使用）。
+
+    Returns:
+        dict[str, Any]: 调用 :meth:`PreloadService.get_status` 返回的预加载状态快照。
+    """
     _preload_service.preload(engine, size)
+    return _preload_service.get_status()
 
 
-def get_preload_status() -> dict:
-    """向后兼容包装：委托给 PreloadService.get_status()。"""
+def get_preload_status() -> dict[str, Any]:
+    """向后兼容包装：委托给 PreloadService.get_status()。
+
+    Returns:
+        dict[str, Any]: 预加载任务状态快照。
+    """
     return _preload_service.get_status()
 
 
@@ -749,43 +1106,47 @@ def get_preload_status() -> dict:
 
 
 def _can_hot_standby(target_engine: str) -> bool:
-    """Check if there's enough VRAM to keep both current and target engine loaded.
+    """判断是否可热待机（同时保留新旧双引擎在显存中）。
 
-    Hot standby mode allows switching engines without unloading the current one,
-    reducing switch latency when VRAM is sufficient.
+    Check if there's enough VRAM to keep both current and target engine loaded.
+
+    热待机模式允许切换引擎时不卸载当前引擎，在显存充足的场景下把切换
+    延迟从数十秒降低到数百毫秒。
 
     Args:
-        target_engine: Name of the target engine to load.
+        target_engine (str): 目标引擎名称。
 
     Returns:
-        True if hot standby is possible, False otherwise.
+        bool: 若当前空闲显存足够容纳目标引擎（按 80% 估算，留 20% 波动余量）
+            返回 ``True``；否则返回 ``False``；CPU 模式或无法获取 GPU 信息
+            时保守返回 ``False``。
     """
     from .gpu_backend import GPUBackend, GPUBackendManager
     from .model_registry import ENGINE_VRAM_REQUIREMENTS
 
-    backend = GPUBackendManager.detect_backend()
+    backend: GPUBackend = GPUBackendManager.detect_backend()
     if backend == GPUBackend.CPU:
         return False
 
-    gpu_device = get_gpu_device()
+    gpu_device: Any = get_gpu_device()
     if gpu_device is None:
         return False
 
-    props = GPUBackendManager.get_device_properties(gpu_device)
-    total = props.get("total_memory", 0)
+    props: dict[str, Any] = GPUBackendManager.get_device_properties(gpu_device)
+    total: int = props.get("total_memory", 0)
     if total <= 0:
         return False
 
-    allocated = GPUBackendManager.memory_allocated(gpu_device)
-    free_gb = (total - allocated) / (1024 ** 3)
+    allocated: int = GPUBackendManager.memory_allocated(gpu_device)
+    free_gb: float = (total - allocated) / (1024 ** 3)
 
-    current_vram = ENGINE_VRAM_REQUIREMENTS.get(registry.current_engine, 0)
-    target_vram = ENGINE_VRAM_REQUIREMENTS.get(target_engine, 0)
+    current_vram: float = ENGINE_VRAM_REQUIREMENTS.get(registry.current_engine, 0.0)
+    target_vram: float = ENGINE_VRAM_REQUIREMENTS.get(target_engine, 0.0)
 
     # Need enough free VRAM for target engine (with 20% margin)
     # Plus we keep current engine loaded
-    needed_gb = target_vram * 0.8
-    can_standby = free_gb >= needed_gb
+    needed_gb: float = target_vram * 0.8
+    can_standby: bool = free_gb >= needed_gb
 
     if can_standby:
         logger.info(
@@ -802,16 +1163,18 @@ def _can_hot_standby(target_engine: str) -> bool:
 
 
 def _validate_engine_name(engine_name: str) -> str:
-    """REFACTOR: [M-R1] 校验并规范化引擎名称。
+    """校验并规范化引擎名称（M-R1 拆分辅助函数 ①）。
+
+    REFACTOR: [M-R1] 校验并规范化引擎名称。
 
     Args:
-        engine_name: 待校验的引擎名称。
+        engine_name (str): 待校验的引擎名称。
 
     Returns:
-        规范化后的引擎名称（已 strip）。
+        str: 去除首尾空白后的规范化引擎名。
 
     Raises:
-        EngineSwitchError: 引擎名称不在白名单中。
+        EngineSwitchError: 引擎名称不在 ``EngineName`` 白名单内。
     """
     engine_name = engine_name.strip()
     if engine_name not in EngineName._value2member_map_:
@@ -820,15 +1183,23 @@ def _validate_engine_name(engine_name: str) -> str:
 
 
 def _snapshot_engine_state() -> dict[str, Any]:
-    """REFACTOR: [M-R1] 快照当前引擎状态，用于失败时回滚。
+    """快照当前引擎状态（M-R1 拆分辅助函数 ②）。
+
+    REFACTOR: [M-R1] 快照当前引擎状态，用于失败时回滚。
 
     Returns:
-        包含 current_engine / voxcpm_model / voxcpm_asr / indextts2_engine
-        的快照字典。
+        dict[str, Any]: 包含如下键的快照字典：
+            - engine: ``registry.current_engine`` 当前引擎名。
+            - voxcpm_model: VoxCPM2 模型引用。
+            - voxcpm_asr: VoxCPM2 ASR 模型引用。
+            - indextts2_engine: IndexTTS2 引擎实例引用。
 
-    注意 (M-R3): 快照中的对象引用仅用于判断"之前是哪个引擎"，
-    回滚时不直接恢复这些引用（因 unload_model 可能已释放底层资源），
-    而是根据 prev_engine 重新加载模型。详见 _rollback_engine。
+    注意 (M-R3):
+        快照中的对象引用**仅用于判断"之前是哪个引擎"**，回滚时
+        **不能**直接恢复这些引用——因为 ``unload_model`` 会调用
+        ``IndexTTS2.unload()`` 释放底层 CUDA 句柄和 GPU 缓冲区，
+        旧引用会变成"悬空指针"。正确做法见 :func:`_rollback_engine`
+        的 M-R3 WHY 注释。
     """
     return {
         "engine": registry.current_engine,
@@ -838,47 +1209,55 @@ def _snapshot_engine_state() -> dict[str, Any]:
     }
 
 
-def _check_vram_prereq(engine_name: str, backend, gpu_device) -> float:
-    """REFACTOR: [M-R1] 显存预检查。
+def _check_vram_prereq(engine_name: str, backend: Any, gpu_device: Any) -> float:
+    """显存预检查（M-R1 拆分辅助函数 ③）。
+
+    REFACTOR: [M-R1] 显存预检查。
+
+    WHY: 这里使用 ENGINE_VRAM_REQUIREMENTS 中配置的模型大小作为基线，
+    实际运行时还会叠加 ① ASR/Enhancer 权重、② KV cache、③ 中间激活，
+    因此在 load_voxcpm2 的 WHY 注释里强调需要 **1.5 倍** 余量；但
+    预检仅检查基线大小即可，因为预检拒绝的是"基线都装不下"的硬失败，
+    余量通过实际 OOM + retry 机制处理更稳健。
 
     E2-1: 校验 props 有效性（total <= 0 时跳过预检，记录警告而非崩溃）。
 
     Args:
-        engine_name: 目标引擎名称。
+        engine_name (str): 目标引擎名称。
         backend: GPUBackend 枚举值。
-        gpu_device: GPU 设备索引。
+        gpu_device: GPU 设备索引（CUDA/MPS）或 ``None``（CPU）。
 
     Returns:
-        可用显存（GB）。CPU 模式或无法获取显存时返回 0.0。
+        float: 可用显存（GB）。CPU 模式或无法获取显存时返回 ``0.0``。
 
     Raises:
-        InsufficientVRAMError: 可用显存不足。
+        InsufficientVRAMError: 可用显存低于目标引擎基线要求。
     """
     from .gpu_backend import GPUBackend, GPUBackendManager
     from .model_registry import ENGINE_VRAM_REQUIREMENTS
 
-    needed_gb = ENGINE_VRAM_REQUIREMENTS.get(engine_name, 6.0)
+    needed_gb: float = ENGINE_VRAM_REQUIREMENTS.get(engine_name, 6.0)
 
     # CPU 模式或无 GPU 设备：跳过显存预检
     if backend == GPUBackend.CPU or gpu_device is None:
         logger.warning("[引擎切换] CPU 模式或无 GPU 设备：跳过显存检查，模型将在 CPU 上运行（速度较慢）")
         return 0.0
 
-    props = GPUBackendManager.get_device_properties(gpu_device)
-    total = props.get("total_memory", 0)
+    props: dict[str, Any] = GPUBackendManager.get_device_properties(gpu_device)
+    total: int = props.get("total_memory", 0)
     # E2-1: 校验 props 有效性
     if total <= 0:
         logger.warning("[引擎切换] 无法获取 GPU 总显存，跳过预检")
         return 0.0
 
-    allocated = GPUBackendManager.memory_allocated(gpu_device)
-    free = total - allocated
-    free_gb = free / 1024**3
+    allocated: int = GPUBackendManager.memory_allocated(gpu_device)
+    free: int = total - allocated
+    free_gb: float = free / 1024**3
 
     logger.info(f"[引擎切换] VRAM 检查: 需要 {needed_gb}GB, 可用 {free_gb:.2f}GB")
 
     if free_gb < needed_gb:
-        error_msg = f"显存不足，无法加载 {engine_name}。需要约 {needed_gb}GB，当前可用 {free_gb:.2f}GB。"
+        error_msg: str = f"显存不足，无法加载 {engine_name}。需要约 {needed_gb}GB，当前可用 {free_gb:.2f}GB。"
         logger.error(f"[引擎切换] {error_msg}")
         raise InsufficientVRAMError(error_msg)
 
@@ -886,36 +1265,39 @@ def _check_vram_prereq(engine_name: str, backend, gpu_device) -> float:
 
 
 def _wait_vram_freed(
-    gpu_device,
+    gpu_device: Any,
     max_wait: float = _VRAM_WAIT_MAX_SECONDS,
     poll_interval: float = _VRAM_POLL_INTERVAL_SECONDS,
 ) -> bool:
-    """REFACTOR: [M-R1] 轮询等待显存释放。
+    """轮询等待显存释放（M-R1 拆分辅助函数 ④）。
 
-    E2-2: 阈值相对化 —— 取 _VRAM_FREE_THRESHOLD_BYTES 与总显存的
-    _VRAM_FREE_PERCENT_FLOOR% 中较小者，避免大显存设备上 500MB 阈值过松、
+    REFACTOR: [M-R1] 轮询等待显存释放。
+
+    E2-2: 阈值相对化 —— 取 ``_VRAM_FREE_THRESHOLD_BYTES`` 与总显存的
+    ``_VRAM_FREE_PERCENT_FLOOR%`` 中较小者，避免大显存设备上 500MB 阈值过松、
     小显存设备上 500MB 阈值过严。
 
     Args:
         gpu_device: GPU 设备索引。
-        max_wait: 最大等待时间（秒）。
-        poll_interval: 轮询间隔（秒）。
+        max_wait (float): 最大等待秒数，默认 ``_VRAM_WAIT_MAX_SECONDS``。
+        poll_interval (float): 轮询间隔秒数，默认 ``_VRAM_POLL_INTERVAL_SECONDS``。
 
     Returns:
-        True 表示显存已释放到阈值以上，False 表示超时。
+        bool: 若在超时前显存释放量超过阈值返回 ``True``；轮询异常或超时返回
+            ``False``（由调用方决定是否继续切换流程）。
     """
     from .gpu_backend import GPUBackendManager
 
-    poll_start = time.time()
+    poll_start: float = time.time()
     while time.time() - poll_start < max_wait:
         time.sleep(poll_interval)
         try:
-            props = GPUBackendManager.get_device_properties(gpu_device)
-            total = props.get("total_memory", 0)
-            allocated = GPUBackendManager.memory_allocated(gpu_device)
-            free = total - allocated
+            props: dict[str, Any] = GPUBackendManager.get_device_properties(gpu_device)
+            total: int = props.get("total_memory", 0)
+            allocated: int = GPUBackendManager.memory_allocated(gpu_device)
+            free: int = total - allocated
             # E2-2: 阈值相对化
-            threshold = min(_VRAM_FREE_THRESHOLD_BYTES, total * _VRAM_FREE_PERCENT_FLOOR // 100)
+            threshold: int = min(_VRAM_FREE_THRESHOLD_BYTES, total * _VRAM_FREE_PERCENT_FLOOR // 100)
             if free > threshold:
                 return True
         except Exception:
@@ -926,28 +1308,43 @@ def _wait_vram_freed(
 
 
 def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
-    """REFACTOR: [M-R1/M-R3] 回滚到之前的引擎状态。
+    """回滚到之前的引擎状态（M-R1 拆分辅助函数 ⑤ / M-R3 关键修复）。
 
-    M-R3 关键修复：原实现仅恢复引用，但 prev_state 中的 model/asr/engine
-    对象可能已被 unload_model() 释放底层资源（尤其 IndexTTS2.unload()），
-    导致引用指向失效对象。现在根据 prev_engine 重新加载模型，确保
-    回滚后引擎真正可用。
+    REFACTOR: [M-R1/M-R3] 回滚到之前的引擎状态。
+
+    WHY M-R3: **不能只恢复引用而要重新加载 prev_engine。**
+
+    考虑如下时序：
+        1. 快照 ``prev_state = {"indextts2_engine": <obj A>, "engine": INDEXTTS2}``
+        2. 执行 ``unload_model()`` → 内部调用 ``obj A.unload()``
+           → IndexTTS2 内部释放：
+             a) ``del self.vocoder``
+             b) ``torch.cuda.empty_cache()``
+             c) 关闭 CUDA IPC handle
+        3. 此时 ``prev_state["indextts2_engine"]`` 仍引用 Python 对象 A，
+           但 A 内部的 ``.tts_model / .vocoder / cuda stream`` 均已失效。
+        4. 若仅 ``registry.indextts2_engine = prev_state["indextts2_engine"]``，
+           下次推理会抛 ``RuntimeError: accessing unregistered storage`` 等
+           底层 CUDA 错误，且极难定位。
+
+    因此 M-R3 的修复方案是：**根据 ``prev_engine`` 名称重新走完整的
+    model loading 流程**，虽然慢了数十秒，但保证回滚后引擎真正可用。
 
     失败处理：重新加载是 best-effort 的，失败时仅记录错误日志，
     不抛异常（避免掩盖原始的切换失败原因）。最坏情况下回滚后引擎
     不可用，用户需手动重新加载。
 
     Args:
-        prev_state: _snapshot_engine_state() 返回的快照。
-        error: 触发回滚的异常（仅用于日志）。
+        prev_state (dict[str, Any]): :func:`_snapshot_engine_state` 返回的快照。
+        error (Exception): 触发回滚的异常（仅用于日志诊断）。
     """
     import traceback
 
-    tb = traceback.format_exc()
-    error_msg = f"引擎切换失败: {type(error).__name__}: {error}\n\n详细错误:\n{tb}"
+    tb: str = traceback.format_exc()
+    error_msg: str = f"引擎切换失败: {type(error).__name__}: {error}\n\n详细错误:\n{tb}"
     logger.error(f"[引擎切换] {error_msg}")
 
-    prev_engine = prev_state["engine"]
+    prev_engine: Optional[str] = prev_state["engine"]
     logger.info(f"[引擎切换] 开始回滚到之前的引擎状态 (prev_engine={prev_engine})...")
 
     # M-R3: 先清理可能残留的半加载状态（新引擎可能加载了一半）
@@ -966,8 +1363,8 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
             logger.info("[引擎切换] 回滚: 重新加载 VoxCPM2 模型...")
             from .gpu_backend import GPUBackend, GPUBackendManager
 
-            backend = GPUBackendManager.detect_backend()
-            gpu_device = get_gpu_device()
+            backend: GPUBackend = GPUBackendManager.detect_backend()
+            gpu_device: Any = get_gpu_device()
             # 消费 generator 但不向前端推送状态（回滚过程对前端透明）
             for _ in _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False):
                 pass
@@ -981,7 +1378,7 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
             from .gpu_backend import GPUBackend, GPUBackendManager
 
             backend = GPUBackendManager.detect_backend()
-            new_engine = IndexTTS2Engine(
+            new_engine: Any = IndexTTS2Engine(
                 model_dir=INDEXTTS2_MODEL_PATH,
                 use_fp16=(backend != GPUBackend.CPU),
             )
@@ -996,102 +1393,226 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
     gc.collect()
     from .gpu_backend import GPUBackendManager
 
-    GPUBackendManager.empty_cache()
+    with contextlib.suppress(Exception):
+        GPUBackendManager.empty_cache()
 
 
-def switch_engine(engine_name: str = EngineName.VOXCPM2.value) -> Generator:
-    """Switch the active engine with full rollback on failure.
+def switch_engine(
+    engine_name: str = EngineName.VOXCPM2.value,
+) -> Generator[tuple[str, None, None, None], None, None]:
+    """切换活跃引擎（5 阶段流程 + 完整回滚）。
+
+    Switch the active engine with full rollback on failure.
 
     REFACTOR: [M-R1] 拆分为 5 个职责单一的辅助函数，单函数圈复杂度 25 → 各 <8。
     REFACTOR: [M-R3] _rollback_engine 重新加载 prev_engine 模型，保证回滚后可用。
 
-    Performs a 5-step engine switch:
-    1. VRAM pre-check: verify required VRAM is available
-    2. Unload current model with aggressive VRAM cleanup
-    3. Wait for VRAM to be actually freed (poll-based)
-    4. Load new model and move sub-components to GPU
-    5. Update global engine state and log success
+    5 阶段触发条件与产出事件（每条 ``(status_text, None, None, None)`` 四元组，
+    兼容调用方 ``for status_text, _, _, _ in gen:`` 解包）：
+        1. **validate**（阶段 ①）：
+           调用 :func:`_validate_engine_name`。若引擎名不在白名单直接抛
+           ``EngineSwitchError``，**不**占用锁、**不**触发回滚。
+           产出事件：无（同步校验）。
 
-    If any step fails, automatically rolls back to the previous engine
-    state (M-R3: 重新加载 prev_engine 模型). All TTSError subclasses are
-    re-raised as-is; other exceptions are wrapped as EngineSwitchError.
+        2. **snapshot**（阶段 ②）：
+           获取 ``_model_lock`` 后调用 :func:`_snapshot_engine_state` 保存
+           当前引擎引用，供 rollback 时判断 ``prev_engine`` 名称使用。
+
+        3. **prereq**（阶段 ③）：
+           调用 :func:`_check_vram_prereq` 做显存基线预检。若失败抛
+           ``InsufficientVRAMError``（属于 TTSError 子类，直接抛出不触发
+           回滚——因为 unload_model 尚未执行，旧引擎完好无损）。
+
+        4. **wait**（阶段 ④，非热待机路径）：
+           若 ``_can_hot_standby`` 判定为 False（显存不足以双引擎常驻），
+           则先**同步**调用 :func:`unload_model`（with 语句内部 try/finally
+           负责锁与显存清理），再做
+           ``synchronize → empty_cache → ipc_collect → _wait_vram_freed``
+           的显存同步链，确保后续加载拿到的是干净的空闲显存。
+
+        5. **rollback**（异常路径）：
+           若非 TTSError 类异常（CUDA OOM / RuntimeError / I/O 错误等）
+           发生在 unload_model 之后，则调用 :func:`_rollback_engine`
+           按 M-R3 规则**重新加载 prev_engine**，最后抛出 ``EngineSwitchError``
+           包装原异常。TTSError 子类（InsufficientVRAMError 等）不触发回滚。
 
     Args:
-        engine_name: Target engine name (EngineName.VOXCPM2 or EngineName.INDEXTTS2).
+        engine_name (str): 目标引擎名，默认 ``EngineName.VOXCPM2.value``。
 
     Yields:
-        Tuple of (status_text, audio, sample_rate, format) at each stage.
+        tuple[str, None, None, None]:
+            每个阶段 ``(status_text, None, None, None)`` 四元组；
+            ``status_text`` 为当前阶段描述；其余三位置为历史兼容占位。
+            异常退出时 finally 前会额外产出一条 ``(error_msg, None, None, None)``
+            事件，``error_msg`` 首段包含 ``"失败"`` / ``"error"`` 关键字供
+            调用方识别。
 
     Raises:
-        InsufficientVRAMError: If free VRAM is below the required threshold.
-        EngineSwitchError: If the switch fails and rollback is attempted.
+        InsufficientVRAMError: 空闲显存低于目标引擎基线要求（预检失败）。
+        EngineSwitchError: 切换失败且已尝试回滚（原异常挂在 ``__cause__`` 上）。
     """
     from .gpu_backend import GPUBackend, GPUBackendManager
 
-    # M-R1: 校验引擎名称
+    # M-R1: 校验引擎名称（阶段 ①，锁外执行，失败不影响旧引擎）
     engine_name = _validate_engine_name(engine_name)
     logger.info(f"[引擎切换] 目标: {engine_name}")
 
-    _model_lock.acquire()
+    prev_state: dict[str, Any] = {}
     try:
-        # M-R1: 快照前置状态
-        prev_state = _snapshot_engine_state()
+        with _model_lock:
+            # M-R1: 快照前置状态（阶段 ②）
+            prev_state = _snapshot_engine_state()
 
-        backend = GPUBackendManager.detect_backend()
-        gpu_device = get_gpu_device()
-        logger.info(f"[引擎切换] 使用设备 {gpu_device if gpu_device is not None else 'CPU'} 进行显存检查")
+            backend: GPUBackend = GPUBackendManager.detect_backend()
+            gpu_device: Any = get_gpu_device()
+            logger.info(
+                f"[引擎切换] 使用设备 {gpu_device if gpu_device is not None else 'CPU'} 进行显存检查"
+            )
 
-        # M-R1: VRAM 预检查
-        logger.info("[引擎切换] 开始 VRAM 预检查...")
-        _check_vram_prereq(engine_name, backend, gpu_device)
+            # M-R1: VRAM 预检查（阶段 ③）
+            logger.info("[引擎切换] 开始 VRAM 预检查...")
+            _check_vram_prereq(engine_name, backend, gpu_device)
 
-        # Step 2: Check if hot standby is possible
-        hot_standby = _can_hot_standby(engine_name)
-        if hot_standby:
-            logger.info("[引擎切换] 显存充足，使用热待机模式，跳过卸载")
-            _progress_mgr.update_phase("显存充足，直接加载新引擎...")
-        else:
-            logger.info("[引擎切换] 显存不足，使用传统切换模式")
-            _progress_mgr.update_phase("正在卸载旧引擎...")
-            unload_model()
+            # 检查热待机可能性
+            hot_standby: bool = _can_hot_standby(engine_name)
+            if hot_standby:
+                logger.info("[引擎切换] 显存充足，使用热待机模式，跳过卸载")
+                _progress_mgr.update_phase("显存充足，直接加载新引擎...")
+                status_text: str = "显存充足，直接加载新引擎"
+                yield status_text, None, None, None
+            else:
+                logger.info("[引擎切换] 显存不足，使用传统切换模式")
+                _progress_mgr.update_phase("正在卸载旧引擎...")
+                status_text = "正在卸载旧引擎并释放显存"
+                yield status_text, None, None, None
 
-            # M-R1: 等待显存释放
-            if backend != GPUBackend.CPU and gpu_device is not None:
-                GPUBackendManager.synchronize(gpu_device)
-                GPUBackendManager.empty_cache()
-                GPUBackendManager.ipc_collect(gpu_device)
+                # 阶段 ④：同步调用 unload_model（其内部用 with _model_lock 加锁，
+                # 因为 _model_lock 是 RLock，允许同一线程重入 acquire）
+                unload_model()
 
-                vram_freed = _wait_vram_freed(gpu_device)
-                GPUBackendManager.empty_cache()
+                # M-R1: 等待显存释放（unload 已释放锁，但 RLock 允许我们仍在外层 with 内）
+                if backend != GPUBackend.CPU and gpu_device is not None:
+                    with contextlib.suppress(Exception):
+                        GPUBackendManager.synchronize(gpu_device)
+                    with contextlib.suppress(Exception):
+                        GPUBackendManager.empty_cache()
+                    with contextlib.suppress(Exception):
+                        GPUBackendManager.ipc_collect(gpu_device)
 
-                if vram_freed:
-                    logger.info("[引擎切换] VRAM 已释放")
-                else:
-                    logger.warning("[引擎切换] VRAM 轮询超时，继续切换流程")
+                    vram_freed: bool = _wait_vram_freed(gpu_device)
+                    with contextlib.suppress(Exception):
+                        GPUBackendManager.empty_cache()
 
-            _progress_mgr.update_phase("正在清理 VRAM...")
+                    if vram_freed:
+                        logger.info("[引擎切换] VRAM 已释放")
+                    else:
+                        logger.warning("[引擎切换] VRAM 轮询超时，继续切换流程")
 
-        # Step 3: 加载新引擎
-        if engine_name == EngineName.VOXCPM2.value:
-            yield from _load_voxcpm2_engine(gpu_device, backend)
-        elif engine_name == EngineName.INDEXTTS2.value:
-            yield from load_indextts2()
+                _progress_mgr.update_phase("正在清理 VRAM...")
+                status_text = "正在清理显存缓存"
+                yield status_text, None, None, None
+
+            # 阶段 ⑤：加载新引擎
+            if engine_name == EngineName.VOXCPM2.value:
+                for status_tuple in _load_voxcpm2_engine(gpu_device, backend):
+                    yield status_tuple
+            elif engine_name == EngineName.INDEXTTS2.value:
+                for status_tuple in load_indextts2():
+                    yield status_tuple
 
     except TTSError:
         # 业务异常原样抛出（InsufficientVRAMError 等），不触发回滚
-        # 原因：VRAM 预检失败时 unload_model 尚未执行，无需回滚
+        # 原因：VRAM 预检失败时 unload_model 尚未执行，旧引擎完好无需回滚
         raise
     except Exception as e:
-        # M-R1/M-R3: 委托回滚逻辑给 _rollback_engine
-        _rollback_engine(prev_state, e)
-        raise EngineSwitchError(f"引擎切换失败: {type(e).__name__}: {e}") from e
+        error_msg: str = f"引擎切换失败: {type(e).__name__}: {e}"
+        # 产出一条 error 事件给前端进度流（保持 tuple 格式兼容解包）
+        yield error_msg, None, None, None
+        # M-R1/M-R3: 委托回滚逻辑给 _rollback_engine（仅在 prev_state 已快照时）
+        if prev_state:
+            with contextlib.suppress(Exception):
+                _rollback_engine(prev_state, e)
+        raise EngineSwitchError(error_msg) from e
     finally:
-        _model_lock.release()
+        with contextlib.suppress(Exception):
+            free_gpu_memory()
 
 
-def _load_voxcpm2_engine(gpu_device, backend) -> Generator:
-    """Internal helper to load VoxCPM2 engine during engine switching."""
+def _load_voxcpm2_engine(
+    gpu_device: Any,
+    backend: Any,
+) -> Generator[tuple[str, None, None, None], None, None]:
+    """引擎切换流程中加载 VoxCPM2（内部辅助生成器）。
+
+    本函数为 :func:`switch_engine` 专用的 VoxCPM2 加载包装器，
+    与公开的 :func:`load_voxcpm2` 区别在于：
+    1. 已在调用方持有 ``_model_lock`` 的上下文内执行（不重复 acquire）。
+    2. 强制启用 ``include_denoiser=True``，加载语音增强/降噪子模块，
+       因为引擎切换场景通常为正式推理使用，需要完整音质。
+    3. 通过 ``_progress_mgr.update_phase()`` 同步更新全局进度管理器，
+       与前端 SSE 进度条联动。
+    4. 每条产出前通过 logger 记录阶段日志便于追踪切换时序。
+
+    Args:
+        gpu_device: GPU 设备索引（CUDA/MPS 为 int，CPU 为 None）。
+        backend: ``GPUBackend`` 枚举值，标识当前计算后端。
+
+    Yields:
+        tuple[str, None, None, None]:
+            与 :func:`_do_load_voxcpm2_internal` 产出格式一致的四元组
+            ``(status_text, None, None, None)``，直接透传给 switch_engine
+            的生成器消费者（最终通过 SSE 推送给前端）。
+
+    Raises:
+        Exception: 加载过程中任何异常（权重缺失、CUDA OOM、文件权限等）
+            会被 :func:`switch_engine` 的外层 try/except 捕获并触发回滚，
+            本函数不做异常吞掉。
+    """
     _progress_mgr.update_phase("正在加载新引擎...")
     for status in _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=True):
         logger.info(f"[引擎切换] {status[0]}")
         yield status
+
+
+def get_generation_tracker() -> GenerationTracker:
+    """获取全局 ``GenerationTracker`` 单例。
+
+    Returns:
+        GenerationTracker: 全局生成任务状态追踪器实例（追踪活跃/已完成/失败的
+            生成任务数量，供 ``/api/system/health`` 与 UI 使用）。
+    """
+    return _gen_tracker
+
+
+def get_progress_manager() -> ProgressManager:
+    """获取全局 ``ProgressManager`` 单例。
+
+    Returns:
+        ProgressManager: 全局生成进度管理器（负责阶段文本更新、HTML 进度条渲染，
+            供路由层与生成逻辑中间件共享）。
+    """
+    return _progress_mgr
+
+
+def get_time_estimator() -> Any:
+    """获取全局生成耗时估算器实例（GenerationTimeEstimator）。
+
+    类型标注为 ``Any`` 因为 :class:`GenerationTimeEstimator` 定义在
+    ``estimator.py`` 中，在类型检查阶段可能出现循环导入；运行时实际
+    返回的始终是 ``GenerationTimeEstimator`` 单例，通过线性回归
+    基于历史数据预测未来生成耗时。
+
+    Returns:
+        GenerationTimeEstimator: 全局耗时估算器实例。
+    """
+    return _time_estimator
+
+
+def get_persona_cache() -> AdaptiveLRUCache:
+    """获取全局 Persona 嵌入缓存 ``AdaptiveLRUCache`` 单例。
+
+    Returns:
+        AdaptiveLRUCache: 全局音色嵌入缓存，LRU 淘汰策略，容量随 GPU 显存
+            压力自适应调整；key 为 persona 名，value 为预计算的音色嵌入张量。
+    """
+    return _persona_embedding_cache

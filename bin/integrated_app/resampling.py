@@ -667,6 +667,11 @@ class ResamplingPipeline:
         return sr
 
     def __repr__(self) -> str:
+        """返回管线的字符串表示（用于调试和日志）。
+
+        Returns:
+            包含目标采样率和后端信息的字符串。
+        """
         return (
             f"ResamplingPipeline(target_sr={self.config.target_sr}, "
             f"backend={self.config.backend.value})"
