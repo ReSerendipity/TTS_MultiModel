@@ -23,8 +23,17 @@ static/
 .idea/
 *.swp
 *.swo
+*.bak
+*.orig
+*.rej
+*~
+*.lnk
+*.tmproj
+*.iml
+.idea/workspace.xml
 .mypy_cache/
 .ruff_cache/
+.pyright/
 
 # Trae IDE documents (local development)
 .trae/
@@ -33,6 +42,8 @@ static/
 .DS_Store
 Thumbs.db
 Desktop.ini
+System Volume Information/
+$RECYCLE.BIN/
 
 # Python
 __pycache__/
@@ -41,6 +52,9 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+*.whl
+*.tar.gz
+*.zip
 
 # Model downloads (large files)
 *.safetensors
@@ -78,7 +92,9 @@ lora/
 
 # Environment variables
 .env
-.env.local
+.env.*
+!.env.example
+secrets/
 
 # SSL certificates (generated at runtime)
 bin/cert.pem
@@ -90,15 +106,21 @@ bin/key.pem
 # Pytest
 .pytest_cache/
 
-# Coverage
-htmlcov/
+# Coverage / profiling
 .coverage
+.coverage.*
+.coverage.xml
+htmlcov/
+.benchmarks/
+prof/
+*.prof
 
 # Runtime data (generated at runtime)
 data/generation_times.json
 
 # Server runtime
 .server_port
+nul
 
 # Test artifacts
 full_page.png
@@ -131,3 +153,46 @@ tmp/
 
 # Root-level runtime data
 generation_times.json
+
+# ---------------------------------------------------------------------------
+# Test / audit / dogfood reports (local-only, regenerated frequently)
+# ---------------------------------------------------------------------------
+UX_UI_COMPREHENSIVE_EVALUATION_REPORT.md
+UX_UI_EVALUATION_REPORT.md
+test_report_v*.md
+docs/UX_UI_EVALUATION_REPORT.md
+docs/USER_BEHAVIOR_TEST_REPORT.md
+docs/reports/UI_UX_OPTIMIZATION_IMPLEMENTATION_REPORT.md
+docs/reports/USER_BEHAVIOR_TEST_REPORT_v*.md
+docs/browser_test_report*.md
+docs/SPEC_optimization.md
+docs/TECHNICAL_AUDIT_REPORT_*.md
+docs/api_test_report*.json
+docs/api_test_round*.json
+
+# ---------------------------------------------------------------------------
+# UI / UX audit screenshots (regenerated on every audit run, large diffs)
+# ---------------------------------------------------------------------------
+docs/screenshots/ui_audit/
+docs/screenshots/ui_ux_audit/
+docs/ui_optimization_screenshots/
+
+# ---------------------------------------------------------------------------
+# Local development / verification helper scripts (not part of the app)
+# ---------------------------------------------------------------------------
+bin/start_ui_test.py
+scripts/verify_ui_optimizations.py
+optimize_ui.py
+cleanup_cache.bat
+cleanup_reference_repos.bat
+
+# ---------------------------------------------------------------------------
+# Node / web tooling (in case it ever appears in this repo)
+# ---------------------------------------------------------------------------
+node_modules/
+package-lock.json
+.npm/
+.yarn/
+.next/
+.parcel-cache/
+.vite/
