@@ -56,9 +56,7 @@ dependencies = [
     "torch>=2.5.1",
     "torchvision>=0.20.1",
     "torchaudio>=2.5.1",
-    # 版本策略：dots.tts 要求 >=4.57，但 GPT-SoVITS 在 <=4.50 上验证通过。
-    # 当前选择 >=4.57 以满足 dots.tts，GPT-SoVITS 兼容性待长期验证。
-    # 如 GPT-SoVITS 出现运行时错误，考虑使用独立 venv 隔离（见 docs/INTEGRATION_DECISIONS.md）。
+    # 版本策略：dots.tts 要求 >=4.57。
     "transformers>=4.57.0",
     "tokenizers>=0.19.0",
     # === AI 生态 ===
@@ -73,8 +71,7 @@ dependencies = [
     "soundfile>=0.12.1",
     "pydub>=0.25.1",
     # === 数值计算 ===
-    # numpy 上限放开：dots.tts 要求 >=2.2.6，GPT-SoVITS 要求 <2.0。
-    # 当前保留 >=1.24 兼容两端，实际运行使用 1.26.4（GPT-SoVITS 优先）。
+    # numpy：dots.tts 要求 >=2.2.6。
     "numpy>=1.24.0",
     "scipy>=1.11.0",
     # === 工具库 ===
@@ -85,8 +82,7 @@ dependencies = [
     # === 繁简转换（纯 Python 替代 opencc 源码编译）===
     "opencc-python-reimplemented>=0.1.0",
     # === 数据校验 ===
-    # pydantic 上限放开：dots.tts 要求 >=2.12.5，GPT-SoVITS 要求 <=2.10.6。
-    # 当前保留 >=2.0 兼容两端，实际运行使用低版本（GPT-SoVITS 优先）。
+    # pydantic：dots.tts 要求 >=2.12.5。
     "pydantic>=2.0",
 ]
 

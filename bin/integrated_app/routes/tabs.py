@@ -56,7 +56,6 @@ _TAB_TEMPLATES: dict[str, str] = {
     "indextts2_clone": "tabs/indextts2_clone.html",
     "indextts2_emotion": "tabs/indextts2_emotion.html",
     "indextts2_duration": "tabs/indextts2_duration.html",
-    "gptsovits_clone": "tabs/gptsovits_clone.html",
     "dotstts_clone": "tabs/dotstts_clone.html",
     "lora": "tabs/lora_manager.html",
     "lora_training": "tabs/lora_training.html",
@@ -80,8 +79,8 @@ _VOXCPM2_TABS: frozenset[str] = frozenset(
 # IndexTTS2 专属 Tab（字符上限 3072）
 _INDEXTTS2_TABS: frozenset[str] = frozenset({"indextts2", "indextts2_clone", "indextts2_emotion", "indextts2_duration"})
 
-# 通用新式引擎专属 Tab（gptsovits / dotstts，字符上限 4096）
-_GENERIC_ENGINE_TABS: frozenset[str] = frozenset({"gptsovits_clone", "dotstts_clone"})
+# 通用新式引擎专属 Tab（dotstts，字符上限 4096）
+_GENERIC_ENGINE_TABS: frozenset[str] = frozenset({"dotstts_clone"})
 
 
 def _common_context(request: Request, tab_name: str = "") -> dict[str, Any]:
@@ -207,7 +206,7 @@ async def load_tab(request: Request, tab_name: str, lang: str = "zh-CN") -> Resp
     # 3) 构建 Tab 特定上下文
     ctx: dict[str, Any] = _common_context(request, tab_name=tab_name)
 
-    if tab_name in {"voice_design", "voice_clone", "ultimate_clone", "voxcpm2", "gptsovits_clone", "dotstts_clone"}:
+    if tab_name in {"voice_design", "voice_clone", "ultimate_clone", "voxcpm2", "dotstts_clone"}:
         try:
             ctx["persona_list"] = get_persona_list()
         except Exception as exc:  # noqa: BLE001
