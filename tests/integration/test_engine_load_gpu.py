@@ -9,7 +9,7 @@
 
 需要：
 - GPU 设备（CUDA 或 MPS）
-- 已下载的模型权重（GPT-SoVITS / dots.tts / VoxCPM2 / IndexTTS2）
+- 已下载的模型权重（dots.tts / VoxCPM2 / IndexTTS2）
 - 对应的 Python 依赖已安装
 """
 
@@ -35,31 +35,6 @@ def gpu_available():
 
 
 @pytest.fixture
-def gptsovits_weights():
-    """检查 GPT-SoVITS 权重是否已下载。"""
-    weights_dir = os.environ.get(
-        "GPTSOVITS_MODEL_PATH",
-        os.path.join(os.getcwd(), "pretrained_models", "GPT-SoVITS"),
-    )
-    if not os.path.isdir(weights_dir):
-        pytest.skip(f"GPT-SoVITS weights not found at {weights_dir}")
-    # 检查关键权重文件
-    has_ckpt = any(
-        f.endswith(".ckpt")
-        for root, _, files in os.walk(weights_dir)
-        for f in files
-    )
-    has_pth = any(
-        f.endswith(".pth")
-        for root, _, files in os.walk(weights_dir)
-        for f in files
-    )
-    if not (has_ckpt and has_pth):
-        pytest.skip("GPT-SoVITS weights incomplete (missing .ckpt or .pth)")
-    return weights_dir
-
-
-@pytest.fixture
 def dotstts_weights():
     """检查 dots.tts 权重是否已下载。"""
     weights_dir = os.environ.get(
@@ -76,48 +51,6 @@ def dotstts_weights():
     if not weight_files:
         pytest.skip("dots.tts weights directory exists but no weight files found")
     return weights_dir
-
-
-class TestGPTSoVITSLoadGPU:
-    """GPT-SoVITS 引擎在 GPU 上的真实加载测试。"""
-
-    def test_load_gptsovits_engine(self, gpu_available, gptsovits_weights):
-        """测试 GPT-SoVITS 引擎可以成功加载权重。"""
-        from integrated_app.engines.gptsovits_engine import GPTSoVITSEngine
-
-        engine = GPTSoVITSEngine(model_dir=gptsovits_weights)
-        engine.load()
-        assert engine.is_ready()
-        engine.unload()
-
-    def test_gptsovits_clone_1_token(self, gpu_available, gptsovits_weights):
-        """烟雾测试：GPT-SoVITS 生成 1 个 token（最小推理验证）。"""
-        from integrated_app.engines.gptsovits_engine import GPTSoVITSEngine
-
-        engine = GPTSoVITSEngine(model_dir=gptsovits_weights)
-        engine.load()
-        try:
-            # 查找一个参考音频
-            ref_audio = None
-            for root, _, files in os.walk(gptsovits_weights):
-                for f in files:
-                    if f.endswith((".wav", ".flac", ".mp3")):
-                        ref_audio = os.path.join(root, f)
-                        break
-                if ref_audio:
-                    break
-            if not ref_audio:
-                pytest.skip("No reference audio found for GPT-SoVITS smoke test")
-
-            output_path, message = engine.generate_voice_clone(
-                text="测试",
-                reference_audio_path=ref_audio,
-                text_lang="zh",
-                prompt_lang="zh",
-            )
-            assert os.path.exists(output_path)
-        finally:
-            engine.unload()
 
 
 class TestDotsTTSLoadGPU:

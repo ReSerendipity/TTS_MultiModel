@@ -4,7 +4,7 @@
 >
 > **最后更新**：2026-08-01
 > **关联分支**：master
-> **最近一次整合工作**：GPT-SoVITS + dots.tts 双引擎接入（CI 门禁 + UI 端到端 + Tab 高级参数面板，4 个原子 commit 718f59b / 3c26eab / 615d780 / d950a69）
+> **最近一次整合工作**：删除 GPT-SoVITS 引擎，保留 VoxCPM2 / IndexTTS2 / dots.tts 三引擎架构（ADR-0001）
 
 ---
 
@@ -43,7 +43,7 @@
 - 方案 B：在 `install.bat` / `install.sh` 增加步骤 "向 site-packages 复制 tn 降级包"
 - 方案 C：上游 dots.tts 添加 try/except，pynini 缺失时自动降级（联系维护者）
 
-**相关文件**：`need read.txt:60-63`、`scripts/gptsovits_requirements_filtered.txt`
+**相关文件**：`bin/integrated_app/vendor/tn/`
 
 ---
 
@@ -53,34 +53,19 @@
 
 **影响**：
 - 与 tn stub 同：换环境即丢失
-- GPT-SoVITS 繁简转换静默 fallback（直接报错或默认繁）
+- ~~GPT-SoVITS 繁简转换静默 fallback~~（已解决：GPT-SoVITS 引擎已删除）
 
 **建议方向**：
 - 在 `pyproject.toml` 的 `dependencies` 显式声明 `opencc-python-reimplemented>=X.Y`
 - 或写 `install.bat` 脚本里强制安装
 
-**相关文件**：`gptsovits_requirements_filtered.txt`、`pyproject.toml`
+**相关文件**：`pyproject.toml`
 
 ---
 
-### 🟠 [P1] `pyopenjtalk` 整套跳过，日语 TTS 不可用
+### ✅ [已解决] `pyopenjtalk` 整套跳过，日语 TTS 不可用
 
-**现状**：`need read.txt` 第 82 行明确标注 ⚠️ 降级：GPT-SoVITS 仍能跑中 / 英 / 韩 / 粤，**仅缺日语**。
-
-**影响**：
-- 用户在 WebUI 上选 `ja` 实际仍走中文 tokenization，日语发音错误
-- 错位的体验：Tab UI 仍提供日语选项但后台已无对应能力
-
-**触发条件**：
-- 调用 `/api/generate/gptsovits/clone` 并 `text_lang=ja`
-- 调用 `/api/generate/voxpm2/script` 含日语角色对白
-
-**建议方向**：
-- 短期：在 `gptsovits_engine._normalize_text()` 路径中加入 "if lang='ja' raise TTSError('日语暂不支持')" + UI 提示
-- 中期：寻找 Windows 3.12 兼容的日语 TTS 替代（如 pure-Python 的 jtalk-stub 或 MeCab 多进程）
-- 长期：等上游 `pyopenjtalk` 修复 Python 3.12 兼容性
-
-**相关文件**：`need read.txt:82-86`、`bin/integrated_app/engines/gptsovits_engine.py`
+**状态**：已解决 — GPT-SoVITS 引擎已删除（ADR-0001），此问题不再适用。
 
 ---
 
@@ -98,36 +83,9 @@
 
 ## 2. 版本兼容性
 
-### 🔴 [P0] `pyproject.toml` 版本策略与原文档决策不一致（关键风险）
+### ✅ [已解决] `pyproject.toml` 版本策略与原文档决策不一致
 
-**现状**：`need read.txt` 第 87-108 行规划的是 **"GPT-SoVITS 优先，保留低版本"**：
-| 包 | 当时决策 |
-|----|---------|
-| transformers | `>=4.43, <=4.50`（保留 4.50） |
-| numpy | `<2.0`（保留 1.26.4） |
-| pydantic | `<=2.10.6`（保留低版本） |
-
-但 `pyproject.toml` 第 73 / 59 / 81 行**已经反转**：
-```toml
-"transformers>=4.57.0",   # 升级到 dots.tts 路径
-"numpy>=1.24.0",            # 上限消失
-"pydantic>=2.0",            # 上限消失
-```
-
-**影响**：
-- **GPT-SoVITS 在新 transformers/numpy 下兼容性未经测试验证**
-- 之前对话总结中报告"255 测试通过"，但**真实生成路径**（实际加载模型推理）从未在新版本上跑过
-- `transformers 4.50 → 4.57` 之间发生了大量内部 API 变更（`AutoProcessor`、`cache_layout`），GPT-SoVITS 内部的 `pipeline()` 调用随时可能崩
-
-**触发条件**：
-- 任何真实的 GPT-SoVITS 推理（即"播放"按钮被按下）
-
-**建议方向**：
-- 短期：在 `ci.yml` 增加烟雾测试 —— 用小参模型跑一次 GPT-SoVITS 推理（哪怕只跑 1 个 token）
-- 中期：拆出独立 venv 装 GPT-SoVITS（`need read.txt` 第 111 行的原方案 B），让 dots.tts 与 GPT-SoVITS 物理隔离
-- 验证路径：用 conda-forge 的 `transformers==4.50.0` 跑 1 个完整 generated audio
-
-**相关文件**：`pyproject.toml:59-81`、`need read.txt:87-111`、`docs/GPTSOVITS_DOTSTTS_INTEGRATION_GUIDE.md`
+**状态**：已解决 — GPT-SoVITS 引擎已删除（ADR-0001），版本约束不再需要兼容 GPT-SoVITS。当前版本策略以满足 dots.tts 为准。
 
 ---
 
@@ -171,7 +129,7 @@ def load(self, model_root: Path, **kwargs):
 
 **现状**：
 - `AGENTS.md` 第 53 行记录 CI 命令带 `--cov-fail-under=50`
-- 当前覆盖率仅 **22.91%**（gptsovits 52%、dotstts 47%）
+- 当前覆盖率仅 **22.91%**（dotstts 47%）
 - 因此 CI 在 coverage gate 处必然挂掉
 
 **影响**：
@@ -243,7 +201,7 @@ def load(self, model_root: Path, **kwargs):
 
 ### 🟡 [P2] 引擎切换期间 VRAM 释放彻底性未验证
 
-**现状**：集成 GPT-SoVITS + dots.tts 后，`model_registry` 中两个引擎都注册。切换时需要 `unload` → `load`，但 VRAM 释放是否完整（特别是 GPT-SoVITS 的 GPT/SoVITS 双模型同时驻留）**未做严格回归测试**。
+**现状**：集成 dots.tts 后，`model_registry` 中多个引擎注册。切换时需要 `unload` → `load`，但 VRAM 释放是否完整**未做严格回归测试**。
 
 **影响**：
 - 连续切换可能 VRAM 累积膨胀
@@ -284,14 +242,14 @@ def load(self, model_root: Path, **kwargs):
 
 ---
 
-### 🟢 [P3] `examples/` 缺 gptsovits 与 dotstts 使用脚本
+### 🟢 [P3] `examples/` 缺 dotstts 使用脚本
 
 **现状**：`examples/` 仅有 3 个 .py + 1 个 .jsonl，没有针对新引擎的：
 - 直接调用 `TTSEngine.generate_voice_clone()` 的脚本
 - 批量推理脚本（多 persona）
 
 **建议方向**：
-- `examples/gptsovits_clone_quick.py`（参考 dotstts 的同款）
+- `examples/dotstts_clone_quick.py`
 - `examples/batch_clone_all_personas.py`（遍历 personas/ 跑克隆）
 
 ---
@@ -311,19 +269,9 @@ def load(self, model_root: Path, **kwargs):
 
 ## 5. UI / UX 层
 
-### 🟢 [P3] GPT-SoVITS 折叠面板字段冗余度
+### ✅ [已解决] GPT-SoVITS 折叠面板字段冗余度
 
-**现状**：本轮新增的 `partials/gptsovits_advanced.html` 有 6 个字段。Tab 主表单已经有 `text_lang`。partials 因此省略了 text_lang 但保留 `prompt_lang`，存在"半冗余"。
-
-**影响**：
-- 用户困惑："为什么有些语言选项在折叠面板里，有些在外面？"
-- 字段散落在主表单和折叠面板，UX 不一致
-
-**建议方向**：
-- 方案 A：把 `text_lang` 移入折叠面板，主表单只放 `tempo_factor` 等通用项
-- 方案 B：在 partials 里也加 `text_lang`，与主表单 select 同步（用 JS 联动，避免 name 冲突）
-
-**相关文件**：`bin/integrated_app/templates/partials/gptsovits_advanced.html`、`bin/integrated_app/templates/tabs/gptsovits_clone.html`
+**状态**：已解决 — GPT-SoVITS 引擎已删除（ADR-0001），相关模板文件同步移除。
 
 ---
 
@@ -337,11 +285,9 @@ def load(self, model_root: Path, **kwargs):
 
 ---
 
-### 🟢 [P3] `ja.json` / `ko.json` i18n 缺失
+### ✅ [已解决] `ja.json` / `ko.json` i18n 缺失
 
-**现状**：本轮 `pyproject.toml` 行 35 显示支持 4 种语言（zh/en/ja/ko）。GPT-SoVITS 新增 17 个键只填了 zh + en。ja/ko 用户会看到 raw key 显示。
-
-**建议方向**：补全 ja.json 与 ko.json 中的 17 个新键。
+**状态**：已解决 — GPT-SoVITS 相关 i18n 键已随引擎删除一并移除。dots.tts 的 ja/ko 键已补全（commit `b87faac`）。
 
 ---
 
@@ -363,7 +309,7 @@ def load(self, model_root: Path, **kwargs):
 
 ### 🟢 [P3] 模型权重下载完整性校验
 
-**现状**：GPT-SoVITS 5GB / dots.tts 4.9GB 权重通过 `download_*.py` / `download_*.bat` 脚本下载，但**没有** SHA256 校验或 `expect.md5` 文件。
+**现状**：dots.tts 4.9GB 权重通过 `download_*.py` / `download_*.bat` 脚本下载，但**没有** SHA256 校验或 `expect.md5` 文件。
 
 **影响**：
 - 下载中断或部分损坏时静默运行，可能产生低质量音频
@@ -384,9 +330,9 @@ def load(self, model_root: Path, **kwargs):
 
 ---
 
-### 🟢 [P3] 模型权重路径与 `config.yaml` 漂移检测
+### ✅ [已解决] 模型权重路径与 `config.yaml` 漂移检测
 
-**现状**：`config.yaml` 的 `models.gptsovits.root` 路径可能与 `tts_weights/GSV-v2-onnx/` 实际目录漂移。
+**状态**：已解决 — GPT-SoVITS 引擎已删除（ADR-0001），`config.yaml` 中 `models.gptsovits.root` 配置段同步移除。
 
 **建议方向**：增加 `scripts/check_models_paths.py`，启动前校验所有引用路径存在。
 
@@ -441,12 +387,12 @@ def load(self, model_root: Path, **kwargs):
 
 | 优先级 | 数量 | 说明 |
 |--------|------|------|
-| 🔴 P0 | 4 | 必须解决，否则部署/CI 失败 |
+| 🔴 P0 | 2 | 必须解决，否则部署/CI 失败（2 项已随 GPT-SoVITS 删除解决） |
 | 🟠 P1 | 3 | 建议下一个迭代冲刺解决 |
 | 🟡 P2 | 8 | 持续改进，逐步覆盖 |
-| 🟢 P3 | 11 | 长期 backlog |
+| 🟢 P3 | 8 | 长期 backlog（3 项已随 GPT-SoVITS 删除解决） |
 
-**总和**：26 条待解决问题（不重复计算 #2 优先级分布 0% 模块的多个清单项）。
+**总和**：21 条待解决问题（5 项已随 GPT-SoVITS 引擎删除一并解决）。
 
 ---
 

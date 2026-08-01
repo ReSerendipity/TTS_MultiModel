@@ -4,7 +4,7 @@
 检查 pretrained_models/ 下所有引擎的权重文件是否完整。
 
 用法：
-    python scripts/verify_model_weights.py [--model gptsovits|dotstts|all]
+    python scripts/verify_model_weights.py [--model dotstts|all]
 """
 
 import argparse
@@ -14,14 +14,6 @@ import sys
 
 # 各引擎权重文件清单（文件名 → 预期大小（字节），0 表示不校验大小）
 WEIGHT_MANIFESTS = {
-    "gptsovits": {
-        "dir": "pretrained_models/GPT-SoVITS",
-        "files": {
-            "s1bert25hz.pth": 0,
-            "s2G488k.pth": 0,
-            "s2D488k.pth": 0,
-        },
-    },
     "dotstts": {
         "dir": "pretrained_models/dots.tts",
         "files": {},
@@ -106,7 +98,7 @@ def verify_engine(engine_name: str, project_root: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="模型权重完整性校验")
-    parser.add_argument("--model", default="all", choices=["all", "gptsovits", "dotstts", "voxcpm2", "indextts2"],
+    parser.add_argument("--model", default="all", choices=["all", "dotstts", "voxcpm2", "indextts2"],
                         help="校验哪个引擎")
     parser.add_argument("--sha256", action="store_true", help="计算并输出 SHA256（耗时较长）")
     args = parser.parse_args()
