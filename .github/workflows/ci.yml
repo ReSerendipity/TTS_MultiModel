@@ -31,8 +31,8 @@ jobs:
       - name: Run ruff format check
         run: ruff format bin/integrated_app/ scripts/ --check --diff
 
-  test:
-    name: Test (pytest)
+  compat:
+    name: 3-Engine Compatibility Check
     runs-on: ubuntu-latest
     needs: lint
     steps:
@@ -49,10 +49,61 @@ jobs:
           pip install --upgrade pip
           pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
+
+      - name: Run 3-engine compatibility check
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+          MODELSCOPE_OFFLINE: "1"
+          CUDA_VISIBLE_DEVICES: ""
+        run: python scripts/check_3engine_compat.py
+
+  test:
+    name: Test (pytest)
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+        os: [ubuntu-latest, windows-latest]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov httpx
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx
+        shell: pwsh
 
       - name: Dependency consistency check
         run: python scripts/sync_requirements.py --check
+
+      - name: Run 3-engine compatibility check
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+          MODELSCOPE_OFFLINE: "1"
+          CUDA_VISIBLE_DEVICES: ""
+        run: python scripts/check_3engine_compat.py || true
 
       - name: Run tests with coverage
         env:
@@ -65,7 +116,7 @@ jobs:
             -k "not gpu and not cuda and not vram" -m "not integration"
 
       - name: Run benchmark tests
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && runner.os == 'Linux'
         env:
           TRANSFORMERS_OFFLINE: "1"
           HF_HUB_OFFLINE: "1"
@@ -75,7 +126,7 @@ jobs:
           pytest tests/benchmarks/ -v --tb=short -m "benchmark" || true
 
       - name: Run integration tests
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && runner.os == 'Linux'
         env:
           TRANSFORMERS_OFFLINE: "1"
           HF_HUB_OFFLINE: "1"
@@ -85,10 +136,10 @@ jobs:
           pytest tests/ -v --tb=short -m "integration" || true
 
       - name: Upload coverage report
-        if: always()
+        if: always() && runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: coverage-report-${{ matrix.python-version }}-${{ runner.os }}
           path: coverage.xml
 
   build:
