@@ -80,3 +80,49 @@ jobs:
           echo "Performance regression check completed."
           echo "Review benchmark results in the benchmark job artifacts."
           echo "A regression is defined as >20% increase in mean execution time."
+
+  # GPU benchmark on self-hosted runner (requires GPU_RUNNER_SETUP.md)
+  gpu-benchmark:
+    name: GPU Performance Benchmark
+    needs: benchmark
+    runs-on: [self-hosted, gpu]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-benchmark httpx
+
+      - name: Run 3-engine compatibility check
+        run: python scripts/check_3engine_compat.py
+
+      - name: Run GPU benchmarks
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+          MODELSCOPE_OFFLINE: "1"
+        run: |
+          pytest tests/benchmarks/ -v --tb=short -m "benchmark" \
+            --benchmark-only \
+            --benchmark-columns=rounds,iterations,mean,median,stddev,min,max \
+            --benchmark-sort=mean \
+            --benchmark-storage=output/gpu-benchmarks \
+            --benchmark-save=gpu-ci-${{ github.sha }} || true
+
+      - name: Upload GPU benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-benchmark-results-${{ github.sha }}
+          path: output/gpu-benchmarks/
+          retention-days: 60
