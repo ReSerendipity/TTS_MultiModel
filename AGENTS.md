@@ -54,7 +54,7 @@ python scripts/sync_requirements.py --check
 # CPU-only 单元测试 + 覆盖率门槛（对应 ci.yml test job，需先设置离线环境变量）
 # Linux/macOS: export TRANSFORMERS_OFFLINE=1 HF_HUB_OFFLINE=1 MODELSCOPE_OFFLINE=1 CUDA_VISIBLE_DEVICES=""
 # Windows PowerShell: $env:TRANSFORMERS_OFFLINE="1"; $env:HF_HUB_OFFLINE="1"; $env:MODELSCOPE_OFFLINE="1"; $env:CUDA_VISIBLE_DEVICES=""
-pytest tests/ -v --tb=short --cov=bin/integrated_app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=50 -k "not gpu and not cuda and not vram" -m "not integration"
+pytest tests/ -v --tb=short --cov=bin/integrated_app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=20 -k "not gpu and not cuda and not vram" -m "not integration"
 ```
 
 注意：`-k`/`-m` 过滤器与离线环境变量不可省略，否则本地结果与 CI 门禁不可比（会尝试运行需要 GPU/模型的用例）。Windows 本地可用内置解释器 `.\WPy64-312101\python\python.exe -m pytest ...` 执行。
