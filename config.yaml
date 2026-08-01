@@ -120,3 +120,20 @@ audio_player:
 ui:
   sidebar_width: 240
   sidebar_collapsed_width: 52
+
+# PWA (Progressive Web App) 离线优先配置
+# Refs: docs/ROADMAP.md §5.5 stage E, docs/STAGE_E_EXECUTION_PLAN.md TB.6
+pwa:
+  enabled: true
+  cache_version: "v1"
+  offline_enabled: true
+  scope: "/"
+  api_cache_max_age_s: 300
+  html_cache_max_entries: 50
+  precache_urls:
+    - "/"
+    - "/favicon.ico"
+    - "/manifest.json"
+  # Phase 3 推送通知：填写后端 VAPID 公钥（Base64URL）。
+  # 生成命令：python -c "from cryptography.hazmat.primitives.asymmetric import ec; from cryptography.hazmat.primitives import serialization; import base64; key = ec.generate_private_key(ec.SECP256R1()); raw = key.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint); print(base64.urlsafe_b64encode(raw).decode().rstrip('='))"
+  vapid_public_key: ""

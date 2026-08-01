@@ -77,7 +77,7 @@ PWA 在 TTS 场景下的实际价值（按优先级）：
 **技术栈**：无新增依赖，手写 2 个文件
 
 ```json
-// bin/integrated_app/static/manifest.json
+// bin/integrated_app/static_pwa/manifest.json
 {
   "name": "TTS MultiModel",
   "short_name": "TTS",
@@ -90,7 +90,7 @@ PWA 在 TTS 场景下的实际价值（按优先级）：
 ```
 
 ```js
-// bin/integrated_app/static/sw.js
+// bin/integrated_app/static_pwa/sw.js
 self.addEventListener('install', e => {
   e.waitUntil(caches.open('v1').then(c => c.addAll(['/static/...'])))
 })
@@ -261,8 +261,8 @@ PWA 完整功能（IndexedDB 音频缓存 + 推送通知）建议作为阶段 F 
 ### 7.1 阶段 1：manifest + 基础 SW（2.5 天）
 
 - [ ] 设计 icon 资源（192×192, 512×512, maskable）
-- [ ] 创建 `bin/integrated_app/static/manifest.json`
-- [ ] 创建 `bin/integrated_app/static/sw.js`（仅缓存静态资源）
+- [ ] 创建 `bin/integrated_app/static_pwa/manifest.json`
+- [ ] 创建 `bin/integrated_app/static_pwa/sw.js`（仅缓存静态资源）
 - [ ] 在 `templates/base.html` 引入 `<link rel="manifest">` 和 SW 注册
 - [ ] 浏览器 Console 验证 SW 注册成功
 - [ ] DevTools → Application → Manifest 校验通过
