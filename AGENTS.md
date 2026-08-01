@@ -6,6 +6,7 @@
 - 项目架构全景请看 `docs/PROJECT_ARCHITECTURE.md`
 - 优化规格请看 `docs/SPEC_optimization.md`
 - IndexTTS2 集成指南请看 `docs/INDEXTTS2_INTEGRATION_GUIDE.md`
+- ADR 索引请看 `docs/adr/README.md`
 - 当文件冲突时，优先级为：本文件 > `docs/SPEC_optimization.md` > 其他项目文档
 
 ---

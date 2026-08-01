@@ -6,7 +6,15 @@
 
 ## 一、项目概述
 
-TTS MultiModel 是一个基于 VoxCPM2 引擎的文本转语音（TTS）应用，提供音色克隆、声音设计、LoRA 训练等多模态语音生成功能。项目采用 FastAPI + Jinja2 的 Web 架构，支持离线本地部署。
+TTS MultiModel 是一个多引擎文本转语音（TTS）应用平台，集成 **VoxCPM2**、**IndexTTS2** 和 **dots.tts** 三个 TTS 引擎，提供音色克隆、声音设计、情感控制、剧本工坊、LoRA 训练等多模态语音生成功能。项目采用 FastAPI + Jinja2 的 Web 架构，支持离线本地部署。
+
+### 引擎概览
+
+| 引擎 | 特性 | 最低显存 | 最低内存 |
+|------|----------|----------|----------|
+| VoxCPM2 | 语音设计/克隆/终极克隆/剧本/流式/LoRA | 6.5GB | 16GB |
+| IndexTTS2 | 零样本克隆/8维情感向量控制/时长控制 | 6.0GB | 16GB |
+| dots.tts | 零样本克隆/多语言/快速推理 | ~5.0GB | 8GB |
 
 ---
 
@@ -31,7 +39,9 @@ TTS_MultiModel/
 │       └── 🔧 engines/              # 推理引擎抽象层
 │
 ├── 📂 pretrained_models/            # 预训练模型目录（需用户下载）
-│   ├── VoxCPM2/                     # 核心 TTS 模型
+│   ├── VoxCPM2/                     # VoxCPM2 核心 TTS 模型
+│   ├── IndexTTS2/                   # IndexTTS2 情感控制引擎模型
+│   ├── dots.tts/                    # dots.tts 快速克隆引擎模型
 │   ├── SenseVoiceSmall/             # ASR 语音识别模型
 │   ── speech_zipenhancer/          # 降噪模型
 │
