@@ -13,6 +13,15 @@
     - ref_audio (File, 可选)：直接上传的参考音频文件。
     - tempo_factor / voice_enhancement / target_lufs：通用后处理参数。
 
+**引擎专属高级参数（折叠区，用户可视场景选择是否调整）**：
+    - GPT-SoVITS：top_k / top_p / temperature / speed_factor /
+      text_split_method / prompt_lang / text_lang。
+    - dots.tts：num_steps / guidance_scale / seed / random_seed / language。
+
+    由于 ``TTSEngine.generate_voice_clone`` 协议定义为 ``**kwargs``，
+    路由将这些参数透传给当前激活引擎，未匹配字段会被引擎忽略，
+    因此一条端点可同时服务多个引擎。
+
 **参考音频优先级**：ref_audio 上传 > persona_name。二者均缺失时报错
     （通用克隆需要参考音频）。
 
@@ -53,6 +62,20 @@ async def generic_clone_endpoint(
     tempo_factor: float = Form(1.0),
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
+    # --- GPT-SoVITS 高级参数（折叠面板默认值，引擎忽略不属于自己的字段） ---
+    top_k: int = Form(20),
+    top_p: float = Form(0.6),
+    temperature: float = Form(0.6),
+    speed_factor: float = Form(1.0),
+    text_split_method: str = Form("cut5"),
+    prompt_lang: str = Form("zh"),
+    text_lang: str = Form("zh"),
+    # --- dots.tts 高级参数 ---
+    num_steps: int = Form(10),
+    guidance_scale: float = Form(1.2),
+    seed: int = Form(42),
+    random_seed: str = Form("true"),
+    language: str = Form("auto"),
 ) -> HTMLResponse:
     """通用引擎零样本语音克隆端点。
 
@@ -66,6 +89,10 @@ async def generic_clone_endpoint(
         tempo_factor: 语速因子。
         voice_enhancement: 是否人声增强（"true"/"false"）。
         target_lufs: 目标响度 LUFS。
+        top_k/top_p/temperature/speed_factor/text_split_method/prompt_lang/text_lang:
+            GPT-SoVITS 推理参数（其余引擎忽略）。
+        num_steps/guidance_scale/seed/random_seed/language:
+            dots.tts 推理参数（其余引擎忽略）。
 
     Returns:
         HTMLResponse: 成功/失败的 HTMX 片段。
@@ -89,6 +116,9 @@ async def generic_clone_endpoint(
     if not ref_path:
         return _error_html(request, "通用克隆需要参考音频（上传文件或选择音色）")
 
+    # dots.tts 在启用 random_seed 时把 seed 强制置为 -1（库内部使用随机种子）
+    effective_seed = -1 if (random_seed or "").lower() == "true" else seed
+
     # 3. 构造生成闭包（在 executor 线程中执行 GPU 推理）
     def _run():
         """调用当前引擎的 generate_voice_clone。"""
@@ -99,6 +129,19 @@ async def generic_clone_endpoint(
             text,
             reference_audio_path=ref_path,
             instruction=prompt_text,
+            # GPT-SoVITS 字段（其他引擎通过 kwargs.get 自动忽略未知键）
+            top_k=top_k,
+            top_p=top_p,
+            temperature=temperature,
+            speed_factor=speed_factor,
+            text_split_method=text_split_method,
+            prompt_lang=prompt_lang,
+            text_lang=text_lang,
+            # dots.tts 字段
+            num_steps=num_steps,
+            guidance_scale=guidance_scale,
+            seed=effective_seed,
+            language=language,
         )
 
     # 4. 统一生成执行器：串行信号量 + 硬超时 + 后处理 + 历史入库 + SSE
