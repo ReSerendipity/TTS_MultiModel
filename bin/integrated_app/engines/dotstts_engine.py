@@ -127,6 +127,16 @@ class DotsTTSEngine(TTSEngine):
                 precision=self.precision,
                 optimize=self.optimize,
             )
+        except (RuntimeError, AttributeError, TypeError, ImportError) as e:
+            # 依赖不兼容时的友好提示：版本冲突（transformers/numpy/pydantic）
+            # 常见表现为 RuntimeError 或 AttributeError
+            self._runtime = None
+            raise EngineLoadError(
+                f"dots.tts 运行时初始化失败（可能是依赖版本不兼容）: {type(e).__name__}: {e}\n"
+                "建议：1) 检查 transformers/numpy/pydantic 版本是否满足 dots.tts 要求；\n"
+                "      2) 使用独立 venv 安装 dots.tts 及其依赖以隔离版本冲突。",
+                engine="dotstts",
+            ) from e
         except Exception as e:
             self._runtime = None
             raise EngineLoadError(
