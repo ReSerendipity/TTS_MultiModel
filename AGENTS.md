@@ -39,6 +39,26 @@
 - **场景**：代码修复、重构或功能添加。
 - **要求**：至少运行相关单元测试（pytest）或集成测试。如果是 WebUI 修改，应使用浏览器工具验证页面表现。
 
+### 2.5 本地验证命令（与 CI 门禁对齐）
+
+以下命令与 `.github/workflows/ci.yml` 逐步对应，**ci.yml 为命令真值来源**，两者不一致时以 ci.yml 为准并同步更新本节：
+
+```bash
+# Lint（对应 ci.yml lint job）
+ruff check bin/integrated_app/ scripts/
+ruff format bin/integrated_app/ scripts/ --check --diff
+
+# 依赖一致性检查（对应 ci.yml test job 的阻断步骤）
+python scripts/sync_requirements.py --check
+
+# CPU-only 单元测试 + 覆盖率门槛（对应 ci.yml test job，需先设置离线环境变量）
+# Linux/macOS: export TRANSFORMERS_OFFLINE=1 HF_HUB_OFFLINE=1 MODELSCOPE_OFFLINE=1 CUDA_VISIBLE_DEVICES=""
+# Windows PowerShell: $env:TRANSFORMERS_OFFLINE="1"; $env:HF_HUB_OFFLINE="1"; $env:MODELSCOPE_OFFLINE="1"; $env:CUDA_VISIBLE_DEVICES=""
+pytest tests/ -v --tb=short --cov=bin/integrated_app --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=50 -k "not gpu and not cuda and not vram" -m "not integration"
+```
+
+注意：`-k`/`-m` 过滤器与离线环境变量不可省略，否则本地结果与 CI 门禁不可比（会尝试运行需要 GPU/模型的用例）。Windows 本地可用内置解释器 `.\WPy64-312101\python\python.exe -m pytest ...` 执行。
+
 ---
 
 ## 3. 工具使用规范
@@ -70,7 +90,7 @@
 ## 5. TTS_MultiModel 项目速查
 
 ### 5.1 运行与入口
-- **版本**：`config.yaml` 中 `version` 字段（当前 2.0.2）
+- **版本**：以 `config.yaml` 中 `version` 字段为单一真值来源（`pyproject.toml` 需与其保持同步）
 - **Windows 推荐入口**：`start.bat`（使用内置 WinPython）
 - **备选入口**：`bin/start_app.bat`（使用系统 Python）
 - **启动链路**：`start.bat` -> `bin/clean_launch.py` -> `bin/integrated_app/app_server.py`
@@ -84,30 +104,30 @@
 
 | 模块 | 职责 |
 |------|------|
-| [app_server.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/app_server.py) | FastAPI 应用创建、生命周期管理、中间件注册、路由自动发现 |
-| [config.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/config.py) | 路径配置、YAML 解析、`AppConfig` 单例（`get_config()`） |
-| [config_models.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/config_models.py) | Pydantic 配置模型（`AppConfig`、`ServerConfig`、`GenerationConfig`、`SSEConfig` 等） |
-| [model_manager.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/model_manager.py) | 模型加载/卸载、引擎切换、LRU 缓存、进度追踪、显存监控 |
-| [model_registry.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/model_registry.py) | 线程安全的模型状态单例（`registry`），管理 `voxcpm_model`、`indextts2_engine`、`current_engine` |
-| [engine_interface.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/engine_interface.py) | `TTSEngine`、`ControllableTTSEngine` 协议定义 + `InMemoryEngineRegistry` 引擎注册表 |
-| [gpu_backend.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/gpu_backend.py) | CUDA/MPS/CPU 后端抽象与显存管理 |
-| [gpu_utils.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/gpu_utils.py) | GPU 工具函数：OOM 检测、显存释放、`GPUMemoryMonitor` |
-| [persona_manager.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/persona_manager.py) | 音色角色管理与嵌入缓存 |
-| [persona_metadata.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/persona_metadata.py) | Persona 扩展元数据：标签、分类、导入/导出 |
-| [generation.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/generation.py) | 生成辅助：音频保存、文本分割、音频合并、预处理 |
-| [audio_processing.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/audio_processing.py) | 音频后处理：响度归一化、VAD 静音裁切 |
-| [cache.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/cache.py) | `LRUCache`、`AdaptiveLRUCache`（GPU 感知自适应容量） |
-| [estimator.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/estimator.py) | 生成时间估算器（线性回归预测） |
-| [exceptions.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/exceptions.py) | 统一异常层次：`TTSError`、`ModelLoadError`、`InsufficientVRAMError`、`GenerationError` 等 |
-| [history_db.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/history_db.py) | SQLite 历史记录索引（WAL 模式、线程本地连接池） |
-| [progress.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/progress.py) | `ProgressManager`：生成进度追踪与 HTML 进度条渲染 |
-| [prompt_cache.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/prompt_cache.py) | 参考音频 prompt 缓存持久化（JSON+binary 格式，LRU+TTL） |
-| [tracker.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/tracker.py) | `GenerationTracker`：生成任务状态追踪 |
-| [monitor.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/monitor.py) | `HealthMonitor`：GPU 泄漏检测、模型自检、健康指标 |
-| [auth.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/auth.py) | Bearer Token API 认证中间件（恒定时间比较） |
-| [i18n.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/i18n.py) | 国际化：支持 zh/en/ja/ko 四种语言 |
-| [utils.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/utils.py) | 通用工具函数（临时文件清理、角色颜色、标签处理） |
-| [cli.py](file:///c:/Users/HONOR/TTS_MultiModel/bin/integrated_app/cli.py) | 命令行接口（VoxCPM 多引擎 CLI） |
+| [app_server.py](bin/integrated_app/app_server.py) | FastAPI 应用创建、生命周期管理、中间件注册、路由自动发现 |
+| [config.py](bin/integrated_app/config.py) | 路径配置、YAML 解析、`AppConfig` 单例（`get_config()`） |
+| [config_models.py](bin/integrated_app/config_models.py) | Pydantic 配置模型（`AppConfig`、`ServerConfig`、`GenerationConfig`、`SSEConfig` 等） |
+| [model_manager.py](bin/integrated_app/model_manager.py) | 模型加载/卸载、引擎切换、LRU 缓存、进度追踪、显存监控 |
+| [model_registry.py](bin/integrated_app/model_registry.py) | 线程安全的模型状态单例（`registry`），管理 `voxcpm_model`、`indextts2_engine`、`current_engine` |
+| [engine_interface.py](bin/integrated_app/engine_interface.py) | `TTSEngine`、`ControllableTTSEngine` 协议定义 + `InMemoryEngineRegistry` 引擎注册表 |
+| [gpu_backend.py](bin/integrated_app/gpu_backend.py) | CUDA/MPS/CPU 后端抽象与显存管理 |
+| [gpu_utils.py](bin/integrated_app/gpu_utils.py) | GPU 工具函数：OOM 检测、显存释放、`GPUMemoryMonitor` |
+| [persona_manager.py](bin/integrated_app/persona_manager.py) | 音色角色管理与嵌入缓存 |
+| [persona_metadata.py](bin/integrated_app/persona_metadata.py) | Persona 扩展元数据：标签、分类、导入/导出 |
+| [generation.py](bin/integrated_app/generation.py) | 生成辅助：音频保存、文本分割、音频合并、预处理 |
+| [audio_processing.py](bin/integrated_app/audio_processing.py) | 音频后处理：响度归一化、VAD 静音裁切 |
+| [cache.py](bin/integrated_app/cache.py) | `LRUCache`、`AdaptiveLRUCache`（GPU 感知自适应容量） |
+| [estimator.py](bin/integrated_app/estimator.py) | 生成时间估算器（线性回归预测） |
+| [exceptions.py](bin/integrated_app/exceptions.py) | 统一异常层次：`TTSError`、`ModelLoadError`、`InsufficientVRAMError`、`GenerationError` 等 |
+| [history_db.py](bin/integrated_app/history_db.py) | SQLite 历史记录索引（WAL 模式、线程本地连接池） |
+| [progress.py](bin/integrated_app/progress.py) | `ProgressManager`：生成进度追踪与 HTML 进度条渲染 |
+| [prompt_cache.py](bin/integrated_app/prompt_cache.py) | 参考音频 prompt 缓存持久化（JSON+binary 格式，LRU+TTL） |
+| [tracker.py](bin/integrated_app/tracker.py) | `GenerationTracker`：生成任务状态追踪 |
+| [monitor.py](bin/integrated_app/monitor.py) | `HealthMonitor`：GPU 泄漏检测、模型自检、健康指标 |
+| [auth.py](bin/integrated_app/auth.py) | Bearer Token API 认证中间件（恒定时间比较） |
+| [i18n.py](bin/integrated_app/i18n.py) | 国际化：支持 zh/en/ja/ko 四种语言 |
+| [utils.py](bin/integrated_app/utils.py) | 通用工具函数（临时文件清理、角色颜色、标签处理） |
+| [cli.py](bin/integrated_app/cli.py) | 命令行接口（VoxCPM 多引擎 CLI） |
 
 ### 5.3 TTS 引擎
 
@@ -201,7 +221,7 @@
 `config.yaml`（根目录）管理所有运行时配置：
 
 ```yaml
-version: "2.0.2"
+version: "x.y.z"   # 以 config.yaml 实际值为准，勿硬编码
 server:        # 主机、端口、自动加载、SSL
 models:        # 模型路径（VoxCPM2 + IndexTTS2）
 generation:    # 生成默认参数（cfg、timesteps、重试策略等）

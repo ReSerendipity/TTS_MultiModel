@@ -23,10 +23,10 @@
 import html
 import logging
 import os
-from typing import Any, Dict, FrozenSet, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from ..config import _DIALECTS, _LANGS, get_config
@@ -44,7 +44,7 @@ templates = Jinja2Templates(directory=os.path.join(_BASE_DIR, "templates"))
 register_i18n_filters(templates.env)
 
 # Tab 名称 -> 模板文件路径映射（向后兼容 100%，保留原键名）
-_TAB_TEMPLATES: Dict[str, str] = {
+_TAB_TEMPLATES: dict[str, str] = {
     "voice_design": "tabs/voice_design.html",
     "voice_clone": "tabs/voice_clone.html",
     "ultimate_clone": "tabs/ultimate_clone.html",
@@ -68,20 +68,20 @@ _TAB_TEMPLATES: Dict[str, str] = {
 #   允许列表查找耗时约 1 μs，而 os.stat 磁盘检查约 1 ms；
 #   更重要的是 frozenset 可以直接拦截 tab_name="../../config.yaml" 等
 #   路径遍历攻击向量，无需编写复杂的路径 sanitize 逻辑。
-TAB_ALLOWLIST: FrozenSet[str] = frozenset(_TAB_TEMPLATES.keys())
+TAB_ALLOWLIST: frozenset[str] = frozenset(_TAB_TEMPLATES.keys())
 
 # VoxCPM2 专属 Tab（字符上限 8192）
-_VOXCPM2_TABS: FrozenSet[str] = frozenset(
+_VOXCPM2_TABS: frozenset[str] = frozenset(
     {"voice_design", "voice_clone", "ultimate_clone", "script", "prompt_continue", "voxcpm2"}
 )
 
 # IndexTTS2 专属 Tab（字符上限 3072）
-_INDEXTTS2_TABS: FrozenSet[str] = frozenset(
+_INDEXTTS2_TABS: frozenset[str] = frozenset(
     {"indextts2", "indextts2_clone", "indextts2_emotion", "indextts2_duration"}
 )
 
 
-def _common_context(request: Request, tab_name: str = "") -> Dict[str, Any]:
+def _common_context(request: Request, tab_name: str = "") -> dict[str, Any]:
     """构建 Tab 模板的通用上下文字典。
 
     Args:
@@ -180,7 +180,7 @@ async def load_tab(request: Request, tab_name: str, lang: str = "zh-CN") -> Resp
             return _notfound_partial(safe_name, "Tab not found")
         return _notfound_fullpage(safe_name, "Tab not found")
 
-    template_name: Optional[str] = _TAB_TEMPLATES.get(tab_name)
+    template_name: str | None = _TAB_TEMPLATES.get(tab_name)
     if not template_name:
         safe_name = html.escape(tab_name)
         is_htmx = "hx-request" in request.headers
@@ -200,7 +200,7 @@ async def load_tab(request: Request, tab_name: str, lang: str = "zh-CN") -> Resp
         return _notfound_fullpage(safe_name, "Tab template not found")
 
     # 3) 构建 Tab 特定上下文
-    ctx: Dict[str, Any] = _common_context(request, tab_name=tab_name)
+    ctx: dict[str, Any] = _common_context(request, tab_name=tab_name)
 
     if tab_name in {"voice_design", "voice_clone", "ultimate_clone", "voxcpm2"}:
         try:

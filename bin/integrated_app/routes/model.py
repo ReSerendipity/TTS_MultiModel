@@ -37,11 +37,10 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
-from pydantic import ValidationError
 
 from ..engines.voxcpm2_engine import (
     fn_voxcpm_get_lora_state,
@@ -56,8 +55,11 @@ from ..exceptions import (
     ModelLoadError,
     TTSError,
 )
-from ..gpu_utils import free_gpu_memory, is_oom_error
-from ..gpu_utils import GPUMemoryMonitor  # noqa: F401 - 供 _get_vram_mb 间接调用
+from ..gpu_utils import (
+    GPUMemoryMonitor,  # noqa: F401 - 供 _get_vram_mb 间接调用
+    free_gpu_memory,
+    is_oom_error,
+)
 from ..model_manager import (
     _gen_tracker,
     get_preload_status,
@@ -180,7 +182,7 @@ async def model_status(request: Request) -> Response:
     #   百分比无法直观判断「6GB/12GB/24GB 卡的实际余量。
     vram_used_mb = _get_vram_used_mb()
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "loaded": loaded,
         "engine": current_engine,
         "voxcpm2_loaded": voxcpm2_loaded,
@@ -222,7 +224,7 @@ async def load_model_endpoint(request: Request, engine: str = Form("voxcpm2")) -
 
         from .sse import event_bus
 
-        def _notify_load(step: str, status: str = "in_progress", error: Optional[str] = None) -> None:
+        def _notify_load(step: str, status: str = "in_progress", error: str | None = None) -> None:
             request.app.state.model_load_state = {
                 "active": True,
                 "step": step,
@@ -243,7 +245,7 @@ async def load_model_endpoint(request: Request, engine: str = Form("voxcpm2")) -
                 _notify_load(status_text)
             return results
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for attempt in range(1, MAX_RETRIES + 1):
             try:
                 results = await loop.run_in_executor(None, _run_load)
@@ -274,7 +276,7 @@ async def load_model_endpoint(request: Request, engine: str = Form("voxcpm2")) -
                     free_gpu_memory()
                     continue
                 if isinstance(exc, ImportError):
-                    _notify_load(f"加载失败：模型文件缺失", status="failed", error=str(exc))
+                    _notify_load("加载失败：模型文件缺失", status="failed", error=str(exc))
                     raise ModelLoadError(f"模型文件缺失: {_safe_error_message(exc)}") from exc
                 if isinstance(exc, RuntimeError) and is_oom_error(exc):
                     _notify_load("显存不足，加载失败", status="failed", error=str(exc))
@@ -591,7 +593,7 @@ async def lora_list_endpoint() -> Response:
                 ckpt_dir = os.path.join(LORA_DIR, name)
                 if not os.path.isdir(ckpt_dir):
                     continue
-                info: Dict[str, Any] = {"name": name, "path": ckpt_dir}
+                info: dict[str, Any] = {"name": name, "path": ckpt_dir}
                 config_path = os.path.join(ckpt_dir, "adapter_config.json")
                 if os.path.isfile(config_path):
                     try:

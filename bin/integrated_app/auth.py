@@ -25,7 +25,6 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import Request
-from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp

@@ -33,10 +33,11 @@ import asyncio
 import json
 import logging
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
+
 try:
     # FastAPI <0.110: ValidationError 从 fastapi.exceptions 导出
     from fastapi.exceptions import ValidationError as _FastAPIValidationError  # type: ignore[attr-defined]
@@ -80,8 +81,8 @@ def _build_error_response(
     status_code: int,
     detail: Any = None,
     request_id: str = "",
-    extra: Optional[dict[str, Any]] = None,
-    headers: Optional[dict[str, str]] = None,
+    extra: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """构建统一格式的错误 JSON 响应。
 

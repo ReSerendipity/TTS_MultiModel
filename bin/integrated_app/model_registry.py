@@ -59,7 +59,7 @@ from __future__ import annotations
 import logging
 import threading
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 #: 模块级日志记录器，命名空间 "tts_multimodel"
 logger = logging.getLogger("tts_multimodel")
@@ -114,7 +114,7 @@ ENGINE_VRAM_REQUIREMENTS: dict[str, float] = {
 _engine_specs: dict[str, Any] = {}
 
 
-def load_engine_specs_from_config(config_models_module: Optional[Any] = None) -> None:
+def load_engine_specs_from_config(config_models_module: Any | None = None) -> None:
     """从 config_models 的 EngineSpecConfig 加载引擎规格，填充声明式缓存。
 
     对齐 VoiceBox 的声明式 ModelConfig 设计：引擎元数据（显存需求、
@@ -152,7 +152,7 @@ def load_engine_specs_from_config(config_models_module: Optional[Any] = None) ->
         logger.warning(f"[ModelRegistry] load_engine_specs_from_config 异常: {e}", exc_info=True)
 
 
-def get_engine_spec(name: str) -> Optional[Any]:
+def get_engine_spec(name: str) -> Any | None:
     """获取指定引擎的声明式规格配置。
 
     Args:
@@ -187,14 +187,14 @@ class ModelRegistry:
     的中间状态（例如 model 已赋值但 current_engine 仍为旧值）。
     """
 
-    _instance: Optional["ModelRegistry"] = None
+    _instance: ModelRegistry | None = None
     _init_done: bool = False
 
     # ------------------------------------------------------------------
     # Singleton 实现
     # ------------------------------------------------------------------
 
-    def __new__(cls) -> "ModelRegistry":
+    def __new__(cls) -> ModelRegistry:
         """创建或返回 Singleton 实例（双检锁模式第一步）。
 
         Why 双重门闩模式：
@@ -237,7 +237,7 @@ class ModelRegistry:
         # --- Core model state (property-backed, thread-safe) ---
         self._voxcpm_model: Any = None
         self._voxcpm_asr: Any = None
-        self._current_engine: Optional[str] = None
+        self._current_engine: str | None = None
         self._current_type: str = ""
         self._current_size: str = ""
 
@@ -261,8 +261,8 @@ class ModelRegistry:
 
         # --- Persona management ---
         self.persona_manager: Any = None
-        self.persona_mode: Optional[str] = None
-        self.selected_persona: Optional[str] = None
+        self.persona_mode: str | None = None
+        self.selected_persona: str | None = None
 
         # --- FFmpeg pool ---
         self.ffmpeg_pool: Any = None
@@ -329,13 +329,13 @@ class ModelRegistry:
             self._indextts2_engine = value
 
     @property
-    def current_engine(self) -> Optional[str]:
+    def current_engine(self) -> str | None:
         """当前激活引擎名称（``"voxcpm2"`` / ``"indextts2"`` / ``None``）。"""
         with self._lock:
             return self._current_engine
 
     @current_engine.setter
-    def current_engine(self, value: Optional[str]) -> None:
+    def current_engine(self, value: str | None) -> None:
         with self._lock:
             self._current_engine = value
 
@@ -637,7 +637,7 @@ class ModelRegistry:
             }
         return info
 
-    def get_current_engine(self) -> Optional[Any]:
+    def get_current_engine(self) -> Any | None:
         """获取实现了 TTSEngine 协议的当前引擎实例。
 
         **VoxCPM2 懒实例化 + 缓存策略**：
@@ -700,7 +700,7 @@ class ModelRegistry:
             self._current_engine = engine
         self._notify_sse()
 
-    def get_engine_display_name(self, engine: Optional[str] = None) -> str:
+    def get_engine_display_name(self, engine: str | None = None) -> str:
         """获取指定引擎的显示名称（未指定时返回当前引擎的显示名称）。
 
         Args:

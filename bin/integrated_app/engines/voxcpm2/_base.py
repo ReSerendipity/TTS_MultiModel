@@ -38,32 +38,33 @@
 import logging
 import os
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 from pydantic import ValidationError
 
+from ...audio_processing import normalize_loudness, trim_tts_output
+from ...bad_case_retry import (
+    FailureType,
+    RetryConfig,
+    adjust_params_for_retry,
+    detect_failure_type,
+)
 from ...config import SAVE_DIR
 from ...config_models import AdvancedParamsConfig
 from ...exceptions import EngineSwitchError, GenerationError, tts_error_handler
 from ...generation import (
     _save_wav_compatible,
+    increment_seed,
     merge_audio_segments,
     split_text_for_tts,
-    increment_seed,
 )
 from ...model_manager import _gen_tracker, _progress_mgr
 from ...persona_manager import get_persona_map
-from ...ras_sampling import RASContext, RASConfig
-from ...utils import cleanup_temp_files
-from ...audio_processing import trim_tts_output, normalize_loudness
-from ...bad_case_retry import (
-    RetryConfig,
-    detect_failure_type,
-    adjust_params_for_retry,
-    FailureType,
-)
+from ...ras_sampling import RASConfig, RASContext
 from ...text_frontend import normalize_text
+from ...utils import cleanup_temp_files
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -126,7 +127,7 @@ def build_advanced_params(**overrides: Any) -> AdvancedParamsConfig:
     # AdvancedParamsConfig 虽有 extra="ignore" 会静默忽略未定义字段，
     # 但用户常因拼写错误（如 cfg_value 写成 cfg_val）导致参数"默默不生效"，
     # 很难排查。显式过滤 + logger.warning 可以在日志中提前暴露此类问题。
-    invalid_keys = [k for k in overrides.keys() if k not in valid_keys]
+    invalid_keys = [k for k in overrides if k not in valid_keys]
     if invalid_keys:
         logger.warning(
             f"build_advanced_params: 忽略未定义参数 {invalid_keys}，"
@@ -143,7 +144,7 @@ def build_advanced_params(**overrides: Any) -> AdvancedParamsConfig:
         return _DEFAULT_ADVANCED
 
 
-def _advanced_kwargs(advanced: Optional[AdvancedParamsConfig] = None) -> dict[str, Any]:
+def _advanced_kwargs(advanced: AdvancedParamsConfig | None = None) -> dict[str, Any]:
     """将 AdvancedParamsConfig 对象转换为 model.generate() 所需参数字典。
 
     仅提取 VoxCPM generate 接口实际消费的字段（max_len / retry_badcase /
@@ -227,7 +228,7 @@ def _check_segment_quality(
 
 
 def _ras_retry_segment(
-    ras_ctx: Optional[RASContext],
+    ras_ctx: RASContext | None,
     idx: int,
     cur_len: int,
     audio_segments: list[np.ndarray],
@@ -273,7 +274,6 @@ def _save_output(
         tuple[str, str]: (out_path, filename)
             out_path 为保存文件的绝对路径，filename 仅含文件名部分。
     """
-    import tempfile as _tempfile
     from pathlib import Path as _Path
 
     timestamp = int(time.time())
@@ -288,17 +288,17 @@ def _save_output(
 def generate_with_template(
     text: str,
     instruction: str,
-    gen_kwargs_builder: Callable[[str, Optional[str], Any], dict[str, Any]],
+    gen_kwargs_builder: Callable[[str, str | None, Any], dict[str, Any]],
     output_prefix: str,
     phase_name: str,
     sample_rate: int = 48000,
-    ref_audio_path: Optional[str] = None,
+    ref_audio_path: str | None = None,
     prompt_cache: Any = None,
-    start_time: Optional[float] = None,
-    message_builder: Optional[Callable[[float, int], str]] = None,
+    start_time: float | None = None,
+    message_builder: Callable[[float, int], str] | None = None,
     skip_progress_start: bool = False,
-    ras_config: Optional[RASConfig] = None,
-) -> tuple[Optional[tuple[int, np.ndarray, str]], str]:
+    ras_config: RASConfig | None = None,
+) -> tuple[tuple[int, np.ndarray, str] | None, str]:
     """VoxCPM2 公共生成模板函数。
 
     封装了文本分割->逐段推理(含进度追踪+RAS段级重复检测)->音频合并->文件保存->返回结果的通用流程。
@@ -379,7 +379,7 @@ def generate_with_template(
             repetition_threshold=2,
         )
     use_ras = ras_config is not None
-    ras_ctx: Optional[RASContext] = RASContext(config=ras_config) if use_ras else None
+    ras_ctx: RASContext | None = RASContext(config=ras_config) if use_ras else None
     _RAS_MAX_RETRIES = _adv.ras_max_retries if use_ras else 2
 
     # Bad Case Retry 配置
@@ -428,10 +428,10 @@ def generate_with_template(
 
     def _generate_segment(
         seg_text: str,
-        ref_path: Optional[str],
+        ref_path: str | None,
         prompt_cache_val: Any,
         retry_count: int = 0,
-        segment_seed: Optional[int] = None,
+        segment_seed: int | None = None,
         current_failure_type: FailureType = FailureType.UNKNOWN,
     ) -> np.ndarray:
         """生成单段音频，带增强 Bad Case Retry 质量检测 + 多维度参数调整重试。
@@ -513,7 +513,7 @@ def generate_with_template(
 
     try:
         # per-chunk seed 状态：首次生成时探测基础 seed，后续段自动递增
-        _base_seed: Optional[int] = None
+        _base_seed: int | None = None
         _seed_probed: bool = False
 
         audio_segments: list[np.ndarray] = []
@@ -540,7 +540,7 @@ def generate_with_template(
                 logger.info(f"[{phase_name}] 第 1/{total} 段，使用 {mode_str} 模式...")
 
             # per-chunk seed：首次生成时探测 kwargs 中的 seed，后续段递增
-            chunk_seed: Optional[int] = None
+            chunk_seed: int | None = None
             if _seed_probed and _base_seed is not None:
                 chunk_seed = increment_seed(_base_seed, idx)
 

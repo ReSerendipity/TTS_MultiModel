@@ -16,7 +16,7 @@
 import logging
 import time
 from collections import deque
-from typing import Any, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -96,7 +96,7 @@ class HealthMonitor:
         self._max_samples = 100
         self._vram_samples = deque(maxlen=self._max_samples)
         self._leak_threshold_mb = 200
-        self._baseline_mb: Optional[float] = None
+        self._baseline_mb: float | None = None
         self._baseline_stable_count: int = 0
         self._baseline_tolerance_mb: float = 80.0
         self._baseline_required_stable: int = 5
@@ -156,7 +156,7 @@ class HealthMonitor:
         self._baseline_stable_count = 0
         logger.debug("[HealthMonitor] 显存基线已手动重置")
 
-    def check_memory_leak(self) -> Optional[str]:
+    def check_memory_leak(self) -> str | None:
         """检查是否存在 GPU 显存泄漏迹象。
 
         诊断逻辑：等待显存稳定基线建立后，比较最后 5 个样本的均值与基线值，
@@ -252,7 +252,7 @@ class HealthMonitor:
         except Exception:
             return 0.0
 
-    def check_vram_circuit_breaker(self) -> Tuple[bool, str]:
+    def check_vram_circuit_breaker(self) -> tuple[bool, str]:
         """显存熔断检查：占用超过阈值时返回熔断标志。
 
         熔断阈值设为 90% 而非更高的 95%，原因：CUDA 驱动和 GPU 内核会预留 3%~5%
@@ -292,7 +292,7 @@ class HealthMonitor:
             return (True, reason)
         return (False, f"VRAM 占用 {usage_pct:.1f}%，低于熔断阈值")
 
-    def check_model_load_prereq(self, model_size_gb: float) -> Tuple[bool, str, int]:
+    def check_model_load_prereq(self, model_size_gb: float) -> tuple[bool, str, int]:
         """模型加载预检：检查可用显存是否满足模型权重 × 1.5 倍安全裕度。
 
         安全系数 1.5 倍的拆解：模型权重本身占 X GB + ASR/辅助模型约 0.3X +
@@ -383,7 +383,7 @@ class HealthMonitor:
         self._model_status = status
         self._model_last_check = time.time()
 
-    def run_model_self_check(self) -> Tuple[bool, str]:
+    def run_model_self_check(self) -> tuple[bool, str]:
         """执行模型自检：对一小段测试文本进行干推理（不输出音频），验证模型能否正常运行。
 
         自检目的：在模型加载完成后立即通过一次短文本干推理确认以下事项：

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """FP16/BF16 混合精度推理辅助模块。
 
 提供混合精度推理的配置、自动检测、模型转换与上下文管理功能：
@@ -14,9 +13,10 @@ BF16 需要 Ampere 及以上架构（compute capability >= 8.0），如 A100/RTX
 
 from __future__ import annotations
 
+from typing import Any
+
 import logging
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -61,7 +61,7 @@ class MixedPrecisionConfig:
 # ---------------------------------------------------------------------------
 
 
-def detect_optimal_dtype(config: Optional[MixedPrecisionConfig] = None):
+def detect_optimal_dtype(config: MixedPrecisionConfig | None = None):
     """检测当前硬件支持的最优精度类型。
 
     检测逻辑：
@@ -144,7 +144,7 @@ def detect_optimal_dtype(config: Optional[MixedPrecisionConfig] = None):
 # ---------------------------------------------------------------------------
 
 
-def apply_mixed_precision(model, config: Optional[MixedPrecisionConfig] = None):
+def apply_mixed_precision(model, config: MixedPrecisionConfig | None = None):
     """将模型转换为指定的混合精度类型。
 
     根据 config.dtype 决定模型权重的存储精度：
@@ -220,9 +220,9 @@ class MixedPrecisionContext:
 
     def __init__(
         self,
-        config: Optional[MixedPrecisionConfig] = None,
+        config: MixedPrecisionConfig | None = None,
         use_grad_scaler: bool = False,
-        device: Optional[str] = None,
+        device: str | None = None,
     ) -> None:
         """初始化混合精度上下文管理器。
 
@@ -240,7 +240,7 @@ class MixedPrecisionContext:
         self.autocast_ctx = None
         self.grad_scaler = None
 
-    def __enter__(self) -> "MixedPrecisionContext":
+    def __enter__(self) -> MixedPrecisionContext:
         """进入混合精度推理上下文，启用 torch.autocast。
 
         根据配置检测最优精度类型，创建对应的 autocast 上下文管理器。

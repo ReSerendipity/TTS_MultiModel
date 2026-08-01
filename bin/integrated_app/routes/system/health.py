@@ -18,7 +18,7 @@ import os
 import threading
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import psutil
 from fastapi import APIRouter
@@ -33,7 +33,7 @@ from .gpu import _get_gpu_device, _get_gpu_utilization  # noqa: E402
 _SESSION_START_TS: float = time.time()
 _SESSION_START: str = datetime.now().isoformat()
 
-_generation_counter: Dict[str, int] = {"total": 0, "success": 0, "failed": 0}
+_generation_counter: dict[str, int] = {"total": 0, "success": 0, "failed": 0}
 _counter_lock = threading.Lock()
 
 
@@ -81,7 +81,7 @@ def increment_generation(success: bool = True) -> None:
             _generation_counter["failed"] += 1
 
 
-def get_generation_stats() -> Dict[str, int]:
+def get_generation_stats() -> dict[str, int]:
     """获取内存中的生成计数快照。
 
     Returns:
@@ -105,7 +105,7 @@ def _uptime_seconds() -> float:
 # ---------------------------------------------------------------------------
 
 @router.get("/health/ping", summary="Liveness 探针", description="极快内存级响应，不访问 DB/GPU，供 k8s liveness 使用")
-def ping() -> Dict[str, Any]:
+def ping() -> dict[str, Any]:
     """存活探针：只返回当前时间戳，不做任何 I/O。
 
     Why 不访问 DB/GPU：
@@ -124,7 +124,7 @@ def ping() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/health/ready", summary="Readiness 探针", description="深度健康检查：模型加载状态 + DB 连通性 + GPU 可用性")
-async def ready() -> Dict[str, Any]:
+async def ready() -> dict[str, Any]:
     """就绪探针：检查模型加载状态、DB 连通性与 GPU 可用性。
 
     Why 只查 ``registry.current_engine is not None`` 而不做一次推理：
@@ -137,7 +137,7 @@ async def ready() -> Dict[str, Any]:
         200 OK + JSON，``status`` 取值 ``ready`` / ``degraded``。
         degraded 模式下 WebUI 显示黄色告警但应用仍可用（生成正常但 history 不入库）。
     """
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "status": "ready",
         "model_loaded": False,
         "db_connected": False,
@@ -244,7 +244,7 @@ def get_stats() -> SystemStatsResponse:
 # ---------------------------------------------------------------------------
 
 @router.get("/queue", summary="生成队列状态", description="异步生成任务队列状态：排队数/活跃数/已完成/已取消")
-def get_queue_status() -> Dict[str, Any]:
+def get_queue_status() -> dict[str, Any]:
     """返回生成任务队列的当前状态（参考 VoiceBox 队列监控设计）。
 
     Returns:
@@ -272,7 +272,7 @@ def get_queue_status() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/health/gpu-leak", summary="GPU 显存泄漏检查", description="调用 HealthMonitor.check_memory_leak()，无泄漏返回 null")
-def gpu_leak() -> Dict[str, Any]:
+def gpu_leak() -> dict[str, Any]:
     """检查潜在 GPU 显存泄漏。
 
     CUDA 不可用时返回 ``{"status": "no_gpu"}``，不抛 500 错误。
@@ -291,7 +291,7 @@ def gpu_leak() -> Dict[str, Any]:
         from ...monitor import get_health_monitor
 
         hm = get_health_monitor()
-        warning: Optional[str] = hm.check_memory_leak()
+        warning: str | None = hm.check_memory_leak()
         return {"status": "ok", "warning": warning}
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"[gpu-leak] 泄漏检测异常: {exc}")
@@ -303,14 +303,14 @@ def gpu_leak() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/health", summary="健康检查（完整）", description="向后兼容：返回 GPU/CPU/模型/缓存完整健康报告，供 Settings 页 System Stats 使用")
-async def get_health() -> Dict[str, Any]:
+async def get_health() -> dict[str, Any]:
     """完整健康报告（原接口，100% 向后兼容）。"""
     from ...monitor import get_health_monitor
 
     health_monitor = get_health_monitor()
     report = health_monitor.get_health_report()
 
-    health: Dict[str, Any] = {
+    health: dict[str, Any] = {
         "gpu": {"memory_used_mb": 0, "memory_total_mb": 0, "memory_percent": 0, "gpu_util": 0, "trend": "stable"},
         "cpu": {"memory_used_mb": 0, "memory_total_mb": 0, "percent": 0},
         "model": {
@@ -462,7 +462,7 @@ async def get_health() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.post("/shutdown", summary="优雅关闭服务器", description="请求服务器优雅关闭，延迟 1 秒后停止进程")
-def shutdown_server() -> Dict[str, Any]:
+def shutdown_server() -> dict[str, Any]:
     """请求服务器优雅关闭。
 
     在后台延迟执行，给响应留出返回时间。

@@ -21,7 +21,7 @@ import math
 import time
 from collections import deque
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any
 
 from .state import TrainingState
 
@@ -57,11 +57,11 @@ class TrainingTracker:
         self,
         total_epochs: int = 0,
         steps_per_epoch: int = 0,
-        sse_event_bus: Optional[Any] = None,
-        tensorboard_log_dir: Optional[Path] = None,
+        sse_event_bus: Any | None = None,
+        tensorboard_log_dir: Path | None = None,
         *,
-        writer: Optional[Any] = None,
-        log_file: Optional[str] = None,
+        writer: Any | None = None,
+        log_file: str | None = None,
         rank: int = 0,
     ) -> None:
         """初始化训练进度追踪器。
@@ -80,10 +80,10 @@ class TrainingTracker:
         """
         self.total_epochs: int = max(0, int(total_epochs))
         self.steps_per_epoch: int = max(0, int(steps_per_epoch))
-        self.sse_event_bus: Optional[Any] = sse_event_bus
+        self.sse_event_bus: Any | None = sse_event_bus
 
         # --- Legacy 兼容字段 ---
-        self.log_file: Optional[Path] = Path(log_file) if log_file else None
+        self.log_file: Path | None = Path(log_file) if log_file else None
         if self.log_file is not None:
             try:
                 self.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -91,31 +91,31 @@ class TrainingTracker:
                 self.log_file = None
         self.rank: int = int(rank)
         self.step: int = 0
-        self._last_log_time: Optional[float] = None
+        self._last_log_time: float | None = None
 
         # --- TensorBoard writer ---
-        self._writer: Optional[Any] = writer
+        self._writer: Any | None = writer
         if self._writer is None and tensorboard_log_dir is not None:
             self._writer = self._init_tensorboard(Path(tensorboard_log_dir))
 
         # --- 统计 / ETA 内部状态 ---
-        self._epoch_start_ts: Optional[float] = None
-        self._epoch_times_sec: Deque[float] = deque(maxlen=_EMA_WINDOW)
-        self._ema_epoch_sec: Optional[float] = None
-        self._train_begin_ts: Optional[float] = None
+        self._epoch_start_ts: float | None = None
+        self._epoch_times_sec: deque[float] = deque(maxlen=_EMA_WINDOW)
+        self._ema_epoch_sec: float | None = None
+        self._train_begin_ts: float | None = None
         self._current_epoch_loss_sum: float = 0.0
         self._current_epoch_loss_cnt: int = 0
-        self._recent_losses: Deque[float] = deque(maxlen=200)
+        self._recent_losses: deque[float] = deque(maxlen=200)
 
         # 公共统计缓存（get_info 返回的最近一次 on_step_end 结果）
-        self._last_step_info: Dict[str, Any] = {}
-        self._last_epoch_info: Dict[str, Any] = {}
+        self._last_step_info: dict[str, Any] = {}
+        self._last_epoch_info: dict[str, Any] = {}
 
     # ------------------------------------------------------------------ #
     # TensorBoard：缺包时静默降级
     # ------------------------------------------------------------------ #
     @staticmethod
-    def _init_tensorboard(log_dir: Path) -> Optional[Any]:
+    def _init_tensorboard(log_dir: Path) -> Any | None:
         """初始化 TensorBoard SummaryWriter（缺包时静默降级）。
 
         Args:
@@ -140,12 +140,12 @@ class TrainingTracker:
             return None
 
     @property
-    def writer(self) -> Optional[Any]:
+    def writer(self) -> Any | None:
         """Legacy getter：返回 SummaryWriter（外部可能直接调用 .add_scalar）。"""
         return self._writer
 
     @writer.setter
-    def writer(self, value: Optional[Any]) -> None:
+    def writer(self, value: Any | None) -> None:
         """设置 TensorBoard SummaryWriter（legacy 兼容）。
 
         Args:
@@ -176,7 +176,7 @@ class TrainingTracker:
             # print 本身绝不能抛异常，否则训练中断
             pass
 
-    def log_metrics(self, metrics: Dict[str, float], split: str) -> None:
+    def log_metrics(self, metrics: dict[str, float], split: str) -> None:
         """Legacy：打印格式化指标 + 写 TensorBoard。
 
         Args:
@@ -213,7 +213,7 @@ class TrainingTracker:
         """
         self.print(f"[{split}] {message}")
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         """返回可持久化的最小状态字典（用于断点续训）。
 
         Returns:
@@ -228,7 +228,7 @@ class TrainingTracker:
             "last_log_time": self._last_log_time,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         """从 state_dict 恢复追踪器状态（断点续训后 ETA 不跳变）。
 
         Args:
@@ -276,7 +276,7 @@ class TrainingTracker:
             if state.total_epochs > 0 and self.total_epochs == 0:
                 self.total_epochs = int(state.total_epochs)
             self.step = int(state.global_step)
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "type": "training_begin",
                 "run_id": state.run_id,
                 "total_epochs": int(self.total_epochs),
@@ -299,9 +299,9 @@ class TrainingTracker:
         step: int,
         loss: float,
         lr: float,
-        grad_norm: Optional[float] = None,
-        gpu_util_pct: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        grad_norm: float | None = None,
+        gpu_util_pct: float | None = None,
+    ) -> dict[str, Any]:
         """每步结束回调：更新 step loss / 推送 SSE / 写 TensorBoard。
 
         Args:
@@ -326,7 +326,7 @@ class TrainingTracker:
             if self._recent_losses
             else 0.0
         )
-        info: Dict[str, Any] = {
+        info: dict[str, Any] = {
             "step": int(self.step),
             "loss": loss_f,
             "running_avg_loss": float(running_avg),
@@ -365,10 +365,10 @@ class TrainingTracker:
     def on_epoch_end(
         self,
         epoch: int,
-        avg_train_loss: Optional[float] = None,
-        eval_loss: Optional[float] = None,
-        state: Optional[TrainingState] = None,
-    ) -> Dict[str, Any]:
+        avg_train_loss: float | None = None,
+        eval_loss: float | None = None,
+        state: TrainingState | None = None,
+    ) -> dict[str, Any]:
         """每个 epoch 结束回调：更新 EMA epoch 时间 / best loss / SSE 推送。
 
         Args:
@@ -382,7 +382,7 @@ class TrainingTracker:
         """
         # 1) 结算 epoch 耗时 + EMA
         now = time.time()
-        epoch_sec: Optional[float] = None
+        epoch_sec: float | None = None
         if self._epoch_start_ts is not None:
             epoch_sec = max(0.0, now - self._epoch_start_ts)
             if epoch_sec > 0:
@@ -403,7 +403,7 @@ class TrainingTracker:
             else:
                 avg_train_loss = 0.0
         # 3) best_loss 与 eval 更新（若 state 传入则直接写回）
-        best_eval_loss: Optional[float] = None
+        best_eval_loss: float | None = None
         best_epoch: int = 0
         if state is not None:
             try:
@@ -426,7 +426,7 @@ class TrainingTracker:
         self._current_epoch_loss_sum = 0.0
         self._current_epoch_loss_cnt = 0
 
-        info: Dict[str, Any] = {
+        info: dict[str, Any] = {
             "epoch": int(epoch),
             "avg_train_loss": float(avg_train_loss),
             "eval_loss": float(eval_loss) if isinstance(eval_loss, (int, float)) and not math.isnan(float(eval_loss)) else None,
@@ -467,8 +467,8 @@ class TrainingTracker:
         self,
         state: TrainingState,
         success: bool,
-        error_message: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        error_message: str | None = None,
+    ) -> dict[str, Any]:
         """训练结束回调：success=True 正常完成，success=False 异常中断。
 
         Args:
@@ -480,10 +480,10 @@ class TrainingTracker:
             info dict
         """
         now = time.time()
-        total_sec: Optional[float] = None
+        total_sec: float | None = None
         if self._train_begin_ts is not None:
             total_sec = max(0.0, now - self._train_begin_ts)
-        info: Dict[str, Any] = {
+        info: dict[str, Any] = {
             "run_id": state.run_id,
             "success": bool(success),
             "error_message": str(error_message) if error_message else None,
@@ -525,7 +525,7 @@ class TrainingTracker:
     # ------------------------------------------------------------------ #
     # ETA / progress 计算（独立可调用）
     # ------------------------------------------------------------------ #
-    def estimate_eta_seconds(self, state: Optional[TrainingState] = None) -> float:
+    def estimate_eta_seconds(self, state: TrainingState | None = None) -> float:
         """估算剩余训练时间（秒）。公开 API，内部走 _eta_impl。
 
         Args:
@@ -544,7 +544,7 @@ class TrainingTracker:
                 self.total_epochs = old_total
         return self._eta_impl()
 
-    def _eta_impl(self, state: Optional[TrainingState] = None) -> float:
+    def _eta_impl(self, state: TrainingState | None = None) -> float:
         """估算剩余训练时间（内部实现）。
 
         使用 EMA 平滑的 epoch 时间估算剩余时间，避免早期 epoch 编译/热身导致的 ETA 偏差。
@@ -562,7 +562,7 @@ class TrainingTracker:
         remain = max(0, total - epoch_cursor)
         if remain <= 0:
             return 0.0
-        base_time: Optional[float] = None
+        base_time: float | None = None
         if self._ema_epoch_sec is not None and self._ema_epoch_sec > 0:
             base_time = self._ema_epoch_sec
         elif self._epoch_times_sec:
@@ -574,7 +574,7 @@ class TrainingTracker:
             return 0.0
         return float(remain) * base_time
 
-    def progress_percent(self, state: Optional[TrainingState] = None) -> float:
+    def progress_percent(self, state: TrainingState | None = None) -> float:
         """训练进度百分比（公开 API）。
 
         Args:
@@ -585,7 +585,7 @@ class TrainingTracker:
         """
         return self._progress_impl(state=state)
 
-    def _progress_impl(self, state: Optional[TrainingState] = None) -> float:
+    def _progress_impl(self, state: TrainingState | None = None) -> float:
         """计算训练进度百分比（内部实现）。
 
         以 epoch 为主粒度，step 为辅助粒度计算精确进度。
@@ -619,7 +619,7 @@ class TrainingTracker:
     # ------------------------------------------------------------------ #
     # get_info：对外快照
     # ------------------------------------------------------------------ #
-    def get_info(self) -> Dict[str, Any]:
+    def get_info(self) -> dict[str, Any]:
         """返回当前追踪器状态的完整快照（前端 API 直接返回 JSON）。"""
         eta = self._eta_impl()
         return {
@@ -638,7 +638,7 @@ class TrainingTracker:
     # ------------------------------------------------------------------ #
     # SSE 推送封装（失败静默，绝不阻塞训练主循环）
     # ------------------------------------------------------------------ #
-    def _sse_publish(self, event_type: str, payload: Dict[str, Any]) -> None:
+    def _sse_publish(self, event_type: str, payload: dict[str, Any]) -> None:
         """通过 SSE 事件总线推送训练进度事件（失败静默，不阻塞训练）。
 
         支持多种事件总线接口：

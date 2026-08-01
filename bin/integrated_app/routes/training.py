@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """LoRA 微调训练管理路由模块。
 
 架构说明：
@@ -33,14 +32,11 @@ import json
 import logging
 import os
 import sys
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import aiofiles
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError as PydanticValidationError
-
-from ..exceptions import TrainingError, ValidationError as TTSValidationError
 
 try:
     import yaml
@@ -50,8 +46,8 @@ except ImportError:
 logger = logging.getLogger("tts_multimodel.training")
 router = APIRouter(prefix="/api/training", tags=["training"])
 
-_training_process: Optional[asyncio.subprocess.Process] = None
-_training_reader_task: Optional[asyncio.Task] = None
+_training_process: asyncio.subprocess.Process | None = None
+_training_reader_task: asyncio.Task | None = None
 _training_log: str = ""
 _training_log_lock = asyncio.Lock()
 _MAX_LOG_LENGTH = 1_000_000
@@ -99,7 +95,7 @@ async def _detect_sample_rate(pretrained_path: str) -> int:
     try:
         async with aiofiles.open(config_file, encoding="utf-8") as f:
             content: str = await f.read()
-            cfg: Dict[str, Any] = json.loads(content)
+            cfg: dict[str, Any] = json.loads(content)
         sr: int = int(cfg["audio_vae_config"]["sample_rate"])
         logger.info(f"自动检测 sample_rate={sr} 来自 {config_file}")
         return sr
@@ -123,14 +119,14 @@ async def _detect_out_sample_rate(pretrained_path: str) -> int:
     try:
         async with aiofiles.open(config_file, encoding="utf-8") as f:
             content: str = await f.read()
-            cfg: Dict[str, Any] = json.loads(content)
+            cfg: dict[str, Any] = json.loads(content)
         out_sr = cfg.get("audio_vae_config", {}).get("out_sample_rate")
         return int(out_sr) if out_sr else 0
     except (KeyError, ValueError, json.JSONDecodeError):
         return 0
 
 
-def _validate_training_params(body: Dict[str, Any]) -> List[str]:
+def _validate_training_params(body: dict[str, Any]) -> list[str]:
     """校验训练接口的数值参数范围。
 
     Args:
@@ -139,9 +135,9 @@ def _validate_training_params(body: Dict[str, Any]) -> List[str]:
     Returns:
         错误信息列表；全部校验通过时返回空列表。
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
-    _RANGE_CHECKS: Dict[str, Tuple[type, bool, float, bool, float, str]] = {
+    _RANGE_CHECKS: dict[str, tuple[type, bool, float, bool, float, str]] = {
         "learning_rate": (float, True, 0.0, True, 1.0, "> 0 and <= 1.0"),
         "num_iters": (int, False, 1, True, 100000, ">= 1 and <= 100000"),
         "batch_size": (int, False, 1, True, 32, ">= 1 and <= 32"),
@@ -159,7 +155,7 @@ def _validate_training_params(body: Dict[str, Any]) -> List[str]:
         if param in body:
             try:
                 val = typ(body[param])
-            except (ValueError, TypeError) as cast_err:
+            except (ValueError, TypeError):
                 errors.append(f"{param} must be {typ.__name__}, got {body[param]!r}")
                 continue
             lo_ok = val > lo if lo_strict else val >= lo
@@ -247,14 +243,14 @@ async def start_training(request: Request) -> JSONResponse:
         )
 
     try:
-        body: Dict[str, Any] = await request.json()
+        body: dict[str, Any] = await request.json()
     except (json.JSONDecodeError, UnicodeDecodeError) as json_err:
         return JSONResponse(
             {"status": "error", "message": f"Invalid JSON: {json_err}"},
             status_code=400,
         )
 
-    validation_errors: List[str] = _validate_training_params(body)
+    validation_errors: list[str] = _validate_training_params(body)
     if validation_errors:
         return JSONResponse(
             {"status": "error", "message": "Parameter validation failed", "errors": validation_errors},
@@ -271,13 +267,13 @@ async def start_training(request: Request) -> JSONResponse:
     grad_accum_steps: int = int(body.get("grad_accum_steps", 1))
     save_interval: int = int(body.get("save_interval", 1000))
     log_interval: int = int(body.get("log_interval", 10))
-    lora_config: Dict[str, Any] = body.get("lora", {})
+    lora_config: dict[str, Any] = body.get("lora", {})
     weight_decay: float = float(body.get("weight_decay", 0.01))
     warmup_steps: int = int(body.get("warmup_steps", 100))
     max_grad_norm: float = float(body.get("max_grad_norm", 1.0))
     num_workers: int = int(body.get("num_workers", 2))
     valid_interval: int = int(body.get("valid_interval", 1000))
-    lambdas: Dict[str, float] = body.get("lambdas", {"loss/diff": 1.0, "loss/stop": 1.0})
+    lambdas: dict[str, float] = body.get("lambdas", {"loss/diff": 1.0, "loss/stop": 1.0})
 
     if not train_manifest:
         return JSONResponse(
@@ -329,7 +325,7 @@ async def start_training(request: Request) -> JSONResponse:
 
     resolved_max_steps: int = int(body.get("max_steps", 0)) or int(num_iters)
 
-    config: Dict[str, Any] = {
+    config: dict[str, Any] = {
         "pretrained_path": pretrained_path,
         "train_manifest": train_manifest,
         "val_manifest": val_manifest if val_manifest else "",
@@ -366,7 +362,7 @@ async def start_training(request: Request) -> JSONResponse:
             await f.write(json.dumps(config, indent=2, ensure_ascii=False))
         logger.warning("未安装 PyYAML，已改为保存 JSON 格式配置")
 
-    cmd: List[str] = [sys.executable, train_script, "--config_path", config_path]
+    cmd: list[str] = [sys.executable, train_script, "--config_path", config_path]
 
     async with _training_log_lock:
         _training_log = f"Starting training: {' '.join(cmd)}\n"

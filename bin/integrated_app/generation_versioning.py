@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """生成版本管理模块。
 
 提供 TTS 生成结果的版本谱系追踪功能，支持：
@@ -23,9 +22,9 @@ import sqlite3
 import threading
 import time
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -51,7 +50,7 @@ class GenerationVersion:
     """
 
     version_id: str
-    parent_id: Optional[str]
+    parent_id: str | None
     audio_path: str
     text: str
     params: dict[str, Any]
@@ -90,7 +89,7 @@ class VersionManager:
         )
     """
 
-    def __init__(self, db_path: Optional[str] = None) -> None:
+    def __init__(self, db_path: str | None = None) -> None:
         """初始化版本管理器。
 
         Args:
@@ -98,8 +97,8 @@ class VersionManager:
                      （在 config.SAVE_DIR 下的 generation_versions.db）。
         """
         self._lock = threading.Lock()
-        self._db_path: Optional[str] = None
-        self._conn: Optional[sqlite3.Connection] = None
+        self._db_path: str | None = None
+        self._conn: sqlite3.Connection | None = None
         self._use_memory = False
 
         if db_path is None:
@@ -160,8 +159,8 @@ class VersionManager:
         text: str,
         params: dict[str, Any],
         engine: str,
-        parent_id: Optional[str] = None,
-    ) -> Optional[str]:
+        parent_id: str | None = None,
+    ) -> str | None:
         """保存一次生成的版本记录。
 
         Args:
@@ -230,7 +229,7 @@ class VersionManager:
         )
         self._conn.commit()
 
-    def get_version(self, version_id: str) -> Optional[GenerationVersion]:
+    def get_version(self, version_id: str) -> GenerationVersion | None:
         """查询指定版本 ID 的记录。
 
         Args:
@@ -249,7 +248,7 @@ class VersionManager:
                 logger.warning(f"[VersionManager] 查询版本记录失败: {e}")
                 return None
 
-    def _get_from_db(self, version_id: str) -> Optional[GenerationVersion]:
+    def _get_from_db(self, version_id: str) -> GenerationVersion | None:
         """从数据库查询版本记录。
 
         Args:
@@ -311,7 +310,7 @@ class VersionManager:
             版本链列表（根版本在前，目标版本在后）。
         """
         chain: list[GenerationVersion] = []
-        current_id: Optional[str] = version_id
+        current_id: str | None = version_id
 
         while current_id:
             version = self.get_version(current_id)
@@ -324,7 +323,7 @@ class VersionManager:
         return chain
 
     def list_recent(
-        self, limit: int = 50, engine: Optional[str] = None
+        self, limit: int = 50, engine: str | None = None
     ) -> list[GenerationVersion]:
         """列出最近的版本记录。
 
@@ -350,7 +349,7 @@ class VersionManager:
                 return []
 
     def _list_recent_from_db(
-        self, limit: int, engine: Optional[str]
+        self, limit: int, engine: str | None
     ) -> list[GenerationVersion]:
         """从数据库查询最近版本。
 
@@ -392,7 +391,7 @@ class VersionManager:
 # 模块级单例
 # ---------------------------------------------------------------------------
 
-_version_manager: Optional[VersionManager] = None
+_version_manager: VersionManager | None = None
 _manager_lock = threading.Lock()
 
 

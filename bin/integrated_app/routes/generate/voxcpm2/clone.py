@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """VoxCPM2 零样本语音克隆（Clone/Ultimate/Prompt Continue）路由模块。
 
 **路由前缀与端点**：
@@ -58,8 +57,7 @@
 
 import os
 import time
-import logging
-from typing import Optional, Any
+from typing import Any
 
 from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
@@ -67,11 +65,6 @@ from fastapi.responses import HTMLResponse
 from ....config import MAX_TEXT_LENGTH
 from ....model_registry import registry
 from ....monitor import get_health_monitor
-from ....exceptions import (
-    InsufficientVRAMError,
-    PersonaNotFoundError,
-    ValidationError,
-)
 from ..utils import (
     _apply_post_processing_to_file,
     _error_html,
@@ -130,7 +123,7 @@ async def generate_voxcpm_clone(
     norm: str = Form("true"),
     denoise: str = Form("true"),
     steps: int = Form(10),
-    ref_audio_upload: Optional[UploadFile] = File(None),
+    ref_audio_upload: UploadFile | None = File(None),
     lang: str = Form("Auto"),
     tempo_factor: float = Form(1.0),
     voice_enhancement: str = Form("false"),
@@ -168,7 +161,7 @@ async def generate_voxcpm_clone(
         InsufficientVRAMError: 503，推理时显存耗尽（由 OOM retry 捕获）。
     """
     # 1. 引擎就绪 + 文本非空/长度统一校验
-    err: Optional[HTMLResponse] = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
+    err: HTMLResponse | None = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if err is not None:
         return err
 
@@ -176,10 +169,10 @@ async def generate_voxcpm_clone(
     instruction = _merge_dialect(instruction, lang)
 
     # 3. 解析 actual_ref_path（三级回退优先级链）
-    actual_ref_path: Optional[str] = ref_audio_path if ref_audio_path else None
+    actual_ref_path: str | None = ref_audio_path if ref_audio_path else None
 
     # 3.1 UploadFile 上传文件（优先级最高，因为用户刚拖进来的最新）
-    upload_path: Optional[str]
+    upload_path: str | None
     upload_path, err = await save_uploaded_audio(request, ref_audio_upload)
     if err is not None:
         return err
@@ -290,13 +283,13 @@ async def generate_voxcpm_ultimate(
     Returns:
         HTMLResponse: HTMX 格式 HTML 片段。
     """
-    err: Optional[HTMLResponse] = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
+    err: HTMLResponse | None = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if err is not None:
         return err
 
     instruction = _merge_dialect(instruction, lang)
 
-    actual_ref_path: Optional[str] = ref_audio_path if ref_audio_path else None
+    actual_ref_path: str | None = ref_audio_path if ref_audio_path else None
 
     if not actual_ref_path and persona_name:
         ref_path, err = await resolve_persona_ref(request, persona_name)
@@ -363,12 +356,12 @@ async def generate_voxcpm_ultimate(
 async def generate_voxcpm_prompt_continue(
     request: Request,
     text: str = Form(""),
-    prompt_wav: Optional[UploadFile] = File(None),
+    prompt_wav: UploadFile | None = File(None),
     prompt_text: str = Form(""),
     lang: str = Form("Auto"),
     tempo_factor: float = Form(1.0),
     voice_enhancement: bool = Form(False),
-    target_lufs: Optional[float] = Form(None),
+    target_lufs: float | None = Form(None),
 ) -> HTMLResponse:
     """VoxCPM2 Prompt 延续生成路由。
 
@@ -394,14 +387,14 @@ async def generate_voxcpm_prompt_continue(
         InsufficientVRAMError: 503，CUDA OOM。
         ImportError: 底层依赖缺失（透传）。
     """
-    err: Optional[HTMLResponse] = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
+    err: HTMLResponse | None = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if err is not None:
         return err
     if not prompt_text.strip():
         return _error_html(request, "引导文本不能为空")
 
     # UploadFile 保存：Prompt 延续必须有音频 + 对应文本，缺一不可
-    prompt_wav_path: Optional[str]
+    prompt_wav_path: str | None
     prompt_wav_path, err = await save_uploaded_audio(request, prompt_wav)
     if err is not None:
         return err
@@ -422,7 +415,7 @@ async def generate_voxcpm_prompt_continue(
     try:
         result: Any
         msg: str
-        degraded_note: Optional[str]
+        degraded_note: str | None
         # 直接调用 _run_with_oom_retry：Prompt 延续的后处理逻辑与常规生成略有差异
         # （单独判断了是否返回 tuple 以及对 prompt_text 记录日志），因此不走
         # _execute_generation 统一流程，保持原行为 100% 向后兼容。

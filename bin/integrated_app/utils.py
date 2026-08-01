@@ -15,7 +15,7 @@ import logging
 import os
 import tempfile
 import time
-from typing import Any, Iterable, Optional
+from collections.abc import Iterable
 
 from .config import _ROLE_COLOR_MAP, SAVE_DIR
 
@@ -47,7 +47,7 @@ _SYSTEM_TEMP_PREFIXES: tuple[str, ...] = (
 _MAX_TEMP_AGE_SECONDS: int = 3600
 
 
-def cleanup_temp_files(files: Optional[Iterable[str]] = None) -> int:
+def cleanup_temp_files(files: Iterable[str] | None = None) -> int:
     """清理临时音频/配置文件。
 
     支持两种调用模式：

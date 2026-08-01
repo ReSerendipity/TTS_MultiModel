@@ -29,8 +29,9 @@ engines/* 等）中的 if/elif 长链，实现对多后端的透明访问。
 """
 
 import logging
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 import torch
 
@@ -155,7 +156,7 @@ class _CUDAStrategy:
         return {"name": "CPU", "total_memory": 0, "major": 0, "minor": 0}
 
     @staticmethod
-    def memory_allocated(device: Optional[torch.device] = None) -> int:
+    def memory_allocated(device: torch.device | None = None) -> int:
         """获取指定 CUDA 设备上当前已分配的显存字节数。
 
         Args:
@@ -171,7 +172,7 @@ class _CUDAStrategy:
             return 0
 
     @staticmethod
-    def memory_reserved(device: Optional[torch.device] = None) -> int:
+    def memory_reserved(device: torch.device | None = None) -> int:
         """获取指定 CUDA 设备上由缓存分配器保留的显存字节数。
 
         Args:
@@ -200,7 +201,7 @@ class _CUDAStrategy:
             logger.debug(f"清空 CUDA 缓存失败: {e}")
 
     @staticmethod
-    def synchronize(device: Optional[torch.device] = None) -> None:
+    def synchronize(device: torch.device | None = None) -> None:
         """在指定 CUDA 设备上等待所有流中的内核完成。
 
         Args:
@@ -242,7 +243,7 @@ class _CUDAStrategy:
             return (0, 0, 0, 0)
 
     @staticmethod
-    def get_cuda_clear_workspaces_func() -> Optional[Callable[[], None]]:
+    def get_cuda_clear_workspaces_func() -> Callable[[], None] | None:
         """获取 CUDA cuBLAS 工作区清理函数（若存在）。
 
         Returns:
@@ -255,7 +256,7 @@ class _CUDAStrategy:
             return None
 
     @staticmethod
-    def ipc_collect(device: Optional[torch.device] = None) -> None:
+    def ipc_collect(device: torch.device | None = None) -> None:
         """强制执行 CUDA IPC 收集，释放多进程间不再使用的 GPU 内存。
 
         Args:
@@ -270,7 +271,7 @@ class _CUDAStrategy:
             logger.debug(f"CUDA IPC 收集失败: {e}")
 
     @staticmethod
-    def get_grad_scaler(enabled: bool = True) -> Optional[Any]:
+    def get_grad_scaler(enabled: bool = True) -> Any | None:
         """获取适用于 CUDA 后端的 ``torch.amp.GradScaler`` 实例。
 
         Args:
@@ -378,7 +379,7 @@ class _MPSStrategy:
         return {"name": "Apple MPS", "total_memory": 0, "major": 0, "minor": 0}
 
     @staticmethod
-    def memory_allocated(device: Optional[torch.device] = None) -> int:
+    def memory_allocated(device: torch.device | None = None) -> int:
         """获取 MPS 已分配显存（不支持）。
 
         Args:
@@ -390,7 +391,7 @@ class _MPSStrategy:
         return 0
 
     @staticmethod
-    def memory_reserved(device: Optional[torch.device] = None) -> int:
+    def memory_reserved(device: torch.device | None = None) -> int:
         """获取 MPS 保留显存（不支持）。
 
         Args:
@@ -410,7 +411,7 @@ class _MPSStrategy:
         pass
 
     @staticmethod
-    def synchronize(device: Optional[torch.device] = None) -> None:
+    def synchronize(device: torch.device | None = None) -> None:
         """同步 MPS 设备（空实现）。
 
         Args:
@@ -431,7 +432,7 @@ class _MPSStrategy:
         return (0, 0, 0, 0)
 
     @staticmethod
-    def get_cuda_clear_workspaces_func() -> Optional[Callable[[], None]]:
+    def get_cuda_clear_workspaces_func() -> Callable[[], None] | None:
         """获取 cuBLAS 工作区清理函数（MPS 不适用）。
 
         Returns:
@@ -440,7 +441,7 @@ class _MPSStrategy:
         return None
 
     @staticmethod
-    def ipc_collect(device: Optional[torch.device] = None) -> None:
+    def ipc_collect(device: torch.device | None = None) -> None:
         """执行 IPC 收集（MPS 不适用，空实现）。
 
         Args:
@@ -449,7 +450,7 @@ class _MPSStrategy:
         pass
 
     @staticmethod
-    def get_grad_scaler(enabled: bool = True) -> Optional[Any]:
+    def get_grad_scaler(enabled: bool = True) -> Any | None:
         """获取 MPS 梯度缩放器（不支持）。
 
         Args:
@@ -553,7 +554,7 @@ class _CPUStrategy:
         return {"name": "CPU", "total_memory": 0, "major": 0, "minor": 0}
 
     @staticmethod
-    def memory_allocated(device: Optional[torch.device] = None) -> int:
+    def memory_allocated(device: torch.device | None = None) -> int:
         """获取 CPU "已分配显存"（无意义）。
 
         Args:
@@ -565,7 +566,7 @@ class _CPUStrategy:
         return 0
 
     @staticmethod
-    def memory_reserved(device: Optional[torch.device] = None) -> int:
+    def memory_reserved(device: torch.device | None = None) -> int:
         """获取 CPU "保留显存"（无意义）。
 
         Args:
@@ -590,7 +591,7 @@ class _CPUStrategy:
         pass
 
     @staticmethod
-    def synchronize(device: Optional[torch.device] = None) -> None:
+    def synchronize(device: torch.device | None = None) -> None:
         """同步 CPU 设备（空实现）。
 
         CPU 上所有计算均为同步执行，无需额外同步。
@@ -613,7 +614,7 @@ class _CPUStrategy:
         return (0, 0, 0, 0)
 
     @staticmethod
-    def get_cuda_clear_workspaces_func() -> Optional[Callable[[], None]]:
+    def get_cuda_clear_workspaces_func() -> Callable[[], None] | None:
         """获取 cuBLAS 清理函数（CPU 不适用）。
 
         Returns:
@@ -622,7 +623,7 @@ class _CPUStrategy:
         return None
 
     @staticmethod
-    def ipc_collect(device: Optional[torch.device] = None) -> None:
+    def ipc_collect(device: torch.device | None = None) -> None:
         """执行 IPC 收集（CPU 不适用，空实现）。
 
         Args:
@@ -631,7 +632,7 @@ class _CPUStrategy:
         pass
 
     @staticmethod
-    def get_grad_scaler(enabled: bool = True) -> Optional[Any]:
+    def get_grad_scaler(enabled: bool = True) -> Any | None:
         """获取 CPU 梯度缩放器（不支持）。
 
         Args:
@@ -733,7 +734,7 @@ class _ROCmStrategy:
         return {"name": "AMD ROCm (reserved)", "total_memory": 0, "major": 0, "minor": 0}
 
     @staticmethod
-    def memory_allocated(device: Optional[torch.device] = None) -> int:
+    def memory_allocated(device: torch.device | None = None) -> int:
         """获取 ROCm 已分配显存。
 
         Args:
@@ -745,7 +746,7 @@ class _ROCmStrategy:
         return 0
 
     @staticmethod
-    def memory_reserved(device: Optional[torch.device] = None) -> int:
+    def memory_reserved(device: torch.device | None = None) -> int:
         """获取 ROCm 保留显存。
 
         Args:
@@ -762,7 +763,7 @@ class _ROCmStrategy:
         pass
 
     @staticmethod
-    def synchronize(device: Optional[torch.device] = None) -> None:
+    def synchronize(device: torch.device | None = None) -> None:
         """同步 ROCm 设备（预留空实现）。
 
         Args:
@@ -783,7 +784,7 @@ class _ROCmStrategy:
         return (0, 0, 0, 0)
 
     @staticmethod
-    def get_cuda_clear_workspaces_func() -> Optional[Callable[[], None]]:
+    def get_cuda_clear_workspaces_func() -> Callable[[], None] | None:
         """获取 ROCm 工作区清理函数（不适用）。
 
         Returns:
@@ -792,7 +793,7 @@ class _ROCmStrategy:
         return None
 
     @staticmethod
-    def ipc_collect(device: Optional[torch.device] = None) -> None:
+    def ipc_collect(device: torch.device | None = None) -> None:
         """执行 ROCm IPC 收集（预留空实现）。
 
         Args:
@@ -801,7 +802,7 @@ class _ROCmStrategy:
         pass
 
     @staticmethod
-    def get_grad_scaler(enabled: bool = True) -> Optional[Any]:
+    def get_grad_scaler(enabled: bool = True) -> Any | None:
         """获取 ROCm 梯度缩放器。
 
         Args:
@@ -902,7 +903,7 @@ class _XPUStrategy:
         return {"name": "Intel XPU (reserved)", "total_memory": 0, "major": 0, "minor": 0}
 
     @staticmethod
-    def memory_allocated(device: Optional[torch.device] = None) -> int:
+    def memory_allocated(device: torch.device | None = None) -> int:
         """获取 XPU 已分配显存。
 
         Args:
@@ -914,7 +915,7 @@ class _XPUStrategy:
         return 0
 
     @staticmethod
-    def memory_reserved(device: Optional[torch.device] = None) -> int:
+    def memory_reserved(device: torch.device | None = None) -> int:
         """获取 XPU 保留显存。
 
         Args:
@@ -931,7 +932,7 @@ class _XPUStrategy:
         pass
 
     @staticmethod
-    def synchronize(device: Optional[torch.device] = None) -> None:
+    def synchronize(device: torch.device | None = None) -> None:
         """同步 XPU 设备（预留空实现）。
 
         Args:
@@ -952,7 +953,7 @@ class _XPUStrategy:
         return (0, 0, 0, 0)
 
     @staticmethod
-    def get_cuda_clear_workspaces_func() -> Optional[Callable[[], None]]:
+    def get_cuda_clear_workspaces_func() -> Callable[[], None] | None:
         """获取 XPU 工作区清理函数（不适用）。
 
         Returns:
@@ -961,7 +962,7 @@ class _XPUStrategy:
         return None
 
     @staticmethod
-    def ipc_collect(device: Optional[torch.device] = None) -> None:
+    def ipc_collect(device: torch.device | None = None) -> None:
         """执行 XPU IPC 收集（预留空实现）。
 
         Args:
@@ -970,7 +971,7 @@ class _XPUStrategy:
         pass
 
     @staticmethod
-    def get_grad_scaler(enabled: bool = True) -> Optional[Any]:
+    def get_grad_scaler(enabled: bool = True) -> Any | None:
         """获取 XPU 梯度缩放器。
 
         Args:
@@ -1046,13 +1047,13 @@ class GPUBackendManager:
         >>> total_gb = GPUBackendManager.get_total_memory_gb()
     """
 
-    _cached_backend: Optional[GPUBackend] = None
+    _cached_backend: GPUBackend | None = None
 
     # Why 注册表（不用 if/elif 长链）：
     #   开闭原则 - 新增 ROCm/XPU 等后端时，只需定义新 Strategy 类 + 调用
     #   register_strategy()，不需要修改 Manager 中十几个方法的 if/elif 分支，
     #   降低了漏改、错改的风险，也避免了 Manager 代码随后端数量线性膨胀。
-    _strategies: Optional[dict[GPUBackend, Any]] = None
+    _strategies: dict[GPUBackend, Any] | None = None
 
     @classmethod
     def _ensure_strategies_initialized(cls) -> None:
@@ -1154,7 +1155,7 @@ class GPUBackendManager:
     @classmethod
     def _resolve_backend_and_index(
         cls, backend_arg: Any = None, index_arg: int = 0, device_arg: Any = None
-    ) -> tuple[Optional[GPUBackend], int, Any]:
+    ) -> tuple[GPUBackend | None, int, Any]:
         """内部辅助方法：智能解析 (backend, index, device) 参数。
 
         历史遗留问题：多个调用点将 int 设备索引或 torch.device 作为第一个参数
@@ -1164,7 +1165,7 @@ class GPUBackendManager:
         Returns:
             (resolved_backend, resolved_index, resolved_device)
         """
-        resolved_backend: Optional[GPUBackend] = None
+        resolved_backend: GPUBackend | None = None
         resolved_index: int = index_arg
         resolved_device: Any = device_arg
 
@@ -1189,7 +1190,7 @@ class GPUBackendManager:
         return resolved_backend, resolved_index, resolved_device
 
     @classmethod
-    def get_strategy(cls, backend: Optional[GPUBackend] = None) -> Any:
+    def get_strategy(cls, backend: GPUBackend | None = None) -> Any:
         """获取指定后端对应的策略类。
 
         Args:
@@ -1229,7 +1230,7 @@ class GPUBackendManager:
         cls._cached_backend = None
 
     @classmethod
-    def is_available(cls, backend: Optional[GPUBackend] = None) -> bool:
+    def is_available(cls, backend: GPUBackend | None = None) -> bool:
         """判断指定后端（或自动检测的最优后端）是否为 GPU 加速后端。
 
         Args:
@@ -1250,8 +1251,8 @@ class GPUBackendManager:
 
     @classmethod
     def get_device(
-        cls, backend: Optional[GPUBackend] = None, index: int = 0
-    ) -> Optional[torch.device]:
+        cls, backend: GPUBackend | None = None, index: int = 0
+    ) -> torch.device | None:
         """获取指定后端与索引的设备对象。
 
         Args:
@@ -1265,7 +1266,7 @@ class GPUBackendManager:
         return strategy.get_device(index)
 
     @classmethod
-    def get_device_count(cls, backend: Optional[GPUBackend] = None) -> int:
+    def get_device_count(cls, backend: GPUBackend | None = None) -> int:
         """获取指定后端的可用设备数量。
 
         Args:
@@ -1279,7 +1280,7 @@ class GPUBackendManager:
 
     @classmethod
     def get_device_name(
-        cls, backend: Optional[GPUBackend] = None, index: int = 0
+        cls, backend: GPUBackend | None = None, index: int = 0
     ) -> str:
         """获取指定后端与索引的设备名称。
 
@@ -1355,7 +1356,7 @@ class GPUBackendManager:
         return strategy.memory_reserved(resolved_device)
 
     @classmethod
-    def empty_cache(cls, backend: Optional[GPUBackend] = None) -> None:
+    def empty_cache(cls, backend: GPUBackend | None = None) -> None:
         """释放指定后端缓存分配器中未占用的内存。
 
         Args:
@@ -1367,8 +1368,8 @@ class GPUBackendManager:
     @classmethod
     def synchronize(
         cls,
-        backend: Optional[GPUBackend] = None,
-        device: Optional[torch.device] = None,
+        backend: GPUBackend | None = None,
+        device: torch.device | None = None,
     ) -> None:
         """等待指定后端设备上所有流的计算完成。
 
@@ -1381,7 +1382,7 @@ class GPUBackendManager:
 
     @classmethod
     def get_memory_info(
-        cls, backend: Optional[GPUBackend] = None, index: int = 0
+        cls, backend: GPUBackend | None = None, index: int = 0
     ) -> tuple[int, int, int, int]:
         """获取指定后端与索引设备的完整显存信息。
 
@@ -1401,8 +1402,8 @@ class GPUBackendManager:
 
     @classmethod
     def get_cuda_clear_workspaces_func(
-        cls, backend: Optional[GPUBackend] = None
-    ) -> Optional[Callable[[], None]]:
+        cls, backend: GPUBackend | None = None
+    ) -> Callable[[], None] | None:
         """获取指定后端的 cuBLAS 工作区清理函数（若存在）。
 
         Args:
@@ -1417,8 +1418,8 @@ class GPUBackendManager:
     @classmethod
     def ipc_collect(
         cls,
-        backend: Optional[GPUBackend] = None,
-        device: Optional[torch.device] = None,
+        backend: GPUBackend | None = None,
+        device: torch.device | None = None,
     ) -> None:
         """强制执行指定后端的 IPC 收集，释放多进程间闲置内存。
 
@@ -1431,8 +1432,8 @@ class GPUBackendManager:
 
     @classmethod
     def get_grad_scaler(
-        cls, backend: Optional[GPUBackend] = None, enabled: bool = True
-    ) -> Optional[Any]:
+        cls, backend: GPUBackend | None = None, enabled: bool = True
+    ) -> Any | None:
         """获取指定后端的梯度缩放器实例（若适用）。
 
         Args:
@@ -1447,7 +1448,7 @@ class GPUBackendManager:
         return strategy.get_grad_scaler(enabled)
 
     @classmethod
-    def get_autocast_device_type(cls, backend: Optional[GPUBackend] = None) -> str:
+    def get_autocast_device_type(cls, backend: GPUBackend | None = None) -> str:
         """获取指定后端用于 ``torch.amp.autocast`` 的 device_type 字符串。
 
         Args:
@@ -1460,7 +1461,7 @@ class GPUBackendManager:
         return strategy.get_autocast_device_type()
 
     @classmethod
-    def get_process_group_backend(cls, backend: Optional[GPUBackend] = None) -> str:
+    def get_process_group_backend(cls, backend: GPUBackend | None = None) -> str:
         """获取指定后端推荐的分布式进程组后端字符串。
 
         Args:
@@ -1474,7 +1475,7 @@ class GPUBackendManager:
 
     @classmethod
     def format_device_string(
-        cls, backend: Optional[GPUBackend] = None, index: int = 0
+        cls, backend: GPUBackend | None = None, index: int = 0
     ) -> str:
         """格式化可直接用于 ``tensor.to()`` 的设备字符串。
 
@@ -1490,7 +1491,7 @@ class GPUBackendManager:
 
     @classmethod
     def get_total_memory_gb(
-        cls, backend: Optional[GPUBackend] = None, index: int = 0
+        cls, backend: GPUBackend | None = None, index: int = 0
     ) -> float:
         """获取指定后端与索引设备的总显存容量（GB 为单位，方便上层比较阈值）。
 

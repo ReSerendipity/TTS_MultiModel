@@ -32,7 +32,6 @@
 
 import glob
 import io
-import json
 import logging
 import os
 import re
@@ -40,11 +39,11 @@ import time
 import urllib.parse
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import aiofiles
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from ..config import MAX_UPLOAD_SIZE_BYTES as MAX_UPLOAD_SIZE
 from ..config import PERSONA_DIR, PROJECT_ROOT, SAVE_DIR
@@ -214,7 +213,7 @@ def _validate_audio_content(content: bytes, claimed_ext: str) -> bool:
     if header[:3] == b"\x00\x00\x00" and len(header) >= 8 and header[4:8] == b"ftyp":
         return claimed_ext in {".m4a", ".mp4"}
 
-    detected_ext: Optional[str] = None
+    detected_ext: str | None = None
     for magic, ext in _AUDIO_MAGIC_BYTES.items():
         if magic == b"\x00\x00\x00":
             continue
@@ -229,7 +228,7 @@ def _validate_audio_content(content: bytes, claimed_ext: str) -> bool:
     return detected_ext == claimed_ext
 
 
-async def _stream_upload_to_disk(file: UploadFile, dest_path: str) -> Tuple[bool, str, bytes]:
+async def _stream_upload_to_disk(file: UploadFile, dest_path: str) -> tuple[bool, str, bytes]:
     """流式分块读取上传文件，实时校验并累加字节数。
 
     Returns:
@@ -267,7 +266,7 @@ async def _stream_upload_to_disk(file: UploadFile, dest_path: str) -> Tuple[bool
         return False, f"写入文件失败: {exc}", b""
 
 
-def _validate_ids(ids: Any, max_count: int = _MAX_BATCH_OPERATION_COUNT) -> Tuple[list, Optional[str]]:
+def _validate_ids(ids: Any, max_count: int = _MAX_BATCH_OPERATION_COUNT) -> tuple[list, str | None]:
     """统一校验批量操作端点的 ``ids`` 参数。
 
     规则：list 类型、非空、长度 ≤ max_count、元素均为 int。

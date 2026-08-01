@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """语音克隆工具模块。
 
 提供语音克隆相关的音频处理、参考音频验证、特征提取辅助等工具函数：
@@ -20,7 +19,6 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Optional
 
 import numpy as np
 
@@ -214,7 +212,7 @@ def validate_reference_audio(audio_path: str) -> AudioQualityResult:
 
 def preprocess_reference_audio(
     audio_input: str | np.ndarray,
-    sample_rate: Optional[int] = None,
+    sample_rate: int | None = None,
     target_sr: int = 24000,
     normalize_loudness: bool = True,
     trim_silence: bool = True,
@@ -296,7 +294,7 @@ def preprocess_reference_audio(
 
 def load_audio_array(
     audio_path: str,
-    target_sr: Optional[int] = None,
+    target_sr: int | None = None,
     dtype: np.dtype = np.float32,
 ) -> tuple[np.ndarray, int]:
     """加载音频文件为 numpy 数组。

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """坏案例自动重试机制（Bad Case Retry）
 
 参考 Fish Speech、CosyVoice 和 Chatterbox 的容错设计：
@@ -24,9 +23,10 @@ from __future__ import annotations
 import logging
 import random
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 
@@ -146,7 +146,7 @@ class RetryResult:
         failure_reason: 失败原因描述（重试耗尽时包含降级说明）
     """
     success: bool
-    wav: Optional[np.ndarray] = None
+    wav: np.ndarray | None = None
     sample_rate: int = 48000
     attempts: int = 0
     final_params: dict[str, Any] = field(default_factory=dict)
@@ -156,8 +156,8 @@ class RetryResult:
 def detect_failure_type(
     wav: np.ndarray,
     sample_rate: int,
-    expected_duration: Optional[float] = None,
-    config: Optional[RetryConfig] = None,
+    expected_duration: float | None = None,
+    config: RetryConfig | None = None,
 ) -> tuple[bool, FailureType, str]:
     """检测音频失败类型
 
@@ -242,7 +242,7 @@ def adjust_params_for_retry(
     params: dict[str, Any],
     failure_type: FailureType,
     attempt: int,
-    config: Optional[RetryConfig] = None,
+    config: RetryConfig | None = None,
 ) -> dict[str, Any]:
     """根据失败类型和重试次数调整生成参数
 
@@ -370,9 +370,9 @@ def retry_with_bad_case_detection(
     generate_fn: Callable[..., np.ndarray],
     params: dict[str, Any],
     sample_rate: int = 48000,
-    expected_duration: Optional[float] = None,
-    config: Optional[RetryConfig] = None,
-    progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    expected_duration: float | None = None,
+    config: RetryConfig | None = None,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> RetryResult:
     """带坏案例检测的重试生成函数
 
@@ -461,7 +461,7 @@ def retry_with_bad_case_detection(
             )
 
             if attempt == cfg.max_retries:
-                logger.error(f"[BadCaseRetry] 重试耗尽且所有尝试均异常")
+                logger.error("[BadCaseRetry] 重试耗尽且所有尝试均异常")
                 return RetryResult(
                     success=False,
                     attempts=attempt + 1,

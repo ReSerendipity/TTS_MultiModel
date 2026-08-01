@@ -37,7 +37,7 @@ import logging
 import os
 import threading
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from .config import (
     _PERSONA_NAME_RE,
@@ -55,7 +55,7 @@ from .persona_metadata import (
 logger: logging.Logger = logging.getLogger("tts_multimodel")
 
 
-def _validate_persona_name(name: str) -> Tuple[bool, str]:
+def _validate_persona_name(name: str) -> tuple[bool, str]:
     """验证音色名称合法性，防止路径遍历与同形字攻击。
 
     采用正则 ``_PERSONA_NAME_RE`` 进行白名单校验，规则如下：
@@ -127,7 +127,7 @@ def _verify_persona_sync(name: str, wav_path: str, ref_text: str) -> None:
         logger.error(f"[音色固化] 音色 [{name}] 后台验证失败: {e}")
 
 
-def fn_save_persona(name: str, audio_input: Any, ref_text: str, overwrite: bool = False) -> Tuple[str, bool]:
+def fn_save_persona(name: str, audio_input: Any, ref_text: str, overwrite: bool = False) -> tuple[str, bool]:
     """保存音色到音色库（固化）- 使用官方 VoxCPM2 API。
 
     Args:
@@ -156,7 +156,7 @@ def fn_save_persona(name: str, audio_input: Any, ref_text: str, overwrite: bool 
     if not valid:
         return f"❌ {err_msg}", False
 
-    tmp_p: Optional[str] = None
+    tmp_p: str | None = None
     try:
         wav_path = os.path.join(PERSONA_DIR, f"{name}.wav")
         txt_path = os.path.join(PERSONA_DIR, f"{name}.txt")
@@ -220,7 +220,7 @@ def fn_save_persona(name: str, audio_input: Any, ref_text: str, overwrite: bool 
         if tmp_p and os.path.exists(tmp_p):
             with contextlib.suppress(Exception):
                 os.unlink(tmp_p)
-        logger.exception(f"[音色固化] 写入失败：无 PERSONA_DIR 写权限")
+        logger.exception("[音色固化] 写入失败：无 PERSONA_DIR 写权限")
         return (
             "❌ 写入失败：无 PERSONA_DIR 写权限，请检查杀毒软件或文件夹权限",
             False,
@@ -233,7 +233,7 @@ def fn_save_persona(name: str, audio_input: Any, ref_text: str, overwrite: bool 
         return f"❌ 固化失败: {str(e)}", False
 
 
-def get_persona_list(search_keyword: str = "") -> List[str]:
+def get_persona_list(search_keyword: str = "") -> list[str]:
     """获取自定义音色名称列表，支持关键字不区分大小写搜索过滤。
 
     Args:
@@ -253,7 +253,7 @@ def get_persona_list(search_keyword: str = "") -> List[str]:
         logger.error(f"[音色列表] PERSONA_DIR 目录不可读: {PERSONA_DIR}")
         return ["(音色目录不可读)"]
 
-    custom: List[str] = sorted(wav_files) if wav_files else []
+    custom: list[str] = sorted(wav_files) if wav_files else []
 
     if search_keyword:
         kw = search_keyword.lower()
@@ -285,7 +285,7 @@ def get_total_persona_count() -> int:
     return len(files)
 
 
-def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
+def get_persona_detail_table(search_keyword: str = "") -> list[list[str]]:
     """获取自定义音色详情二维表格数据，供 HTMX <table> 直接渲染。
 
     Args:
@@ -306,7 +306,7 @@ def get_persona_detail_table(search_keyword: str = "") -> List[List[str]]:
 
         若当前无音色则返回单行：``[["暂无音色", "-", "-", "-", "-"]]``。
     """
-    table: List[List[str]] = []
+    table: list[list[str]] = []
 
     try:
         files = [f.replace(".wav", "") for f in os.listdir(PERSONA_DIR) if f.endswith(".wav")]
@@ -367,7 +367,7 @@ def get_persona_desc(name: str) -> str:
     return ""
 
 
-def load_persona_embedding(name: str) -> Optional[Any]:
+def load_persona_embedding(name: str) -> Any | None:
     """加载指定音色的嵌入表示或 (wav 路径, 参考文本) 元组。
 
     **缓存命中顺序（三层）**：
@@ -409,9 +409,8 @@ def load_persona_embedding(name: str) -> Optional[Any]:
 
     ref_text = ""
     if txt_exists:
-        with contextlib.suppress(OSError):
-            with open(txt_path, encoding="utf-8") as f:
-                ref_text = f.read()
+        with contextlib.suppress(OSError), open(txt_path, encoding="utf-8") as f:
+            ref_text = f.read()
 
     if not wav_exists:
         return None
@@ -461,7 +460,7 @@ def pickle_error_cls() -> type:
     return pickle.UnpicklingError
 
 
-def get_persona_map(selected_names: Optional[List[str]] = None) -> Dict[str, Any]:
+def get_persona_map(selected_names: list[str] | None = None) -> dict[str, Any]:
     """获取音色名称到音频路径 / 嵌入的映射字典，供剧本工坊（script.py）批量使用。
 
     Args:
@@ -474,7 +473,7 @@ def get_persona_map(selected_names: Optional[List[str]] = None) -> Dict[str, Any
         当前实现仅填充 ``wav`` 字段，``embedding`` 字段由上层按需调用
         ``load_persona_embedding`` 填充。目录不存在时返回空 ``{}``。
     """
-    persona_map: Dict[str, Any] = {}
+    persona_map: dict[str, Any] = {}
     if not os.path.exists(PERSONA_DIR):
         return persona_map
 
@@ -491,7 +490,7 @@ def get_persona_map(selected_names: Optional[List[str]] = None) -> Dict[str, Any
             persona_map[name] = {"wav": wav_path}
 
     if selected_names is not None:
-        filtered: Dict[str, Any] = {}
+        filtered: dict[str, Any] = {}
         for n in selected_names:
             if n in persona_map:
                 filtered[n] = persona_map[n]
@@ -499,7 +498,7 @@ def get_persona_map(selected_names: Optional[List[str]] = None) -> Dict[str, Any
     return persona_map
 
 
-def delete_persona(name: str) -> Tuple[bool, str]:
+def delete_persona(name: str) -> tuple[bool, str]:
     """删除指定音色及其关联文件（.wav / .txt / .pt / {name}.metadata.json）。
 
     四个关联文件使用**独立 try/except (OSError)** 分别删除：单个失败仅记录到
@@ -531,7 +530,7 @@ def delete_persona(name: str) -> Tuple[bool, str]:
         return False, "非法路径"
 
     deleted_any = False
-    errors: List[str] = []
+    errors: list[str] = []
 
     for path in (wav_path, txt_path, pt_path, meta_path):
         if os.path.exists(path):
@@ -552,7 +551,7 @@ def delete_persona(name: str) -> Tuple[bool, str]:
     return True, f"音色 [{name}] 已删除"
 
 
-def fn_delete_persona(name: str) -> Tuple[str, bool]:
+def fn_delete_persona(name: str) -> tuple[str, bool]:
     """删除音色（fn_ 前缀版本，返回顺序与 fn_save_persona 对齐）。
 
     内部调用 :func:`delete_persona`，仅将返回值从 ``(bool, str)`` 转换为

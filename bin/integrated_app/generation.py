@@ -28,7 +28,7 @@ import logging
 import os
 import tempfile
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 import soundfile as sf
@@ -120,7 +120,7 @@ def save_audio(wav: np.ndarray, sr: int, prefix: str = "audio", format: str = "w
     return file_path, os.path.basename(file_path)
 
 
-def split_text_for_tts(text: str, max_chars: Optional[int] = None) -> list[str]:
+def split_text_for_tts(text: str, max_chars: int | None = None) -> list[str]:
     """将长文本按语义边界分割成适合 TTS 处理的短段落。
 
     断点优先级（从高到低，同一优先级取最靠右的候选）：
@@ -533,9 +533,9 @@ def merge_audio_segments(
     audio_segments: list[np.ndarray],
     sr: int,
     silence_duration: float = 0.3,
-    target_sr: Optional[int] = None,
+    target_sr: int | None = None,
     crossfade_duration: float = 0.05,
-) -> tuple[Optional[np.ndarray], int]:
+) -> tuple[np.ndarray | None, int]:
     """合并多段音频 PCM 数组，支持交叉淡入淡出（crossfade）或静音填充。
 
     采样率一致性检查：
@@ -678,7 +678,7 @@ def merge_audio_segments(
 def preprocess_and_save_temp(
     audio_input: Any,
     filename: str = "temp_ref.wav",
-    target_sr: Optional[int] = None,
+    target_sr: int | None = None,
 ) -> tuple[str, int, np.ndarray]:
     """预处理参考音频并保存为临时 WAV 文件，供下游嵌入提取或克隆使用。
 
@@ -712,7 +712,7 @@ def preprocess_and_save_temp(
             提示用户支持的输入类型。
         AudioProcessingError: 当音频读取、重采样或写入磁盘失败时抛出。
     """
-    tmp_p: Optional[str] = None
+    tmp_p: str | None = None
     try:
         # 形态 1：本地文件路径 (str)
         if isinstance(audio_input, str):

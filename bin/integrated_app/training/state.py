@@ -13,7 +13,6 @@ scripts/train_voxcpm_finetune.py 的既有调用方式 100% 继续可用。
 """
 from __future__ import annotations
 
-import glob
 import json
 import logging
 import os
@@ -22,9 +21,10 @@ import shutil
 import tempfile
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel.training.state")
 
@@ -73,9 +73,9 @@ class TrainingState:
     global_step: int = 0
     best_eval_loss: float = float("inf")
     best_epoch: int = 0
-    train_loss_history: List[float] = field(default_factory=list)
-    eval_loss_history: List[float] = field(default_factory=list)
-    last_checkpoint_path: Optional[Path] = None
+    train_loss_history: list[float] = field(default_factory=list)
+    eval_loss_history: list[float] = field(default_factory=list)
+    last_checkpoint_path: Path | None = None
     start_time_ts: float = field(default_factory=time.time)
 
     # 运行时对象引用（不序列化，保证向后兼容）
@@ -165,7 +165,7 @@ class StateManager:
         return self.output_dir / name
 
     @staticmethod
-    def _parse_epoch(dir_name: str) -> Optional[int]:
+    def _parse_epoch(dir_name: str) -> int | None:
         """从 checkpoint-12 / checkpoint-12_best 目录名中解析 epoch 编号。
 
         Args:
@@ -182,7 +182,7 @@ class StateManager:
         except (TypeError, ValueError):
             return None
 
-    def _list_checkpoint_dirs(self) -> List[Tuple[int, Path]]:
+    def _list_checkpoint_dirs(self) -> list[tuple[int, Path]]:
         """列出所有 checkpoint 目录。
 
         Returns:
@@ -190,7 +190,7 @@ class StateManager:
         """
         if not self.output_dir.exists():
             return []
-        result: List[Tuple[int, Path]] = []
+        result: list[tuple[int, Path]] = []
         for entry in self.output_dir.iterdir():
             if not entry.is_dir():
                 continue
@@ -201,7 +201,7 @@ class StateManager:
         result.sort(key=lambda x: x[0])
         return result
 
-    def _state_to_dict(self, state: TrainingState) -> Dict[str, Any]:
+    def _state_to_dict(self, state: TrainingState) -> dict[str, Any]:
         """将 TrainingState 的持久化字段转换为可 JSON 序列化的字典。
 
         Args:
@@ -211,13 +211,13 @@ class StateManager:
             只包含持久化字段的字典，Path 对象自动转为 str
         """
         raw = asdict(state)
-        keep: Dict[str, Any] = {}
+        keep: dict[str, Any] = {}
         for k, v in raw.items():
             if k in TrainingState.PERSISTENT_FIELDS:
                 keep[k] = str(v) if isinstance(v, Path) else v
         return keep
 
-    def _dict_to_state(self, data: Dict[str, Any]) -> TrainingState:
+    def _dict_to_state(self, data: dict[str, Any]) -> TrainingState:
         """从字典还原 TrainingState（自动兼容缺失字段）。
 
         Args:
@@ -227,7 +227,7 @@ class StateManager:
             还原后的 TrainingState 实例
         """
         allowed = set(TrainingState.PERSISTENT_FIELDS)
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         for k, v in data.items():
             if k not in allowed:
                 continue
@@ -244,7 +244,7 @@ class StateManager:
         self,
         state: TrainingState,
         suffix: str = "",
-        model_state_dict_fn: Optional[Callable[[], Dict[str, Any]]] = None,
+        model_state_dict_fn: Callable[[], dict[str, Any]] | None = None,
     ) -> Path:
         """保存一次 checkpoint：state.json（原子写） + LoRA safetensors / bin。
 
@@ -338,7 +338,7 @@ class StateManager:
                         ) from retry_exc
         return ckpt_dir
 
-    def _save_weights_atomic(self, ckpt_dir: Path, weights: Dict[str, Any]) -> None:
+    def _save_weights_atomic(self, ckpt_dir: Path, weights: dict[str, Any]) -> None:
         """原子写入 LoRA 权重文件（优先 safetensors，次选 torch .bin）。
 
         全程使用 .tmp 临时文件 + os.replace 保证原子性，避免写入中断导致文件损坏。
@@ -403,7 +403,7 @@ class StateManager:
     # ------------------------------------------------------------------ #
     # 加载：自动尝试最新 checkpoint，损坏时回退 N-1 / N-2 ... 最多 5 次
     # ------------------------------------------------------------------ #
-    def load_latest(self) -> Optional[TrainingState]:
+    def load_latest(self) -> TrainingState | None:
         """找到最新（epoch 最大）的 checkpoint，返回还原后的 TrainingState。
 
         若最新 checkpoint 的 state.json 损坏，会自动回退到倒数第二、第三……
@@ -417,7 +417,7 @@ class StateManager:
             return None
         # 从新到旧，最多尝试 5 个
         recent = list(reversed(ckpts))[:5]
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for epoch, ckpt_dir in recent:
             state_path = ckpt_dir / self.STATE_FILE
             if not state_path.exists():
@@ -455,7 +455,7 @@ class StateManager:
             logger.error("所有尝试的 checkpoint 都失败，最后错误: %s", last_error)
         return None
 
-    def load_weights(self, state: TrainingState) -> Optional[Dict[str, Any]]:
+    def load_weights(self, state: TrainingState) -> dict[str, Any] | None:
         """根据 state.last_checkpoint_path 加载 LoRA 权重（safetensors 优先）。
 
         Args:

@@ -44,8 +44,9 @@ import os
 import sqlite3
 import threading
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Callable, ContextManager, Iterator, Optional
+from typing import Any
 
 from .exceptions import TTSError
 
@@ -359,8 +360,8 @@ class HistoryDatabase:
 
     def _build_filter_conditions(
         self,
-        filters: Optional[dict[str, Any]] = None,
-        search_text: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        search_text: str | None = None,
         search_filename: bool = True,
     ) -> tuple[list[str], list[Any]]:
         """统一构建 WHERE 条件和参数列表，消除 query_records/count_records/query/count 重复。
@@ -559,7 +560,7 @@ class HistoryDatabase:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_record_tuple(record: dict[str, Any], timestamp: Optional[float] = None) -> tuple[Any, ...]:
+    def _build_record_tuple(record: dict[str, Any], timestamp: float | None = None) -> tuple[Any, ...]:
         """REFACTOR: [H-R2] 统一构建 INSERT 参数元组，消除三处重复。
 
         字段顺序必须与 _INSERT_SQL 的占位符顺序一致。
@@ -611,7 +612,7 @@ class HistoryDatabase:
         file_size: int,
         text_preview: str = "",
         engine: str = "unknown",
-        persona_name: Optional[str] = None,
+        persona_name: str | None = None,
         duration_seconds: float = 0.0,
     ) -> int:
         """添加一条新的生成历史记录（便捷方法）。
@@ -667,7 +668,7 @@ class HistoryDatabase:
         Raises:
             TTSError: 锁等待超过 3 次重试仍失败，code = ``"HISTORY_LOCKED"``。
         """
-        last_exc: Optional[sqlite3.OperationalError] = None
+        last_exc: sqlite3.OperationalError | None = None
         for attempt in range(3):
             try:
                 with self._transaction() as conn:
@@ -858,9 +859,9 @@ class HistoryDatabase:
         self,
         offset: int = 0,
         limit: int = 50,
-        filters: Optional[dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         order_by: str = "created_at DESC",
-        search_text: Optional[str] = None,
+        search_text: str | None = None,
         include_hidden: bool = True,
         include_missing: bool = True,
     ) -> list[dict[str, Any]]:
@@ -924,8 +925,8 @@ class HistoryDatabase:
 
     def count_records(
         self,
-        filters: Optional[dict[str, Any]] = None,
-        search_text: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        search_text: str | None = None,
         include_hidden: bool = True,
         include_missing: bool = True,
     ) -> int:
@@ -963,9 +964,9 @@ class HistoryDatabase:
         self,
         limit: int = 50,
         offset: int = 0,
-        engine: Optional[str] = None,
-        persona_name: Optional[str] = None,
-        search_text: Optional[str] = None,
+        engine: str | None = None,
+        persona_name: str | None = None,
+        search_text: str | None = None,
         order_by: str = "created_at DESC",
     ) -> list[dict[str, Any]]:
         """查询生成历史记录（旧版兼容接口），支持过滤器和分页。
@@ -1001,9 +1002,9 @@ class HistoryDatabase:
 
     def count(
         self,
-        engine: Optional[str] = None,
-        persona_name: Optional[str] = None,
-        search_text: Optional[str] = None,
+        engine: str | None = None,
+        persona_name: str | None = None,
+        search_text: str | None = None,
     ) -> int:
         """统计满足过滤条件的记录数量（旧版兼容接口）。
 
@@ -1053,7 +1054,7 @@ class HistoryDatabase:
             - message：人类可读的结果描述（成功时为空串或成功提示，失败时
               包含具体错误原因）。
         """
-        filepath_to_delete: Optional[str] = None
+        filepath_to_delete: str | None = None
         try:
             with self._transaction() as conn:
                 if delete_file:
@@ -1443,7 +1444,7 @@ class HistoryDatabase:
 
     def sync_from_filesystem(
         self,
-        output_dir: Optional[str] = None,
+        output_dir: str | None = None,
         since_mtime: float = 0.0,
     ) -> float:
         """扫描文件系统，将未入库的音频文件同步到数据库。
@@ -1519,7 +1520,7 @@ class HistoryDatabase:
             self.last_sync_mtime = max_mtime
         return self.last_sync_mtime
 
-    def cleanup_orphan_records(self, output_dir: Optional[str] = None) -> int:
+    def cleanup_orphan_records(self, output_dir: str | None = None) -> int:
         """标记磁盘上对应文件已不存在的"孤立记录"为 file_missing=1。
 
         全表扫描所有 filepath 非空的记录，对每条执行 os.path.exists() 检查，
@@ -1660,7 +1661,7 @@ class HistoryDatabase:
 
 
 # --- 单例管理 (H-R3 线程安全) ---
-_history_db: Optional[HistoryDatabase] = None
+_history_db: HistoryDatabase | None = None
 _singleton_lock = threading.Lock()  # H-R3: 保护单例创建
 
 

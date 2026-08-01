@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """OpenAI 兼容 API 模块（第 13 章）
 
 提供 /v1/audio/speech 端点，兼容 OpenAI SDK 格式，
@@ -13,10 +12,8 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 import os
-import tempfile
 import threading
 import time
 import uuid

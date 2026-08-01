@@ -14,7 +14,7 @@ import logging
 import subprocess
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -47,7 +47,7 @@ class GPUStatusResponse(BaseModel):
     vram_free_mb: float = Field(default=0.0, description="空闲显存（MB）")
     vram_percent: float = Field(default=0.0, description="显存占用百分比（0-100）")
     utilization_gpu_pct: float = Field(default=0.0, description="GPU 核心利用率（0-100）")
-    temperature_c: Optional[float] = Field(default=None, description="GPU 温度（℃），NVML 不可用时为 null")
+    temperature_c: float | None = Field(default=None, description="GPU 温度（℃），NVML 不可用时为 null")
 
 
 class GPUSamplePoint(BaseModel):
@@ -70,7 +70,7 @@ class GPUHistoryResponse(BaseModel):
         sample_count: 实际样本数。
     """
 
-    samples: List[GPUSamplePoint] = Field(default_factory=list, description="采样点列表")
+    samples: list[GPUSamplePoint] = Field(default_factory=list, description="采样点列表")
     sample_count: int = Field(default=0, description="样本数")
 
 
@@ -104,7 +104,7 @@ def _get_gpu_device() -> int:
 # NVML 句柄缓存 + 失败冷却
 # ---------------------------------------------------------------------------
 
-_nvml_state: Dict[str, Any] = {
+_nvml_state: dict[str, Any] = {
     "handle": None,
     "initialized": False,
     "init_time": 0.0,
@@ -119,7 +119,7 @@ _NVML_CACHE_TTL: int = 300
 _NVML_FAIL_COOLDOWN: int = 60
 
 
-def _get_nvml_handle() -> Optional[Any]:
+def _get_nvml_handle() -> Any | None:
     """获取并缓存 NVML 设备句柄，含失败冷却期。
 
     失败后 60 秒内跳过重新初始化，避免每个 API 调用都走一次失败的加载流程
@@ -212,7 +212,7 @@ def _get_nvml_handle() -> Optional[Any]:
 # 内部辅助：GPU 利用率
 # ---------------------------------------------------------------------------
 
-def _get_gpu_utilization_from_nvml() -> Optional[int]:
+def _get_gpu_utilization_from_nvml() -> int | None:
     """通过 NVML 读取 GPU 计算核心利用率。"""
     try:
         handle = _get_nvml_handle()
@@ -228,7 +228,7 @@ def _get_gpu_utilization_from_nvml() -> Optional[int]:
         return None
 
 
-def _get_gpu_temperature_from_nvml() -> Optional[float]:
+def _get_gpu_temperature_from_nvml() -> float | None:
     """通过 NVML 读取 GPU 温度（℃）。
 
     Why 不通过 torch 取温度：
@@ -250,7 +250,7 @@ def _get_gpu_temperature_from_nvml() -> Optional[float]:
         return None
 
 
-def _get_gpu_utilization_from_nvidia_smi() -> Optional[int]:
+def _get_gpu_utilization_from_nvidia_smi() -> int | None:
     """通过 nvidia-smi CLI 作为 NVML 不可用时的回退方案。"""
     try:
         result = subprocess.run(
@@ -388,14 +388,14 @@ def gpu_history() -> GPUHistoryResponse:
         应用刚启动或长时间无 GPU 操作时，HealthMonitor 样本不足 60 条是常态，
         返回已有样本 + 200 比抛 404 / 空错误更符合前端连续曲线渲染预期。
     """
-    samples: List[GPUSamplePoint] = []
+    samples: list[GPUSamplePoint] = []
     now_ms = int(time.time() * 1000)
 
     try:
         from ...monitor import get_health_monitor
 
         hm = get_health_monitor()
-        raw: List[float] = list(getattr(hm, "_vram_samples", []))
+        raw: list[float] = list(getattr(hm, "_vram_samples", []))
 
         # 按样本数倒推时间戳（采样间隔以 1s 估算，保证前端曲线有合理的时间轴）
         n = len(raw)
@@ -418,7 +418,7 @@ def gpu_history() -> GPUHistoryResponse:
 # ---------------------------------------------------------------------------
 
 @router.post("/gpu/cleanup", summary="手动清理显存", description="触发 free_gpu_memory + torch.cuda.empty_cache，推理中返回 409 Conflict")
-def gpu_cleanup() -> Dict[str, Any]:
+def gpu_cleanup() -> dict[str, Any]:
     """手动触发 GPU 显存清理。
 
     Why 必须手动触发而不是定时自动清理：

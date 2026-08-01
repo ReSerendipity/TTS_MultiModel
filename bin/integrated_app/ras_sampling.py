@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """RAS (Repetition Aware Sampling) — 重复感知采样策略。
 
 在自回归 TTS 生成过程中检测 token 级别的重复模式，
@@ -30,9 +29,9 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections import deque, Counter
-from dataclasses import dataclass, field
-from typing import Optional, Sequence
+from collections import Counter, deque
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -489,8 +488,8 @@ def adjust_sampling_params_v2(
     top_p: float,
     detector: RepetitionDetector,
     config: RASConfig | None = None,
-    min_p: Optional[float] = None,
-    repetition_penalty: Optional[float] = None,
+    min_p: float | None = None,
+    repetition_penalty: float | None = None,
 ) -> tuple[float, float, float, float]:
     """根据重复检测状态动态调整采样参数（增强版 v2）。
 
@@ -650,8 +649,8 @@ class RASContext:
         self,
         temperature: float,
         top_p: float,
-        min_p: Optional[float] = None,
-        repetition_penalty: Optional[float] = None,
+        min_p: float | None = None,
+        repetition_penalty: float | None = None,
     ) -> tuple[float, float, float, float]:
         """获取当前调整后的采样参数（增强版 v2）。
 
@@ -684,7 +683,7 @@ class RASContext:
     def apply_logits_penalties(
         self,
         logits: np.ndarray,
-        penalty: Optional[float] = None,
+        penalty: float | None = None,
         presence_penalty: float = 0.0,
         frequency_penalty: float = 0.0,
     ) -> np.ndarray:

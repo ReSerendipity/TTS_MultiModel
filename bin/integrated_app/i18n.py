@@ -12,7 +12,7 @@
 import json
 import logging
 import os
-from typing import Any, Callable, Optional
+from typing import Any
 
 _LOCALES_DIR: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "locales")
 
@@ -30,7 +30,7 @@ _I18N_TRANSLATIONS: dict[str, dict[str, Any]] = {}
 logger = logging.getLogger("tts_multimodel")
 
 
-def _load_translations(lang: str) -> Optional[dict[str, Any]]:
+def _load_translations(lang: str) -> dict[str, Any] | None:
     """加载指定语言的翻译字典（带缓存）。
 
     使用模块级 _I18N_TRANSLATIONS 字典作为缓存；缓存命中直接返回，
@@ -69,7 +69,7 @@ def _load_translations(lang: str) -> Optional[dict[str, Any]]:
     return data
 
 
-def _resolve_key(translations: dict[str, Any], key: str) -> Optional[str]:
+def _resolve_key(translations: dict[str, Any], key: str) -> str | None:
     """在翻译字典中解析翻译键。
 
     先尝试扁平查找：以完整 key 作为字典键直接命中；失败后再使用
@@ -115,7 +115,7 @@ def _resolve_key(translations: dict[str, Any], key: str) -> Optional[str]:
 _DEFAULT_LANG: str = "zh-CN"
 
 
-def t(key: str, lang: str = _DEFAULT_LANG, default: Optional[str] = None) -> str:
+def t(key: str, lang: str = _DEFAULT_LANG, default: str | None = None) -> str:
     """翻译函数，三层 fallback 链保障不显示空值。
 
     fallback 顺序：
