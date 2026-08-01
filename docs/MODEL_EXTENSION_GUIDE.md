@@ -26,12 +26,11 @@ bin/integrated_app/
 └── engines/
     ├── voxcpm2/             # VoxCPM2 引擎子包（参考示例）
     ├── indextts2_engine.py  # IndexTTS2 引擎（单文件参考示例）
-    ├── gptsovits_engine.py  # GPT-SoVITS 引擎（声明式接入示例）
     └── dotstts_engine.py    # dots.tts 引擎（声明式接入示例）
 ```
 
 > 说明：VoxCPM2/IndexTTS2 因历史原因在 model_manager/model_registry 中保留专属分支；
-> **新引擎应走声明式通用路径**（如 gptsovits/dotstts），无需触碰这两个模块。
+> **新引擎应走声明式通用路径**（如 dotstts），无需触碰这两个模块。
 
 ---
 
@@ -312,7 +311,7 @@ engine_registry.register(
 )
 ```
 
-> 真实示例见同文件中 `gptsovits` 与 `dotstts` 的注册。
+> 真实示例见同文件中 `dotstts` 的注册。
 
 ### 步骤 3：声明引擎规格（config.yaml）
 
