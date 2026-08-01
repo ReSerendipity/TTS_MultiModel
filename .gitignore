@@ -132,6 +132,10 @@ test_player.html
 # Reference repositories (external, not part of core project)
 reference_repos/
 
+# Vendored third-party C++ source snapshots used for offline build only
+# (e.g. OpenFst/Pynini under scripts/pynini_src/ when precompiled wheel unavailable)
+scripts/pynini_src/
+
 # Verification output (moved to docs/screenshots/verification/)
 verification_output/
 
