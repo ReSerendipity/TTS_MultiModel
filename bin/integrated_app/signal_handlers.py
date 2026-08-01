@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """信号安全保存模块（Ch2 P1 / Ch8 P1）。
 
 提供优雅关闭（graceful shutdown）的信号处理机制：
@@ -20,10 +19,10 @@
 from __future__ import annotations
 
 import logging
-import os
 import signal
 import threading
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -44,7 +43,7 @@ _registration_lock = threading.Lock()
 _handlers_registered: bool = False
 
 # 训练检查点回调（可选）
-_checkpoint_callback: Optional[Callable[[], bool]] = None
+_checkpoint_callback: Callable[[], bool] | None = None
 
 # 清理回调列表（可选，用于资源释放）
 _cleanup_callbacks: list[Callable[[], None]] = []
@@ -100,8 +99,8 @@ def _signal_handler(signum: int, frame) -> None:
 
 
 def register_signal_handlers(
-    checkpoint_callback: Optional[Callable[[], bool]] = None,
-    cleanup_callbacks: Optional[list[Callable[[], None]]] = None,
+    checkpoint_callback: Callable[[], bool] | None = None,
+    cleanup_callbacks: list[Callable[[], None]] | None = None,
 ) -> None:
     """注册 SIGTERM 和 SIGINT 信号处理器。
 
@@ -208,7 +207,7 @@ def check_graceful_shutdown() -> bool:
     return graceful_shutdown_requested.is_set()
 
 
-def wait_for_shutdown(timeout: Optional[float] = None) -> bool:
+def wait_for_shutdown(timeout: float | None = None) -> bool:
     """阻塞等待优雅关闭请求。
 
     主要用于主线程等待工作线程收到信号后的响应。
@@ -268,9 +267,9 @@ def create_training_checkpoint_callback(
     Returns:
         检查点保存回调函数，无参数，返回 bool 表示是否成功。
     """
-    import torch
-
     from pathlib import Path
+
+    import torch
 
     output_path = Path(output_dir)
 
@@ -333,8 +332,8 @@ class SignalHandlerContext:
 
     def __init__(
         self,
-        checkpoint_callback: Optional[Callable[[], bool]] = None,
-        cleanup_callbacks: Optional[list[Callable[[], None]]] = None,
+        checkpoint_callback: Callable[[], bool] | None = None,
+        cleanup_callbacks: list[Callable[[], None]] | None = None,
     ):
         self._checkpoint_callback = checkpoint_callback
         self._cleanup_callbacks = cleanup_callbacks

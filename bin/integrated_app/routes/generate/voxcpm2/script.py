@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """VoxCPM2 剧本工坊（Script Workshop）多角色对话批量生成路由模块。
 
 **路由前缀与端点**：
@@ -60,19 +59,12 @@
 """
 
 import os
-import logging
-from typing import Optional, Dict
 
 from fastapi import Form, Request
 from fastapi.responses import HTMLResponse
 
 from ....config import MAX_TEXT_LENGTH
 from ....model_registry import registry
-from ....exceptions import (
-    InsufficientVRAMError,
-    PersonaNotFoundError,
-    ValidationError,
-)
 from ..utils import (
     _check_engine_ready,
     _error_html,
@@ -159,7 +151,7 @@ async def generate_voxcpm_script(
     # ------------------------------------------------------------------
     # 1. 引擎就绪 + 文本非空/长度校验
     # ------------------------------------------------------------------
-    model_not_ready: Optional[HTMLResponse] = _check_engine_ready(request, "voxcpm2")
+    model_not_ready: HTMLResponse | None = _check_engine_ready(request, "voxcpm2")
     if model_not_ready is not None:
         return model_not_ready
 
@@ -181,7 +173,7 @@ async def generate_voxcpm_script(
     # ------------------------------------------------------------------
     # 3. 构建 persona_map_with_wav：角色名 → 参考音频 WAV 绝对路径
     # ------------------------------------------------------------------
-    persona_map_with_wav: Dict[str, str] = {}
+    persona_map_with_wav: dict[str, str] = {}
     if persona_names.strip():
         from ....persona_manager import load_persona_embedding
 

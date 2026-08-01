@@ -20,7 +20,8 @@ import contextlib
 import logging
 import os
 import random
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union, cast
+from collections.abc import Callable, Generator
+from typing import Any, Union, cast
 
 import numpy as np
 import torch
@@ -79,7 +80,7 @@ class _NativeAccelerator:
         self._world_size = 1
         self._rank = 0
         if precision == "fp16" and self._device.type == "cuda":
-            self._scaler: Optional[torch.cuda.amp.GradScaler] = torch.cuda.amp.GradScaler(enabled=True)
+            self._scaler: torch.cuda.amp.GradScaler | None = torch.cuda.amp.GradScaler(enabled=True)
         else:
             self._scaler = None
 
@@ -112,8 +113,8 @@ class _NativeAccelerator:
         model: nn.Module,
         optimizer: optim.Optimizer,
         train_dataloader: DataLoader,
-        lr_scheduler: Optional[Any] = None,
-    ) -> Tuple[Any, ...]:
+        lr_scheduler: Any | None = None,
+    ) -> tuple[Any, ...]:
         """将模型/优化器/数据加载器搬到目标设备。
 
         Args:
@@ -141,7 +142,7 @@ class _NativeAccelerator:
         else:
             loss.backward()
 
-    def step(self, optimizer: optim.Optimizer, scheduler: Optional[Any] = None) -> None:
+    def step(self, optimizer: optim.Optimizer, scheduler: Any | None = None) -> None:
         """执行优化器 step，fp16 下经 GradScaler 包装。
 
         Args:
@@ -221,8 +222,8 @@ class TrainingAccelerator:
         self._precision: TrainingPrecision = precision
         self._grad_accum = max(1, int(gradient_accumulation_steps))
         self._distributed = distributed
-        self._backend_impl: Optional[Union[_NativeAccelerator, Any]] = None
-        self._device_ctx: Optional[Any] = None
+        self._backend_impl: _NativeAccelerator | Any | None = None
+        self._device_ctx: Any | None = None
         self._init_backend()
 
     # ------------------------------------------------------------------ #
@@ -234,7 +235,7 @@ class TrainingAccelerator:
             from accelerate import Accelerator as _HFAccelerator  # type: ignore
             # Precision 兼容性处理：bf16 要求硬件 Ampere+ / Apple M 系列
             resolved_precision = self._resolve_precision(self._precision)
-            hf_kwargs: Dict[str, Any] = {
+            hf_kwargs: dict[str, Any] = {
                 "mixed_precision": resolved_precision if resolved_precision != "fp32" else "no",
                 "gradient_accumulation_steps": self._grad_accum,
             }
@@ -309,7 +310,7 @@ class TrainingAccelerator:
     # ------------------------------------------------------------------ #
     # Context manager
     # ------------------------------------------------------------------ #
-    def __enter__(self) -> "TrainingAccelerator":
+    def __enter__(self) -> TrainingAccelerator:
         if self._device_ctx is not None:
             try:
                 self._device_ctx.__enter__()
@@ -397,8 +398,8 @@ class TrainingAccelerator:
         model: nn.Module,
         optimizer: optim.Optimizer,
         train_dataloader: DataLoader,
-        lr_scheduler: Optional[Any] = None,
-    ) -> Tuple[Any, ...]:
+        lr_scheduler: Any | None = None,
+    ) -> tuple[Any, ...]:
         """准备训练四件套（model/optim/loader/scheduler）并绑定设备。
 
         Args:
@@ -443,7 +444,7 @@ class TrainingAccelerator:
             return
         loss.backward()
 
-    def step(self, optimizer: optim.Optimizer, scheduler: Optional[Any] = None) -> None:
+    def step(self, optimizer: optim.Optimizer, scheduler: Any | None = None) -> None:
         """执行优化器 step + 可选 scheduler.step。
 
         Args:
@@ -565,7 +566,7 @@ class TrainingAccelerator:
                 pass
         enabled = self._precision != "fp32"
         device_type = "cuda" if self.device.type == "cuda" else ("mps" if self.device.type == "mps" else "cpu")
-        dtype: Optional[torch.dtype] = None
+        dtype: torch.dtype | None = None
         if self._precision == "fp16":
             dtype = torch.float16
         elif self._precision == "bf16":
@@ -689,12 +690,12 @@ class Accelerator:
 
         if self.device.type == "cuda":
             try:
-                self.device_ctx: Optional[Any] = torch.cuda.device(self.local_rank)
+                self.device_ctx: Any | None = torch.cuda.device(self.local_rank)
             except Exception:  # noqa: BLE001
                 self.device_ctx = None
         else:
             self.device_ctx = None
-        self._ddp_model: Optional[DistributedDataParallel] = None
+        self._ddp_model: DistributedDataParallel | None = None
 
     def _set_seed(self, seed: int) -> None:
         """跨进程一致的随机种子设置（torch/numpy/python/cuda）。"""
@@ -704,7 +705,7 @@ class Accelerator:
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    def __enter__(self) -> "Accelerator":
+    def __enter__(self) -> Accelerator:
         """进入 CUDA device 上下文管理器，绑定当前进程到指定 GPU。
 
         Returns:
@@ -859,7 +860,7 @@ class Accelerator:
         batch_size: int,
         num_workers: int = 0,
         shuffle: bool = True,
-        collate_fn: Optional[Callable[[List[Any]], Any]] = None,
+        collate_fn: Callable[[list[Any]], Any] | None = None,
         drop_last: bool = False,
     ) -> DataLoader:
         """准备 DataLoader，分布式环境下自动添加 DistributedSampler。
@@ -875,7 +876,7 @@ class Accelerator:
         Returns:
             配置好的 DataLoader 实例
         """
-        sampler: Optional[torch.utils.data.distributed.DistributedSampler] = None
+        sampler: torch.utils.data.distributed.DistributedSampler | None = None
         if self.world_size > 1:
             try:
                 sampler = torch.utils.data.distributed.DistributedSampler(

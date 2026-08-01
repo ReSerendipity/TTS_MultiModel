@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Persona 音色管理路由模块。
 
 架构说明：
@@ -19,13 +18,12 @@ Persona 数据结构（由 persona_manager 维护）：
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
 
-from ..exceptions import PersonaNotFoundError, ValidationError as TTSValidationError
+from ..exceptions import PersonaNotFoundError
+from ..exceptions import ValidationError as TTSValidationError
 from ..persona_manager import (
     delete_persona,
     get_persona_detail_table,
@@ -80,7 +78,7 @@ async def persona_table(request: Request) -> JSONResponse:
     if len(keyword) > _KEYWORD_MAX_LENGTH:
         keyword = keyword[:_KEYWORD_MAX_LENGTH]
 
-    records: List[List[str]] = get_persona_detail_table(search_keyword=keyword)
+    records: list[list[str]] = get_persona_detail_table(search_keyword=keyword)
 
     return JSONResponse(
         {
@@ -121,7 +119,7 @@ async def persona_delete(name: str) -> JSONResponse:
         success, message = delete_persona(name)
     except PersonaNotFoundError:
         raise
-    except (OSError, IOError) as fs_err:
+    except OSError as fs_err:
         logger.error(f"删除 Persona 底层文件失败 name={name}: {fs_err}")
         return JSONResponse(
             {"status": "error", "message": f"删除文件失败: {fs_err}"},

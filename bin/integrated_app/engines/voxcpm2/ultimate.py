@@ -32,16 +32,18 @@
 """
 
 import contextlib
-import logging
 import os
 import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 from pydantic import ValidationError as PydanticValidationError
 
+from ...exceptions import InsufficientVRAMError, ValidationError
+from ...gpu_utils import free_gpu_memory, is_oom_error
 from ._base import (
     EngineSwitchError,
     GenerationError,
@@ -52,10 +54,8 @@ from ._base import (
     logger,
     tts_error_handler,
 )
-from ...exceptions import InsufficientVRAMError, ValidationError
-from ...gpu_utils import free_gpu_memory, is_oom_error
 
-_VALID_SAMPLERS: Tuple[str, ...] = (
+_VALID_SAMPLERS: tuple[str, ...] = (
     "euler",
     "euler_ancestral",
     "dpm++_2m",
@@ -63,7 +63,7 @@ _VALID_SAMPLERS: Tuple[str, ...] = (
     "ddim",
 )
 _DEFAULT_SAMPLER: str = "dpm++_2m"
-_VALID_GUIDANCE_MODES: Tuple[str, ...] = ("delta", "constant", "linear_boost")
+_VALID_GUIDANCE_MODES: tuple[str, ...] = ("delta", "constant", "linear_boost")
 _DEFAULT_GUIDANCE_MODE: str = "delta"
 
 
@@ -86,7 +86,7 @@ class _UltimateParams:
     guidance_mode: str = _DEFAULT_GUIDANCE_MODE
     denoise_reference: bool = False
     denoise_output: bool = False
-    reference_quantize_bits: Optional[int] = None
+    reference_quantize_bits: int | None = None
     enable_stochastic_sampling: bool = True
     normalize: bool = True
     min_len: int = 2
@@ -94,10 +94,10 @@ class _UltimateParams:
     retry_badcase: bool = True
     retry_badcase_max_times: int = 3
     retry_badcase_ratio_threshold: float = 0.3
-    expert_kwargs: Dict[str, Any] = field(default_factory=dict)
+    expert_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
-def _validate_ultimate_params(params: _UltimateParams) -> Tuple[bool, List[str]]:
+def _validate_ultimate_params(params: _UltimateParams) -> tuple[bool, list[str]]:
     """批量校验 _UltimateParams 各字段范围，一次性返回全部错误（不单报第一个）。
 
     设计原则：
@@ -115,7 +115,7 @@ def _validate_ultimate_params(params: _UltimateParams) -> Tuple[bool, List[str]]
             is_valid=False 时每条 message 形如 `"cfg=25.0 超出合法范围 [1.0, 20.0]"`，
             可直接拼接进 ValidationError 的 message 字段。
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not (1.0 <= params.cfg <= 20.0):
         errors.append(f"cfg={params.cfg} 超出合法范围 [1.0, 20.0]")
@@ -179,7 +179,7 @@ def _apply_guidance_mode_fallback(mode: str) -> str:
     return _DEFAULT_GUIDANCE_MODE
 
 
-def _warn_unrecognized_expert_kwargs(kwargs: Dict[str, Any]) -> None:
+def _warn_unrecognized_expert_kwargs(kwargs: dict[str, Any]) -> None:
     """对 expert_kwargs 中拼写错误等未识别参数记录 warning（不抛异常）。"""
     if not kwargs:
         return
@@ -195,10 +195,10 @@ def _warn_unrecognized_expert_kwargs(kwargs: Dict[str, Any]) -> None:
 
 def _build_generate_kwargs(
     seg_text: str,
-    ref_audio_path: Optional[str],
+    ref_audio_path: str | None,
     ref_text: str,
     params: _UltimateParams,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """把规范化后的 _UltimateParams 展开为 model.generate() 接受的 kwargs。
 
     将专家模式的 20+ 参数完整映射到模型推理接口，包括：
@@ -220,7 +220,7 @@ def _build_generate_kwargs(
     Returns:
         Dict[str, Any]: model.generate() 可直接消费的完整 kwargs 字典。
     """
-    kwargs: Dict[str, Any] = dict(
+    kwargs: dict[str, Any] = dict(
         text=seg_text,
         prompt_wav_path=ref_audio_path or "",
         prompt_text=ref_text,
@@ -250,10 +250,10 @@ def _build_generate_kwargs(
 def _run_generate_with_oom_fallback(
     model: Any,
     seg_text: str,
-    ref_audio_path: Optional[str],
+    ref_audio_path: str | None,
     ref_text: str,
     params: _UltimateParams,
-) -> Tuple[np.ndarray, _UltimateParams]:
+) -> tuple[np.ndarray, _UltimateParams]:
     """执行单段推理，遇 CUDA OOM 时按三级降级策略重试直到成功或耗尽。
 
     降级顺序（按对音频质量的影响从低到高）：
@@ -279,7 +279,7 @@ def _run_generate_with_oom_fallback(
     import copy
 
     active_params = copy.deepcopy(params)
-    fallback_plan: List[Tuple[str, Callable[[], None]]] = [
+    fallback_plan: list[tuple[str, Callable[[], None]]] = [
         (
             "关闭 stochastic_sampling（省约 10% 显存）",
             lambda: setattr(active_params, "enable_stochastic_sampling", False),
@@ -315,15 +315,15 @@ def _run_generate_with_oom_fallback(
                 f"抛出 InsufficientVRAMError：{exc}"
             )
             raise InsufficientVRAMError(
-                f"终极克隆显存不足，已依次尝试："
-                f"关闭 stochastic_sampling → 参考嵌入 8bit → sigma_max 限制，"
-                f"仍无法容纳推理。请卸载其他模型或降低 steps/cfg。"
+                "终极克隆显存不足，已依次尝试："
+                "关闭 stochastic_sampling → 参考嵌入 8bit → sigma_max 限制，"
+                "仍无法容纳推理。请卸载其他模型或降低 steps/cfg。"
             ) from exc
 
 
 def ultimate_clone(
     model: Any,
-    reference_audio: Union[str, bytes, Tuple[np.ndarray, int]],
+    reference_audio: str | bytes | tuple[np.ndarray, int],
     target_text: str,
     *,
     cfg: float = 5.0,
@@ -337,11 +337,11 @@ def ultimate_clone(
     guidance_mode: str = "delta",
     denoise_reference: bool = False,
     denoise_output: bool = False,
-    reference_quantize_bits: Optional[int] = None,
+    reference_quantize_bits: int | None = None,
     enable_stochastic_sampling: bool = True,
-    progress_cb: Optional[Callable[[int, int], None]] = None,
+    progress_cb: Callable[[int, int], None] | None = None,
     **expert_kwargs: Any,
-) -> Tuple[np.ndarray, int, Dict[str, Any]]:
+) -> tuple[np.ndarray, int, dict[str, Any]]:
     """终极克隆（专家参数控制版）：一次性暴露扩散链路所有可调超参数。
 
     Why steps 默认 40（而 clone.py 是 30）：
@@ -417,8 +417,8 @@ def ultimate_clone(
     raw_params.guidance_mode = _apply_guidance_mode_fallback(raw_params.guidance_mode)
     _warn_unrecognized_expert_kwargs(raw_params.expert_kwargs)
 
-    ref_audio_path: Optional[str] = None
-    created_tmp_ref: Optional[str] = None
+    ref_audio_path: str | None = None
+    created_tmp_ref: str | None = None
     ref_text: str = ""
 
     try:
@@ -492,7 +492,7 @@ def ultimate_clone(
             model, target_text, ref_audio_path, ref_text, raw_params
         )
 
-        params_used: Dict[str, Any] = {
+        params_used: dict[str, Any] = {
             "cfg": used_params.cfg,
             "steps": used_params.steps,
             "seed": used_params.seed,

@@ -20,7 +20,6 @@
 
 from __future__ import annotations
 
-import fnmatch
 import hmac
 import logging
 import os

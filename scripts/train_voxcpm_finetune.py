@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # ruff: noqa: E402
 """
 TTS MultiModel - VoxCPM LoRA 微调训练脚本

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """IndexTTS2 情感控制（Emotion-Controllable）语音合成路由模块。
 
 **路由前缀与端点**：
@@ -71,26 +70,18 @@
 """
 
 import contextlib
-import logging
 import os
 import time
-from typing import Optional, Dict, Any, List
+from typing import Any
 
 import numpy as np
 from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
 
 from ....config import MAX_TEXT_LENGTH, SAVE_DIR
-from ....exceptions import (
-    EngineNotLoadedError,
-    InsufficientVRAMError,
-    ValidationError,
-)
-from ....gpu_utils import is_oom_error, free_gpu_memory
 from ..utils import (
-    _execute_generation,
     _error_html,
-    _safe_error_msg,
+    _execute_generation,
     pre_validate,
     router,
     save_uploaded_audio,
@@ -142,11 +133,11 @@ async def generate_indextts2(
     request: Request,
     text: str = Form(""),
     lang: str = Form("Auto"),
-    ref_audio: Optional[UploadFile] = File(None),
+    ref_audio: UploadFile | None = File(None),
     ref_text: str = Form(""),
     seed: int = Form(0),
     emo_text: str = Form(""),
-    emo_audio: Optional[UploadFile] = File(None),
+    emo_audio: UploadFile | None = File(None),
     emo_happy: float = Form(0.0),
     emo_angry: float = Form(0.0),
     emo_sad: float = Form(0.0),
@@ -212,7 +203,7 @@ async def generate_indextts2(
     # ------------------------------------------------------------------
     # 1. 引擎就绪 + 文本长度统一校验（pre_validate 内部也会判断 current_engine）
     # ------------------------------------------------------------------
-    err: Optional[HTMLResponse] = pre_validate(request, "indextts2", text, MAX_TEXT_LENGTH)
+    err: HTMLResponse | None = pre_validate(request, "indextts2", text, MAX_TEXT_LENGTH)
     if err is not None:
         return err
 
@@ -226,8 +217,8 @@ async def generate_indextts2(
     # ------------------------------------------------------------------
     # 2. 处理参考音频（ref_audio）与情感参考音频（emo_audio）
     # ------------------------------------------------------------------
-    ref_audio_path: Optional[str] = None
-    emo_audio_path: Optional[str] = None
+    ref_audio_path: str | None = None
+    emo_audio_path: str | None = None
 
     ref_audio_path, err = await save_uploaded_audio(request, ref_audio)
     if err is not None:
@@ -240,7 +231,7 @@ async def generate_indextts2(
     # ------------------------------------------------------------------
     # 3. 情感模式判定：三选一，优先级 emo_text > emo_audio > 8 维向量
     # ------------------------------------------------------------------
-    emotion_mode: Optional[str] = None
+    emotion_mode: str | None = None
     emotion_data: Any = None
     emotion_alpha: float = emo_alpha
 
@@ -254,7 +245,7 @@ async def generate_indextts2(
         emotion_alpha = emo_alpha_audio
     else:
         # 8 维情感向量（构造 dict，方便后续做"缺 0 / 多报错"校验）
-        emotion_dict: Dict[str, float] = {
+        emotion_dict: dict[str, float] = {
             "happy": emo_happy,
             "angry": emo_angry,
             "sad": emo_sad,
@@ -310,7 +301,7 @@ async def generate_indextts2(
     # 文本自然时长 隐式校验，如果超出范围 engine 会在内部 clamp 并打日志。
     # 此处不做双重校验以避免与 engine 内部逻辑漂移。
     # ------------------------------------------------------------------
-    target_dur: Optional[float] = target_duration if target_duration > 0 else None
+    target_dur: float | None = target_duration if target_duration > 0 else None
 
     # ------------------------------------------------------------------
     # 5. 构造生成闭包（按 segment 拆分 -> 每段 infer -> 合并 -> 写盘）
@@ -318,12 +309,12 @@ async def generate_indextts2(
     def _run():
         """IndexTTS2分段情感合成闭包（含临时文件清理、segment逐段推理逻辑）"""
         segments = split_text_for_tts(text)
-        all_audio: List[np.ndarray] = []
+        all_audio: list[np.ndarray] = []
         for seg in segments:
             seg = seg.strip()
             if not seg:
                 continue
-            infer_kwargs: Dict[str, Any] = {
+            infer_kwargs: dict[str, Any] = {
                 "text": seg,
                 "spk_audio_prompt": ref_audio_path or "",
                 "output_path": None,
@@ -347,7 +338,7 @@ async def generate_indextts2(
             if seed > 0:
                 infer_kwargs["seed"] = seed
 
-            result_path: Optional[str] = engine.infer(**infer_kwargs)
+            result_path: str | None = engine.infer(**infer_kwargs)
             if result_path and os.path.exists(result_path):
                 import scipy.io.wavfile as wavfile
 

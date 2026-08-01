@@ -31,9 +31,9 @@
     Pydantic 静默丢弃，保证旧配置文件在新版本代码上仍可正常加载。
 """
 
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 
 class AdvancedParamsConfig(BaseModel):
@@ -229,7 +229,7 @@ class ModelConfig(BaseModel):
         description="声明式引擎注册表，key 为引擎名称",
     )
 
-    def get_engine_spec(self, engine_name: str) -> Optional[EngineSpecConfig]:
+    def get_engine_spec(self, engine_name: str) -> EngineSpecConfig | None:
         """获取指定引擎的声明式规格配置。
 
         优先使用 engines 字典中的配置，若不存在则返回 None。

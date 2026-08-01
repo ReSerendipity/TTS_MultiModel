@@ -23,7 +23,7 @@ import os
 import threading
 import time
 from collections import deque
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -136,11 +136,11 @@ class GenerationTimeEstimator:
                     )
                 except (KeyError, TypeError, ValueError):
                     continue
-        
+
         # 只保留最近 max_entries 条
         if len(converted) > self.max_entries:
             converted = converted[-self.max_entries:]
-        
+
         self._samples = deque(converted, maxlen=self.max_entries)
         self._count = int(data.get("count", len(converted))) if isinstance(data, dict) else len(converted)
 
@@ -283,13 +283,13 @@ class GenerationTimeEstimator:
         with self._lock:
             x = float(num_chars)
             y = float(elapsed_seconds)
-            
+
             # 如果队列已满，deque.append 会自动弹出最旧的样本
             if len(self._samples) >= self.max_entries:
                 # 需要先从统计量中减去即将被淘汰的样本
                 old_x, old_y = self._samples[0]
                 self._remove_sample_stat(float(old_x), float(old_y))
-            
+
             self._samples.append((int(num_chars), float(elapsed_seconds)))
             self._add_sample_stat(x, y)
             self._count += 1

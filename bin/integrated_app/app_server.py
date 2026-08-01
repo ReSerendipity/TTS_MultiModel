@@ -22,12 +22,12 @@ import os
 import pkgutil
 import threading
 import time
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator
 from logging.handlers import RotatingFileHandler
-from typing import Any, Optional
+from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -44,10 +44,10 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_BASE_DIR))
 logger = logging.getLogger("tts_multimodel")
 
-_event_loop: Optional[asyncio.AbstractEventLoop] = None
+_event_loop: asyncio.AbstractEventLoop | None = None
 
 
-def _set_event_loop(loop: Optional[asyncio.AbstractEventLoop]) -> None:
+def _set_event_loop(loop: asyncio.AbstractEventLoop | None) -> None:
     """Store the running event loop for cross-thread state updates.
 
     Args:
@@ -535,7 +535,7 @@ def create_app() -> FastAPI:
     # --- Jinja2 模板初始化，模板缺失时回退到最小模板 ---
     templates_dir = os.path.join(_BASE_DIR, "templates")
     os.makedirs(templates_dir, exist_ok=True)
-    templates: Optional[Jinja2Templates] = None
+    templates: Jinja2Templates | None = None
     try:
         templates = Jinja2Templates(directory=templates_dir)
         debug_mode = os.environ.get("TTS_DEBUG", "0") == "1"
@@ -548,7 +548,7 @@ def create_app() -> FastAPI:
 
     if templates is None:
         try:
-            from jinja2 import Environment, DictLoader
+            from jinja2 import DictLoader, Environment
             minimal_templates = {
                 "download_guide.html": """
 <html><body><h1>TTS_MultiModel 下载引导</h1>

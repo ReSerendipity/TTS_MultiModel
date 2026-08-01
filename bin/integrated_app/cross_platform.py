@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """跨平台兼容性模块。
 
 提供 Windows / macOS / Linux 三平台统一的工具函数，封装平台差异：
@@ -24,7 +23,7 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -213,9 +212,9 @@ def file_lock(file_path: str | Path):
                 path: 锁文件路径。
             """
             self.path = Path(path)
-            self.fd: Optional[int] = None
+            self.fd: int | None = None
 
-        def __enter__(self) -> "_FileLock":
+        def __enter__(self) -> _FileLock:
             """进入上下文，获取文件锁。
 
             在 Windows 上使用 msvcrt.locking，Unix 上使用 fcntl.flock。
@@ -238,7 +237,7 @@ def file_lock(file_path: str | Path):
                     import fcntl
 
                     fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except (OSError, IOError):
+            except OSError:
                 os.close(self.fd)
                 self.fd = None
                 raise RuntimeError(f"无法获取文件锁: {self.path}")
@@ -416,7 +415,7 @@ def get_terminal_size() -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 
 
-def get_default_audio_output_device() -> Optional[str]:
+def get_default_audio_output_device() -> str | None:
     """获取系统默认音频输出设备名称。
 
     Returns:
@@ -424,7 +423,6 @@ def get_default_audio_output_device() -> Optional[str]:
     """
     try:
         if IS_WINDOWS:
-            import winsound
 
             return "Default Windows Audio Device"
         elif IS_MACOS:

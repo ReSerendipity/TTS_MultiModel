@@ -27,11 +27,18 @@ import html
 import random
 import re
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 from pydantic import ValidationError as PydanticValidationError
 
+from ...exceptions import (
+    InsufficientVRAMError,
+    ModelNotLoadedError,
+    ValidationError,
+)
+from ...gpu_utils import free_gpu_memory, is_oom_error
 from ._base import (
     EngineSwitchError,
     GenerationError,
@@ -42,13 +49,6 @@ from ._base import (
     logger,
     tts_error_handler,
 )
-from ...exceptions import (
-    InsufficientVRAMError,
-    ModelNotLoadedError,
-    ValidationError,
-)
-from ...gpu_utils import free_gpu_memory, is_oom_error
-
 
 _MAX_DESCRIPTION_LENGTH: int = 300
 _DEFAULT_SEED_MAX: int = 2**32 - 1
@@ -120,9 +120,9 @@ def fn_voxcpm_design(
     cfg_value: float = 2.0,
     inference_timesteps: int = 10,
     denoise: bool = True,
-    ref_audio_path: Optional[str] = None,
+    ref_audio_path: str | None = None,
     normalize: bool = True,
-) -> Tuple[Optional[Tuple[int, np.ndarray, str]], str]:
+) -> tuple[tuple[int, np.ndarray, str] | None, str]:
     """VoxCPM2 语音设计主入口：根据文本描述生成定制音色语音。
 
     执行流程：
@@ -187,8 +187,8 @@ def fn_voxcpm_design(
         cfg_value_arg: float,
         inference_timesteps_arg: int,
         denoise_arg: bool,
-        ref_audio_path_arg: Optional[str],
-    ) -> Tuple[Optional[Tuple[int, np.ndarray, str]], str]:
+        ref_audio_path_arg: str | None,
+    ) -> tuple[tuple[int, np.ndarray, str] | None, str]:
         """语音设计生成的内部包装函数（带 tts_error_handler 异常装饰器）。
 
         本函数由 @tts_error_handler 装饰，负责：
@@ -227,9 +227,9 @@ def fn_voxcpm_design(
             # UI 高级参数手动调到 20~30 步，耗时线性增加但音质边际收益递减。
             def gen_kwargs_builder(
                 seg_text: str,
-                ref_path: Optional[str],
+                ref_path: str | None,
                 prompt_cache: Any,
-            ) -> Dict[str, Any]:
+            ) -> dict[str, Any]:
                 """构建单段推理的 kwargs 字典（语音设计模式专用）。
 
                 为每段文本生成 model.generate() 所需的参数字典，包含：
@@ -246,7 +246,7 @@ def fn_voxcpm_design(
                 Returns:
                     Dict[str, Any]: model.generate() 可直接消费的 kwargs 字典。
                 """
-                kwargs: Dict[str, Any] = dict(
+                kwargs: dict[str, Any] = dict(
                     text=seg_text,
                     normalize=normalize,
                     cfg_value=cfg_value_arg,
@@ -309,8 +309,8 @@ def generate_voice_from_description(
     seed: int = -1,
     sampler: str = "euler",
     n_samples: int = 1,
-    progress_cb: Optional[Callable[[int, int], None]] = None,
-) -> List[Tuple[np.ndarray, int]]:
+    progress_cb: Callable[[int, int], None] | None = None,
+) -> list[tuple[np.ndarray, int]]:
     """程序化 API：根据文本描述批量生成多条候选语音（面向脚本/第三方集成）。
 
     与 `fn_voxcpm_design` 的区别：
@@ -376,7 +376,7 @@ def generate_voice_from_description(
 
     import torch
 
-    _results: List[Tuple[np.ndarray, int]] = []
+    _results: list[tuple[np.ndarray, int]] = []
     _sample_rate: int = getattr(model, "sample_rate", 48000)
     try:
         for _sample_idx in range(n_samples):

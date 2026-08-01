@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """异步生成任务队列模块 —— 确保串行 TTS 推理以避免 GPU 竞争。
 
 参考 VoiceBox 的 task_queue.py 实现，提供：
@@ -20,8 +19,9 @@ import asyncio
 import logging
 import time
 import traceback
+from collections.abc import Coroutine
 from dataclasses import dataclass, field
-from typing import Any, Coroutine, Optional, Set
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -43,11 +43,11 @@ class GenerationJob:
     created_at: float = field(default_factory=time.monotonic)
 
 
-_generation_queue: Optional[asyncio.Queue[GenerationJob]] = None
-_generation_worker_task: Optional[asyncio.Task] = None
-_queued_generation_ids: Set[str] = set()
+_generation_queue: asyncio.Queue[GenerationJob] | None = None
+_generation_worker_task: asyncio.Task | None = None
+_queued_generation_ids: set[str] = set()
 _running_generation_tasks: dict[str, asyncio.Task] = {}
-_cancelled_generation_ids: Set[str] = set()
+_cancelled_generation_ids: set[str] = set()
 _lock = asyncio.Lock()
 
 
@@ -141,7 +141,7 @@ async def _notify_generation_failed(generation_id: str, error: str) -> None:
         error: 错误消息。
     """
     try:
-        from .routes.sse import event_bus, SSEEvent
+        from .routes.sse import SSEEvent, event_bus
 
         event_bus.notify(
             SSEEvent(
@@ -205,7 +205,7 @@ async def enqueue_generation(generation_id: str, coro: Coroutine) -> None:
     logger.debug("[TaskQueue] 生成已入队: %s (队列深度: %d)", generation_id, _generation_queue.qsize())
 
 
-def cancel_generation(generation_id: str) -> Optional[str]:
+def cancel_generation(generation_id: str) -> str | None:
     """取消排队中或运行中的生成任务（如果仍活跃）。
 
     Args:

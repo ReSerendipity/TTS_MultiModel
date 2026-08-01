@@ -10,13 +10,13 @@ training/ 目录对应 WebUI 中 LoRA 微调 Tab 的训练任务；scripts/train
 """
 from __future__ import annotations
 
+import builtins
 import json
 import logging
 import os
 import tempfile
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import argbind
 import yaml
@@ -79,7 +79,7 @@ class DatasetConfig(BaseModel if BaseModel is not None else object):  # type: ig
             self.max_duration_sec = float(max_duration_sec)
             self.split_ratio = float(split_ratio)
 
-        def dict(self) -> Dict[str, Any]:
+        def dict(self) -> builtins.dict[str, Any]:
             """将配置转换为可 JSON 序列化的字典。
 
             Returns:
@@ -98,20 +98,20 @@ class LoRAConfig(BaseModel if BaseModel is not None else object):  # type: ignor
     """LoRA 适配层配置：目标模块 / rank / alpha / dropout / bias。"""
 
     if BaseModel is not None:
-        target_modules: List[str] = Field(
+        target_modules: list[str] = Field(
             default_factory=lambda: ["to_q", "to_k", "to_v", "to_out.0"],
             description="LoRA 注入的模块名列表（Transformer Attention 投影层）",
         )
         rank: int = Field(8, ge=4, le=64, description="LoRA 秩（r），越大表达力越强但参数量/显存线性增长")
         alpha: float = Field(16.0, gt=0.0, le=1024.0, description="LoRA alpha 缩放系数（通常取 rank 的 2x）")
         dropout: float = Field(0.05, ge=0.0, le=0.5, description="LoRA 适配层 dropout 概率")
-        bias: Literal["none", "all", "lora_only"] = Field(
+        bias: Literal["none", "all", "lora_only"] = Field(  # noqa: UP037
             "none", description="bias 训练策略：none=不训练 / all=全部训练 / lora_only=只训练 lora 模块 bias"
         )
     else:
         def __init__(
             self,
-            target_modules: Optional[List[str]] = None,
+            target_modules: list[str] | None = None,
             rank: int = 8,
             alpha: float = 16.0,
             dropout: float = 0.05,
@@ -132,7 +132,7 @@ class LoRAConfig(BaseModel if BaseModel is not None else object):  # type: ignor
             self.dropout = float(dropout)
             self.bias = bias
 
-        def dict(self) -> Dict[str, Any]:
+        def dict(self) -> builtins.dict[str, Any]:
             """将配置转换为可 JSON 序列化的字典。
 
             Returns:
@@ -151,17 +151,17 @@ class OptimizerConfig(BaseModel if BaseModel is not None else object):  # type: 
     """优化器配置：类型 / 学习率 / 权重衰减 / Adam betas。"""
 
     if BaseModel is not None:
-        optimizer_type: Literal["adamw", "adam", "sgd"] = Field("adamw", description="优化器类型")
+        optimizer_type: Literal["adamw", "adam", "sgd"] = Field("adamw", description="优化器类型")  # noqa: UP037
         lr: float = Field(1e-4, gt=0.0, lt=1.0, description="LoRA 参数学习率")
         weight_decay: float = Field(0.01, ge=0.0, le=0.1, description="权重衰减 L2 正则系数")
-        betas: Tuple[float, float] = Field((0.9, 0.999), description="Adam(beta1, beta2) 动量参数")
+        betas: tuple[float, float] = Field((0.9, 0.999), description="Adam(beta1, beta2) 动量参数")
     else:
         def __init__(
             self,
             optimizer_type: str = "adamw",
             lr: float = 1e-4,
             weight_decay: float = 0.01,
-            betas: Tuple[float, float] = (0.9, 0.999),
+            betas: tuple[float, float] = (0.9, 0.999),
         ) -> None:
             """初始化优化器配置（pydantic 缺失时的 fallback 实现）。
 
@@ -176,7 +176,7 @@ class OptimizerConfig(BaseModel if BaseModel is not None else object):  # type: 
             self.weight_decay = float(weight_decay)
             self.betas = (float(betas[0]), float(betas[1]))
 
-        def dict(self) -> Dict[str, Any]:
+        def dict(self) -> builtins.dict[str, Any]:
             """将配置转换为可 JSON 序列化的字典。
 
             Returns:
@@ -231,7 +231,7 @@ class TrainingConfig(BaseModel if BaseModel is not None else object):  # type: i
             warmup_steps: int = 100,
             precision: TrainingPrecision = "fp16",
             save_every_n_epochs: int = 1,
-            output_dir: Optional[Path] = None,
+            output_dir: Path | None = None,
             seed: int = 42,
         ) -> None:
             """初始化训练完整配置（pydantic 缺失时的 fallback 实现）。
@@ -261,7 +261,7 @@ class TrainingConfig(BaseModel if BaseModel is not None else object):  # type: i
             self.output_dir = Path(output_dir) if output_dir is not None else Path("./training_output")
             self.seed = int(seed)
 
-        def dict(self) -> Dict[str, Any]:
+        def dict(self) -> builtins.dict[str, Any]:
             """将完整训练配置转换为可 JSON 序列化的字典。
 
             Returns:
@@ -296,7 +296,7 @@ class TrainingConfig(BaseModel if BaseModel is not None else object):  # type: i
 # ---------------------------------------------------------------------- #
 # 公开 API：加载 / 保存 / 默认值
 # ---------------------------------------------------------------------- #
-def _pydantic_to_dict(cfg: "TrainingConfig") -> Dict[str, Any]:
+def _pydantic_to_dict(cfg: TrainingConfig) -> dict[str, Any]:
     """把 TrainingConfig 转成 JSON/YAML 可序列化的普通 dict。"""
     if BaseModel is not None:
         raw = cfg.model_dump(mode="json") if hasattr(cfg, "model_dump") else cfg.dict()
@@ -317,7 +317,7 @@ def _pydantic_to_dict(cfg: "TrainingConfig") -> Dict[str, Any]:
 def _recursive_field_replace(data: Any) -> Any:
     """把 dict 中 "Path" 字符串字段还原为 Path 对象（仅针对 data_dir / output_dir）。"""
     if isinstance(data, dict):
-        out: Dict[str, Any] = {}
+        out: dict[str, Any] = {}
         for k, v in data.items():
             val = _recursive_field_replace(v)
             if k in ("data_dir", "output_dir") and isinstance(val, str):
@@ -330,7 +330,7 @@ def _recursive_field_replace(data: Any) -> Any:
     return data
 
 
-def load_training_config(path: Path) -> "TrainingConfig":
+def load_training_config(path: Path) -> TrainingConfig:
     """从 JSON 或 YAML 路径加载训练配置并做 Pydantic 校验。
 
     Args:
@@ -393,7 +393,7 @@ def load_training_config(path: Path) -> "TrainingConfig":
         raise ValueError(f"训练配置字段错误：{e}") from e
 
 
-def save_training_config(cfg: "TrainingConfig", path: Path) -> None:
+def save_training_config(cfg: TrainingConfig, path: Path) -> None:
     """原子写入 TrainingConfig 到 JSON/YAML 文件（.tmp + os.replace）。
 
     为什么要原子写：
@@ -423,7 +423,7 @@ def save_training_config(cfg: "TrainingConfig", path: Path) -> None:
             else:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         os.replace(tmp_path, path)
-    except OSError as e:
+    except OSError:
         # 磁盘满等写失败时清理 .tmp，避免残留半写文件
         logger.exception("保存训练配置 %s 时发生 OSError（磁盘空间不足或无写权限？）", path)
         try:
@@ -432,7 +432,7 @@ def save_training_config(cfg: "TrainingConfig", path: Path) -> None:
         except OSError:
             pass
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("保存训练配置 %s 时发生未预期异常", path)
         try:
             if tmp_path.exists():
@@ -442,7 +442,7 @@ def save_training_config(cfg: "TrainingConfig", path: Path) -> None:
         raise
 
 
-def get_default_config(data_dir: Path) -> "TrainingConfig":
+def get_default_config(data_dir: Path) -> TrainingConfig:
     """给定数据集目录，生成一份经验最优的默认 TrainingConfig。
 
     Args:
@@ -473,7 +473,7 @@ def get_default_config(data_dir: Path) -> "TrainingConfig":
         weight_decay=0.01,
         betas=(0.9, 0.999),
     )
-    cfg_kwargs: Dict[str, Any] = dict(
+    cfg_kwargs: dict[str, Any] = dict(
         dataset=dataset_cfg,
         lora=lora_cfg,
         optimizer=opt_cfg,

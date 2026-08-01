@@ -52,7 +52,7 @@
 
 import logging
 from collections.abc import Generator
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ...engine_interface import ControllableTTSEngine, TTSEngine
 from ...exceptions import (
@@ -245,7 +245,7 @@ class VoxCPM2Engine(TTSEngine, ControllableTTSEngine):
     def generate_voice_clone(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         instruction: str = "",
         normalize: bool = True,
         **kwargs: Any,
@@ -298,8 +298,8 @@ class VoxCPM2Engine(TTSEngine, ControllableTTSEngine):
     def generate_script(
         self,
         text: str,
-        speaker_map: Optional[dict[str, Any]] = None,
-        persona_map: Optional[dict[str, Any]] = None,
+        speaker_map: dict[str, Any] | None = None,
+        persona_map: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> tuple[Any, str]:
         """剧本工坊模式：多角色对话批量合成。
@@ -370,7 +370,7 @@ class VoxCPM2Engine(TTSEngine, ControllableTTSEngine):
     def generate_streaming(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         **kwargs: Any,
     ) -> Generator[Any, None, None]:
         """流式生成模式：长文本分段合成并实时输出音频块。
@@ -440,7 +440,7 @@ class VoxCPM2Engine(TTSEngine, ControllableTTSEngine):
         self,
         text: str,
         instruction: str = "",
-        ref_audio_path: Optional[str] = None,
+        ref_audio_path: str | None = None,
         advanced_cfg: float = 2.0,
         advanced_norm: bool = True,
         advanced_denoise: float = 1.0,

@@ -22,7 +22,7 @@ import contextlib
 import gc
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -248,7 +248,7 @@ def free_gpu_memory() -> None:
     )
 
 
-def get_gpu_device() -> Optional[int]:
+def get_gpu_device() -> int | None:
     """选择可用的 GPU 设备索引（非最大显存策略）。
 
     策略说明：本函数返回**第一个可用的 CUDA GPU**，而非显存最大的 GPU。

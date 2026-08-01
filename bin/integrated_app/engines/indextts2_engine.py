@@ -97,7 +97,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 
@@ -217,9 +217,9 @@ class IndexTTS2Engine(TTSEngine):
 
     def __init__(
         self,
-        model_dir: Optional[str] = None,
+        model_dir: str | None = None,
         use_fp16: bool = True,
-        device: Optional[str] = None,
+        device: str | None = None,
         use_deepspeed: bool = False,
     ) -> None:
         """初始化 IndexTTS 2.0 引擎。
@@ -509,14 +509,14 @@ class IndexTTS2Engine(TTSEngine):
         self,
         text: str,
         spk_audio_prompt: str,
-        output_path: Optional[str] = None,
-        emo_audio_prompt: Optional[str] = None,
+        output_path: str | None = None,
+        emo_audio_prompt: str | None = None,
         emo_alpha: float = 0.8,
-        emo_vector: Optional[list[float]] = None,
-        emo_text: Optional[str] = None,
+        emo_vector: list[float] | None = None,
+        emo_text: str | None = None,
         use_emo_text: bool = False,
-        target_duration: Optional[float] = None,
-        seed: Optional[int] = None,
+        target_duration: float | None = None,
+        seed: int | None = None,
         duration_factor: float = 1.0,
         **kwargs: Any,
     ) -> tuple[int, np.ndarray, str]:
@@ -732,10 +732,10 @@ class IndexTTS2Engine(TTSEngine):
         self,
         text: str,
         spk_audio_prompt: str,
-        output_path: Optional[str] = None,
-        emo_audio_prompt: Optional[str] = None,
-        emo_vector: Optional[list[float]] = None,
-        emo_text: Optional[str] = None,
+        output_path: str | None = None,
+        emo_audio_prompt: str | None = None,
+        emo_vector: list[float] | None = None,
+        emo_text: str | None = None,
         duration_factor: float = 1.0,
         **kwargs: Any,
     ) -> tuple[int, np.ndarray, str]:
@@ -1027,7 +1027,7 @@ class IndexTTS2Engine(TTSEngine):
     def generate_voice_clone(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         instruction: str = "",
         normalize: bool = True,
         **kwargs: Any,
@@ -1058,7 +1058,7 @@ class IndexTTS2Engine(TTSEngine):
                 "IndexTTS2 generate_voice_clone 需要 reference_audio_path。"
             )
 
-        emo_text_kw: Optional[str] = None
+        emo_text_kw: str | None = None
         use_emo_text_kw: bool = False
         if instruction and instruction.startswith("emo_text:"):
             emo_text_kw = instruction[len("emo_text:"):].strip()
@@ -1076,8 +1076,8 @@ class IndexTTS2Engine(TTSEngine):
     def generate_script(
         self,
         text: str,
-        speaker_map: Optional[dict[str, Any]] = None,
-        persona_map: Optional[dict[str, Any]] = None,
+        speaker_map: dict[str, Any] | None = None,
+        persona_map: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> tuple[Any, str]:
         """剧本工坊模式（IndexTTS2 不支持，显式抛出 NotImplementedError）。
@@ -1099,7 +1099,7 @@ class IndexTTS2Engine(TTSEngine):
     def generate_streaming(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """流式生成模式（IndexTTS2 不支持，显式抛出 NotImplementedError）。

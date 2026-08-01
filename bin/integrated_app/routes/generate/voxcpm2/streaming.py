@@ -42,11 +42,10 @@ import functools
 import html
 import io
 import json
-import logging
 import os
 import time
 import wave
-from typing import Optional, Tuple, List, Any, Dict
+from typing import Any
 from urllib.parse import quote
 
 import aiofiles
@@ -56,26 +55,20 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 
 from ....config import MAX_TEXT_LENGTH, SAVE_DIR
 from ....generation import _save_wav_compatible, split_text_for_tts
+from ....gpu_utils import free_gpu_memory, is_oom_error
 from ....model_registry import registry
 from ....monitor import get_health_monitor
-from ....exceptions import (
-    InsufficientVRAMError,
-    PersonaNotFoundError,
-    ValidationError,
-    GenerationError,
-)
-from ....gpu_utils import is_oom_error, free_gpu_memory
 from ..utils import (
+    _GENERATION_HARD_TIMEOUT_S,
+    _SEMAPHORE_ACQUIRE_TIMEOUT_S,
     _apply_post_processing_to_file,
     _error_html,
-    _GENERATION_HARD_TIMEOUT_S,
     _get_generation_semaphore,
     _log_generation,
     _merge_dialect,
     _parse_bool_form,
     _record_to_history_db,
     _safe_error_msg,
-    _SEMAPHORE_ACQUIRE_TIMEOUT_S,
     _success_html,
     _time_estimator,
     logger,
@@ -122,7 +115,7 @@ async def _load_streaming_persona(
     persona_name: str,
     ref_audio_path: str = "",
     allow_missing: bool = True,
-) -> Tuple[Optional[str], Optional[HTMLResponse]]:
+) -> tuple[str | None, HTMLResponse | None]:
     """REFACTOR: [S-R2] 统一流式路由的 persona 加载逻辑。
 
     三路由原本各自实现 persona 加载，逻辑重复且行为不一致：
@@ -169,7 +162,7 @@ async def _load_streaming_persona(
 
 def _generate_segment_sync(
     seg_text: str,
-    actual_ref_path: Optional[str],
+    actual_ref_path: str | None,
     cfg_value: float,
     inference_timesteps: int,
     stream_denoise: bool,
@@ -201,7 +194,7 @@ def _generate_segment_sync(
         raise RuntimeError("VoxCPM2 模型未加载")
 
     if prefer_streaming and hasattr(model, "generate_streaming"):
-        chunks: List[np.ndarray] = list(
+        chunks: list[np.ndarray] = list(
             model.generate_streaming(
                 text=seg_text,
                 reference_wav_path=actual_ref_path,
@@ -229,7 +222,7 @@ def _generate_segment_sync(
 
 async def _generate_segment_async(
     seg_text: str,
-    actual_ref_path: Optional[str],
+    actual_ref_path: str | None,
     cfg_value: float,
     inference_timesteps: int,
     stream_denoise: bool,
@@ -275,9 +268,9 @@ async def _generate_segment_async(
 
 
 async def _merge_and_save_wav(
-    audio_chunks: List[np.ndarray],
+    audio_chunks: list[np.ndarray],
     prefix: str = "streaming",
-) -> Tuple[str, float]:
+) -> tuple[str, float]:
     """REFACTOR: [S-R1] 合并音频块并保存为 WAV 文件。
 
     Args:
@@ -314,7 +307,7 @@ async def _merge_and_save_wav(
 
 async def _acquire_streaming_semaphore(
     request: Request, engine: str = "voxcpm2"
-) -> Tuple[Optional[asyncio.Semaphore], Optional[HTMLResponse]]:
+) -> tuple[asyncio.Semaphore | None, HTMLResponse | None]:
     """REFACTOR: [S-R3] 获取流式生成信号量，带超时保护。
 
     Returns:
@@ -381,7 +374,7 @@ async def streaming_sse_generation(
         InsufficientVRAMError: 503，CUDA OOM（段级重试失败时）。
     """
     # S-R1: 复用 pre_validate 统一文本校验 + 引擎就绪检查
-    error: Optional[HTMLResponse] = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
+    error: HTMLResponse | None = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if error is not None:
         # 注意：SSE 规范下客户端即便收到 400 也可能尝试解析事件，
         # 因此此处保持原行为——直接返回非 SSE 的错误 HTML 片段，
@@ -408,8 +401,8 @@ async def streaming_sse_generation(
     instruction = _merge_dialect(instruction, lang)
 
     # S-R2: 统一 persona 加载（allow_missing=True，缺失用默认音色）
-    actual_ref_path: Optional[str]
-    persona_error: Optional[HTMLResponse]
+    actual_ref_path: str | None
+    persona_error: HTMLResponse | None
     actual_ref_path, persona_error = await _load_streaming_persona(
         request, persona_name, allow_missing=True
     )
@@ -421,8 +414,8 @@ async def streaming_sse_generation(
         )
 
     # S-R3: 加信号量（三路由统一获取方式）
-    semaphore: Optional[asyncio.Semaphore]
-    sem_error: Optional[HTMLResponse]
+    semaphore: asyncio.Semaphore | None
+    sem_error: HTMLResponse | None
     semaphore, sem_error = await _acquire_streaming_semaphore(request)
     if sem_error is not None:
         return StreamingResponse(
@@ -436,7 +429,7 @@ async def streaming_sse_generation(
         # E4: finally 中释放信号量，确保异常路径 / 客户端断开 / CancelledError
         # 场景下都不会造成信号量泄漏，导致后续请求永远排队。
         try:
-            segments: List[str] = split_text_for_tts(text)
+            segments: list[str] = split_text_for_tts(text)
             total: int = len(segments)
 
             meta: str = json.dumps(
@@ -450,7 +443,7 @@ async def streaming_sse_generation(
             )
             yield f"event: meta\ndata: {meta}\n\n"
 
-            all_chunks: List[np.ndarray] = []
+            all_chunks: list[np.ndarray] = []
 
             for idx, seg in enumerate(segments):
                 seg = seg.strip()
@@ -564,15 +557,15 @@ async def streaming_generation(
         HTMLResponse: HTMX 格式 HTML 片段，携带合并后 WAV。
     """
     # S-R1: 复用 pre_validate
-    error: Optional[HTMLResponse] = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
+    error: HTMLResponse | None = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if error is not None:
         return error
 
     stream_denoise: bool = _parse_bool_form(denoise)
 
     # S-R2: 统一 persona 加载（allow_missing=False，缺失返回错误）
-    actual_ref_path: Optional[str]
-    persona_error: Optional[HTMLResponse]
+    actual_ref_path: str | None
+    persona_error: HTMLResponse | None
     actual_ref_path, persona_error = await _load_streaming_persona(
         request, persona_name, ref_audio_path, allow_missing=False
     )
@@ -580,8 +573,8 @@ async def streaming_generation(
         return persona_error
 
     # S-R3: 加信号量
-    semaphore: Optional[asyncio.Semaphore]
-    sem_error: Optional[HTMLResponse]
+    semaphore: asyncio.Semaphore | None
+    sem_error: HTMLResponse | None
     semaphore, sem_error = await _acquire_streaming_semaphore(request)
     if sem_error is not None:
         return sem_error
@@ -708,15 +701,15 @@ async def streaming_audio_generation(
         HTMLResponse: 携带 <audio> 元素 + 自动播放 JS 的 HTML 片段。
     """
     # S-R1: 复用 pre_validate
-    error: Optional[HTMLResponse] = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
+    error: HTMLResponse | None = pre_validate(request, "voxcpm2", text, MAX_TEXT_LENGTH)
     if error is not None:
         return error
 
     stream_denoise: bool = _parse_bool_form(denoise)
 
     # S-R2: 统一 persona 加载（allow_missing=True，缺失用默认音色）
-    actual_ref_path: Optional[str]
-    persona_error: Optional[HTMLResponse]
+    actual_ref_path: str | None
+    persona_error: HTMLResponse | None
     actual_ref_path, persona_error = await _load_streaming_persona(
         request, persona_name, allow_missing=True
     )
@@ -724,16 +717,16 @@ async def streaming_audio_generation(
         return persona_error
 
     # S-R3: 加信号量
-    semaphore: Optional[asyncio.Semaphore]
-    sem_error: Optional[HTMLResponse]
+    semaphore: asyncio.Semaphore | None
+    sem_error: HTMLResponse | None
     semaphore, sem_error = await _acquire_streaming_semaphore(request)
     if sem_error is not None:
         return sem_error
 
     start_time: float = time.monotonic()
     try:
-        segments: List[str] = split_text_for_tts(text)
-        all_audio_data: List[np.ndarray] = []
+        segments: list[str] = split_text_for_tts(text)
+        all_audio_data: list[np.ndarray] = []
 
         for _seg_idx, seg in enumerate(segments):
             seg = seg.strip()
@@ -889,7 +882,7 @@ async def post_process_audio(
     summary="取消生成",
     description="取消正在进行的语音生成任务",
 )
-async def cancel_generation(request: Request) -> Dict[str, str]:
+async def cancel_generation(request: Request) -> dict[str, str]:
     """取消当前正在进行的流式/非流式生成任务。
 
     实际效果：设置 model_manager._progress_mgr.cancel_flag = True，

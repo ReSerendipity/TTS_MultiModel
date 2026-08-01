@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """TTS_MultiModel 集成应用包 —— 多引擎 TTS 服务的核心入口。
 
 本包是 TTS_MultiModel 项目的核心，提供完整的多引擎文本转语音服务：

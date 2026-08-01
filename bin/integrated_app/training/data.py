@@ -21,13 +21,14 @@ import math
 import random
 import statistics
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import argbind
 import torch
-from datasets import Audio, Dataset as HFDataset, DatasetDict, load_dataset
-from torch.utils.data import Dataset as TorchDataset
+from datasets import Audio, DatasetDict, load_dataset
+from datasets import Dataset as HFDataset
 from torch.utils.data import DataLoader
+from torch.utils.data import Dataset as TorchDataset
 
 try:
     from typing import Literal
@@ -62,7 +63,7 @@ class DatasetEntry(NamedTuple):
 
     audio_path: Path
     text: str
-    speaker_id: Optional[str]
+    speaker_id: str | None
     duration: float
 
 
@@ -86,16 +87,16 @@ class HFVoxCPMDataset(TorchDataset[DatasetEntry]):
     """
 
     # Legacy 薄封装
-    _legacy_dataset: Optional[HFDataset] = None
+    _legacy_dataset: HFDataset | None = None
     # 新风格条目
-    _entries: List[DatasetEntry]
-    _skipped_paths: List[Tuple[Path, str]]
+    _entries: list[DatasetEntry]
+    _skipped_paths: list[tuple[Path, str]]
     _total_scanned: int = 0
 
     def __init__(
         self,
-        data_dir: Union[Path, str, HFDataset],
-        split: Literal["train", "eval"] = "train",
+        data_dir: Path | str | HFDataset,
+        split: Literal["train", "eval"] = "train",  # noqa: UP037
         split_ratio: float = 0.9,
         sample_rate: int = 16000,
         min_duration: float = 1.0,
@@ -167,14 +168,14 @@ class HFVoxCPMDataset(TorchDataset[DatasetEntry]):
         sample_rate: int,
         min_duration: float,
         max_duration: float,
-    ) -> Tuple[List[DatasetEntry], List[Tuple[Path, str]], int]:
+    ) -> tuple[list[DatasetEntry], list[tuple[Path, str]], int]:
         """扫描 data_dir：优先 metadata.jsonl，其次 wav+txt 对。
 
         Returns:
             (valid_entries, skipped[(path, reason)], total_scanned)
         """
-        valid: List[DatasetEntry] = []
-        skipped: List[Tuple[Path, str]] = []
+        valid: list[DatasetEntry] = []
+        skipped: list[tuple[Path, str]] = []
         meta_path = data_dir / "metadata.jsonl"
         if meta_path.exists():
             lines = meta_path.read_text(encoding="utf-8").splitlines()
@@ -251,7 +252,7 @@ class HFVoxCPMDataset(TorchDataset[DatasetEntry]):
         return valid, skipped, total
 
     @staticmethod
-    def _safe_read_duration(path: Path) -> Optional[float]:
+    def _safe_read_duration(path: Path) -> float | None:
         """读取音频时长，损坏时返回 None 并记录。"""
         try:
             if sf is not None:
@@ -327,7 +328,7 @@ class HFVoxCPMDataset(TorchDataset[DatasetEntry]):
             )
         return self._entries[idx]
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """返回数据集统计：总数 / 跳过数 / 时长 min/max/avg / speaker 数。
 
         Returns:
@@ -372,7 +373,7 @@ class HFVoxCPMDataset(TorchDataset[DatasetEntry]):
     # Legacy padding 工具（保留给 collate_fn）
     # ------------------------------------------------------------------ #
     @staticmethod
-    def pad_sequences(seqs: List[torch.Tensor], pad_value: float) -> torch.Tensor:
+    def pad_sequences(seqs: list[torch.Tensor], pad_value: float) -> torch.Tensor:
         """把变长 1D tensor padding 到 batch 最长长度。
 
         Args:
@@ -385,7 +386,7 @@ class HFVoxCPMDataset(TorchDataset[DatasetEntry]):
         if not seqs:
             return torch.empty(0)
         max_len = max(int(seq.shape[0]) for seq in seqs)
-        padded: List[torch.Tensor] = []
+        padded: list[torch.Tensor] = []
         for seq in seqs:
             if seq.shape[0] < max_len:
                 pad_width = (0, max_len - int(seq.shape[0]))
@@ -394,7 +395,7 @@ class HFVoxCPMDataset(TorchDataset[DatasetEntry]):
         return torch.stack(padded, dim=0)
 
     @classmethod
-    def collate_fn(cls, batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
+    def collate_fn(cls, batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         """Legacy collate_fn：把 ``__getitem__`` 返回的 dict 批量化。
 
         保留以兼容旧训练代码调用路径；新代码推荐使用 BatchProcessor。
@@ -448,15 +449,15 @@ class BatchProcessor:
 
     def __init__(
         self,
-        tokenizer: Optional[Any] = None,
-        feature_extractor: Optional[Any] = None,
+        tokenizer: Any | None = None,
+        feature_extractor: Any | None = None,
         sample_rate: int = 16000,
         max_length: int = 1024,
         *,
-        config: Optional[VoxCPMConfig] = None,
-        audio_vae: Optional[AudioVAE] = None,
+        config: VoxCPMConfig | None = None,
+        audio_vae: AudioVAE | None = None,
         dataset_cnt: int = 1,
-        device: Optional[torch.device] = None,
+        device: torch.device | None = None,
     ) -> None:
         """初始化 BatchProcessor。
 
@@ -481,10 +482,10 @@ class BatchProcessor:
         self.feature_extractor = feature_extractor
         self.sample_rate = int(sample_rate)
         self.max_length = int(max_length)
-        self._device: Optional[torch.device] = device
+        self._device: torch.device | None = device
         # Legacy 构造路径（config + audio_vae + dataset_cnt 全给时）
-        self._legacy_packer: Optional[AudioFeatureProcessingPacker] = None
-        self._legacy_audio_vae: Optional[AudioVAE] = audio_vae
+        self._legacy_packer: AudioFeatureProcessingPacker | None = None
+        self._legacy_audio_vae: AudioVAE | None = audio_vae
         if config is not None and audio_vae is not None:
             if device is not None:
                 audio_vae.to(device)
@@ -497,7 +498,7 @@ class BatchProcessor:
             )
             self._device = device
 
-    def _load_audio(self, path: Path) -> Tuple[torch.Tensor, int]:
+    def _load_audio(self, path: Path) -> tuple[torch.Tensor, int]:
         """安全读取 wav，损坏时抛出 LibsndfileError 类异常。"""
         if sf is not None:
             arr, sr = sf.read(str(path), always_2d=True)
@@ -508,7 +509,7 @@ class BatchProcessor:
 
             waveform, sr = torchaudio.load(str(path))
             return waveform[0].float(), int(sr)
-        except Exception as e:  # pragma: no cover - 再试 librosa
+        except Exception:  # pragma: no cover - 再试 librosa
             try:
                 import librosa  # type: ignore[import]
 
@@ -517,7 +518,7 @@ class BatchProcessor:
             except Exception as nested:
                 raise RuntimeError(f"读取音频失败: {path}") from nested
 
-    def _tokenize(self, text: str) -> List[int]:
+    def _tokenize(self, text: str) -> list[int]:
         """调用 tokenizer 编码，超长时按 2x max_length 阈值警告 + 截断。"""
         if self.tokenizer is None:
             # 没有 tokenizer 时，直接用字符级 char code（仅兜底）
@@ -542,7 +543,7 @@ class BatchProcessor:
             ids = ids[: self.max_length]
         return ids
 
-    def __call__(self, batch: List[DatasetEntry]) -> Dict[str, torch.Tensor]:
+    def __call__(self, batch: list[DatasetEntry]) -> dict[str, torch.Tensor]:
         """将 DatasetEntry 列表转为模型输入张量。
 
         当本 BatchProcessor 由 legacy 路径（config + audio_vae）构造时，内部走
@@ -553,7 +554,7 @@ class BatchProcessor:
         # Legacy 路径：先处理成 collate_fn 输出的 dict 再交给 packer
         if self._legacy_packer is not None and self._legacy_audio_vae is not None and self._device is not None:
             # 把 batch 中每个 entry 转成 legacy dict 形式
-            legacy_batch: List[Dict[str, Any]] = []
+            legacy_batch: list[dict[str, Any]] = []
             for entry in batch:
                 try:
                     wav_arr, sr = self._load_audio(entry.audio_path)
@@ -594,9 +595,9 @@ class BatchProcessor:
                 is_prompts=collated["is_prompts"],
             )
         # 简化路径：返回 token / audio / duration 字典
-        text_tokens_list: List[torch.Tensor] = []
-        audio_arrays: List[torch.Tensor] = []
-        durations: List[float] = []
+        text_tokens_list: list[torch.Tensor] = []
+        audio_arrays: list[torch.Tensor] = []
+        durations: list[float] = []
         for entry in batch:
             try:
                 wav_arr, sr = self._load_audio(entry.audio_path)
@@ -647,7 +648,7 @@ class BatchProcessor:
         return int(self._legacy_packer.dataset_cnt)
 
     @property
-    def audio_vae(self) -> Optional[AudioVAE]:
+    def audio_vae(self) -> AudioVAE | None:
         """获取 AudioVAE 实例（legacy 模式下有效）。
 
         Returns:
@@ -656,7 +657,7 @@ class BatchProcessor:
         return self._legacy_audio_vae
 
     @property
-    def packer(self) -> Optional[AudioFeatureProcessingPacker]:
+    def packer(self) -> AudioFeatureProcessingPacker | None:
         """获取 AudioFeatureProcessingPacker 实例（legacy 模式下有效）。
 
         Returns:
@@ -668,13 +669,17 @@ class BatchProcessor:
 # ---------------------------------------------------------------------- #
 # DataLoader 构建
 # ---------------------------------------------------------------------- #
+if TYPE_CHECKING:
+    from .config import TrainingConfig
+
+
 def create_dataloaders(
-    cfg: "TrainingConfig",  # type: ignore[valid-type]  # 延后 import 防循环
-    tokenizer: Optional[Any] = None,
-    feature_extractor: Optional[Any] = None,
-    accelerator: Optional[Any] = None,
+    cfg: TrainingConfig,  # type: ignore[valid-type]  # 延后 import 防循环
+    tokenizer: Any | None = None,
+    feature_extractor: Any | None = None,
+    accelerator: Any | None = None,
     num_workers: int = 0,
-) -> Tuple[DataLoader, DataLoader]:
+) -> tuple[DataLoader, DataLoader]:
     """根据 TrainingConfig 同时构建 train / eval 两个 DataLoader。
 
     Why num_workers 默认 0：
@@ -726,7 +731,7 @@ def create_dataloaders(
         sample_rate=ds_cfg.sample_rate,
         max_length=1024,
     )
-    def _collate(batch: List[DatasetEntry]) -> Dict[str, torch.Tensor]:
+    def _collate(batch: list[DatasetEntry]) -> dict[str, torch.Tensor]:
         return batch_proc(batch)
     if accelerator is not None and hasattr(accelerator, "prepare_dataloader"):
         train_loader = accelerator.prepare_dataloader(
@@ -779,7 +784,7 @@ def load_audio_text_datasets(
     dataset_id_column: str = DEFAULT_ID_COLUMN,
     sample_rate: int = 16_000,
     num_proc: int = 1,
-) -> Tuple[HFDataset, Optional[HFDataset]]:
+) -> tuple[HFDataset, HFDataset | None]:
     """从 json manifest（HF datasets json 格式）加载 HuggingFace Dataset。
 
     Usage (与 minicpm-audio 一致)::
@@ -798,7 +803,7 @@ def load_audio_text_datasets(
     Returns:
         (train_dataset, val_dataset_or_None)
     """
-    data_files: Dict[str, str] = {"train": train_manifest}
+    data_files: dict[str, str] = {"train": train_manifest}
     if val_manifest:
         data_files["validation"] = val_manifest
 
@@ -828,7 +833,7 @@ def compute_sample_lengths(
     ds: HFDataset,
     audio_vae_fps: int = 25,
     patch_size: int = 1,
-) -> List[int]:
+) -> list[int]:
     """预估每个样本经 packer 之后的序列总长度（text+audio）。
 
     用于 packer 的 max_batch_tokens / 过滤超长样本；算法与
@@ -847,7 +852,7 @@ def compute_sample_lengths(
     text_lens = [len(t) for t in text_ids_list]
 
     has_duration = "duration" in ds.column_names
-    durations: List[float]
+    durations: list[float]
     if has_duration:
         durations_raw = ds["duration"]
         durations = [float(d) if d is not None else 0.0 for d in durations_raw]
@@ -866,7 +871,7 @@ def compute_sample_lengths(
                 logger.debug("compute_sample_lengths 读音频失败 i=%d: %s", i, e)
                 durations.append(0.0)
 
-    lengths: List[int] = []
+    lengths: list[int] = []
     for text_len, duration in zip(text_lens, durations):
         t_vae = math.ceil(float(duration) * audio_vae_fps)
         t_seq = math.ceil(t_vae / max(1, patch_size))
