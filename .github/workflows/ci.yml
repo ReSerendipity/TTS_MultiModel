@@ -64,8 +64,8 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        python-version: ["3.12", "3.13"]
-        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
 
     steps:
@@ -82,6 +82,14 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision torchaudio
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov httpx
 
