@@ -26,7 +26,7 @@
 
 ## 2. 并发加载设计目标
 
-- 支持同时加载 VoxCPM2 + IndexTTS2（或 GPT-SoVITS + dots.tts）
+- 支持同时加载 VoxCPM2 + IndexTTS2（或 dots.tts）
 - 用户无需等待引擎切换即可使用不同引擎
 - 每个引擎独立维护生成队列和进度
 

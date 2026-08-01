@@ -66,23 +66,6 @@ class TestTabCollapseInteraction:
         page.wait_for_load_state("networkidle")
         assert page.title() != ""
 
-    def test_gptsovits_tab_advanced_params(self, server_url, browser):
-        """测试 GPT-SoVITS Tab 高级参数折叠面板交互。"""
-        page = browser.new_page()
-        page.goto(f"{server_url}/tabs/gptsovits_clone")
-        page.wait_for_load_state("networkidle")
-
-        # 检查折叠面板存在
-        collapse_body = page.query_selector(".collapse-body")
-        if collapse_body:
-            # 测试点击展开
-            toggle_btn = page.query_selector(".toggle-btn")
-            if toggle_btn:
-                toggle_btn.click()
-                page.wait_for_timeout(500)
-                # 验证展开状态
-                assert collapse_body.is_visible()
-
     def test_dotstts_tab_advanced_params(self, server_url, browser):
         """测试 dots.tts Tab 高级参数折叠面板交互。"""
         page = browser.new_page()
