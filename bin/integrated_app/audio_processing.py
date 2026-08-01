@@ -131,7 +131,7 @@ def _normalize_loudness_rms(
         return audio
 
     try:
-        rms = np.sqrt(np.mean(audio ** 2))
+        rms = np.sqrt(np.mean(audio**2))
     except (FloatingPointError, ValueError):
         logger.debug("RMS 计算出现浮点异常，返回原数组")
         return audio
@@ -182,15 +182,14 @@ def _normalize_loudness_lufs(
         current_loudness = meter.integrated_loudness(audio)
     except (ValueError, np.linalg.LinAlgError) as exc:
         logger.warning(
-            "pyloudnorm loudness measurement failed: %s "
-            "(audio.shape=%s, sample_rate=%d). Falling back to RMS.",
-            exc, audio.shape, sample_rate,
+            "pyloudnorm loudness measurement failed: %s (audio.shape=%s, sample_rate=%d). Falling back to RMS.",
+            exc,
+            audio.shape,
+            sample_rate,
         )
         return _normalize_loudness_rms(audio, sample_rate, target_lufs)
     except Exception as exc:
-        logger.warning(
-            "pyloudnorm loudness measurement failed (%s), falling back to RMS", exc
-        )
+        logger.warning("pyloudnorm loudness measurement failed (%s), falling back to RMS", exc)
         return _normalize_loudness_rms(audio, sample_rate, target_lufs)
 
     if not np.isfinite(current_loudness) or current_loudness < -70.0:
@@ -203,13 +202,15 @@ def _normalize_loudness_lufs(
             "pyloudnorm normalization failed: %s "
             "(audio.shape=%s, sample_rate=%d, current_loudness=%.2f, target=%.2f). "
             "Falling back to RMS.",
-            exc, audio.shape, sample_rate, current_loudness, target_lufs,
+            exc,
+            audio.shape,
+            sample_rate,
+            current_loudness,
+            target_lufs,
         )
         return _normalize_loudness_rms(audio, sample_rate, target_lufs)
     except Exception as exc:
-        logger.warning(
-            "pyloudnorm normalization failed (%s), falling back to RMS", exc
-        )
+        logger.warning("pyloudnorm normalization failed (%s), falling back to RMS", exc)
         return _normalize_loudness_rms(audio, sample_rate, target_lufs)
 
     try:
@@ -447,10 +448,7 @@ class AudioEffectsProcessor:
     def _warn_stub(cls) -> None:
         """首次调用时输出 pedalboard 未安装告警（仅告警一次）。"""
         if not cls._warned_no_pedalboard:
-            logger.warning(
-                "pedalboard 未安装；音频效果将为空操作（no-op）。"
-                "如需音频效果请安装: pip install pedalboard"
-            )
+            logger.warning("pedalboard 未安装；音频效果将为空操作（no-op）。如需音频效果请安装: pip install pedalboard")
             cls._warned_no_pedalboard = True
 
     def _build_effect(self, name: str, **kwargs: Any) -> Any | None:
@@ -621,9 +619,7 @@ class AudioEffectsProcessor:
 
         for name in effects:
             if name == "pitch_shift" and pitch_shift_semitones != 0:
-                effect_instances.append(
-                    self._build_effect("pitch_shift", semitones=pitch_shift_semitones)
-                )
+                effect_instances.append(self._build_effect("pitch_shift", semitones=pitch_shift_semitones))
             elif name == "reverb":
                 effect_instances.append(
                     self._build_effect(
@@ -663,17 +659,11 @@ class AudioEffectsProcessor:
                     )
                 )
             elif name == "gain" and gain_db != 0.0:
-                effect_instances.append(
-                    self._build_effect("gain", gain_db=gain_db)
-                )
+                effect_instances.append(self._build_effect("gain", gain_db=gain_db))
             elif name == "highpass" and highpass_cutoff_hz is not None:
-                effect_instances.append(
-                    self._build_effect("highpass", cutoff_frequency_hz=highpass_cutoff_hz)
-                )
+                effect_instances.append(self._build_effect("highpass", cutoff_frequency_hz=highpass_cutoff_hz))
             elif name == "lowpass" and lowpass_cutoff_hz is not None:
-                effect_instances.append(
-                    self._build_effect("lowpass", cutoff_frequency_hz=lowpass_cutoff_hz)
-                )
+                effect_instances.append(self._build_effect("lowpass", cutoff_frequency_hz=lowpass_cutoff_hz))
             else:
                 logger.debug("Effect %s skipped (no parameters or unknown)", name)
 
@@ -772,7 +762,8 @@ def apply_effects_chain(
         if not isinstance(params, dict):
             logger.warning(
                 "apply_effects_chain: 第 %d 项 params 不是 dict(type=%s)，跳过",
-                idx, effect_type,
+                idx,
+                effect_type,
             )
             continue
 
@@ -806,7 +797,8 @@ def apply_effects_chain(
         if effect_cls is None:
             logger.warning(
                 "apply_effects_chain: 未找到效果类 type=%s，跳过。params=%s",
-                effect_type, params,
+                effect_type,
+                params,
             )
             continue
 
@@ -815,7 +807,9 @@ def apply_effects_chain(
         except Exception as exc:
             logger.warning(
                 "apply_effects_chain: 效果实例化失败 type=%s, params=%s: %s. 已跳过。",
-                effect_type, params, exc,
+                effect_type,
+                params,
+                exc,
             )
             continue
 
@@ -823,9 +817,10 @@ def apply_effects_chain(
             current = processor._process_with_board(current, [instance])
         except Exception as exc:
             logger.warning(
-                "apply_effects_chain: 效果处理失败 type=%s, params=%s: %s. "
-                "保留已处理结果，继续后续效果。",
-                effect_type, params, exc,
+                "apply_effects_chain: 效果处理失败 type=%s, params=%s: %s. 保留已处理结果，继续后续效果。",
+                effect_type,
+                params,
+                exc,
             )
             continue
 
@@ -1047,7 +1042,7 @@ def trim_tts_output(
                 # 反向找最后一个超过阈值的位置
                 last_pop_rel = len(above_pop_trail) - 1 - int(np.argmax(above_pop_trail[::-1]))
                 # 找连续爆音区域的起始位置（反向）
-                pop_region_rev = above_pop_trail[:last_pop_rel + 1][::-1]
+                pop_region_rev = above_pop_trail[: last_pop_rel + 1][::-1]
                 if np.all(pop_region_rev):
                     pop_start_rel = 0
                 else:
@@ -1072,9 +1067,7 @@ def trim_tts_output(
                 max_internal_silence_ms=max_internal_silence_ms,
             )
             if cut_sample is not None and cut_sample > 0:
-                logger.debug(
-                    f"[trim_tts_output] 检测到内部长静音幻觉，在样本 {cut_sample} 处截断"
-                )
+                logger.debug(f"[trim_tts_output] 检测到内部长静音幻觉，在样本 {cut_sample} 处截断")
                 trimmed = trimmed[:cut_sample]
 
         if trimmed.size == 0:
@@ -1112,7 +1105,8 @@ def trim_tts_output(
     except Exception as exc:
         logger.debug(
             "trim_tts_output 捕获异常 type=%s: %s，返回原数组",
-            type(exc).__name__, exc,
+            type(exc).__name__,
+            exc,
         )
         return audio
 
@@ -1195,9 +1189,10 @@ def reduce_noise(
             except OverflowError as exc:
                 # noisereduce 内部整数运算在极短片段 / 极端振幅下可能溢出
                 logger.warning(
-                    "reduce_noise: noisereduce 抛出 OverflowError(%s)，返回原音频。"
-                    "audio.shape=%s, sample_rate=%d",
-                    exc, audio.shape, sample_rate,
+                    "reduce_noise: noisereduce 抛出 OverflowError(%s)，返回原音频。audio.shape=%s, sample_rate=%d",
+                    exc,
+                    audio.shape,
+                    sample_rate,
                 )
                 return audio
             return result.astype(np.float32)
@@ -1251,9 +1246,7 @@ def denoise_audio(
                     elif callable(enhancer):
                         result = enhancer(audio, sample_rate)
                     else:
-                        logger.warning(
-                            "denoise_audio: ZipEnhancer 已加载但无可调用接口，跳过"
-                        )
+                        logger.warning("denoise_audio: ZipEnhancer 已加载但无可调用接口，跳过")
                         result = None
 
                     if result is not None:
@@ -1281,7 +1274,9 @@ def denoise_audio(
                 logger.warning(
                     "denoise_audio: noisereduce 抛出 OverflowError(%s)，跳过 noisereduce。"
                     "audio.shape=%s, sample_rate=%d",
-                    exc, audio.shape, sample_rate,
+                    exc,
+                    audio.shape,
+                    sample_rate,
                 )
                 result = None
 
@@ -1290,10 +1285,7 @@ def denoise_audio(
         except Exception as exc:
             logger.warning("denoise_audio: noisereduce 失败: %s", exc)
 
-    logger.warning(
-        "denoise_audio: 无可用降噪后端，原样返回。"
-        "建议: pip install noisereduce"
-    )
+    logger.warning("denoise_audio: 无可用降噪后端，原样返回。建议: pip install noisereduce")
     return audio
 
 
@@ -1339,7 +1331,18 @@ def enhance_audio(
     Returns:
         处理后音频数组。
     """
-    result = audio.copy()
+    # 内存优化（H-R6）：不再无条件 result = audio.copy()。
+    # Why 原来需要 copy：trim_tts_output 会通过末尾余弦淡出 result[-fade:] *= fade
+    # 原地修改传入缓冲区；若直接对调用方的 audio 操作会污染其数据。
+    # 优化策略（等价但更省内存）：
+    #   1. result 初始别名 audio（零拷贝）；
+    #   2. denoise/voice_enhancement/normalize/effects/tempo 均返回新数组，
+    #      任一执行都会自然与 audio 解耦；
+    #   3. 唯一原地修改的 trim_tts_output 执行前，若 result 仍别名 audio
+    #      （前序步骤全部为 no-op）才做一次 copy，保护调用方输入。
+    # 收益：无处理步骤 / 仅归一化等常见路径完全省去一次全量 float32 拷贝，
+    #      降低长音频（分钟级）的内存峰值。
+    result = audio
 
     if denoise:
         result = denoise_audio(result, sample_rate)
@@ -1351,6 +1354,9 @@ def enhance_audio(
         result = normalize_loudness(result, sample_rate, target_lufs, method=method)
 
     if trim_silence:
+        # 保护调用方输入：仅当前序步骤未产生新数组（result 仍别名 audio）时才拷贝
+        if result is audio:
+            result = result.copy()
         result = trim_tts_output(result, sample_rate)
 
     if effects_preset is not None:
@@ -1416,6 +1422,7 @@ def preprocess_reference_audio(
     # Step 2: Trim leading/trailing silence
     try:
         import librosa
+
         trimmed, _ = librosa.effects.trim(audio, top_db=trim_top_db)
     except ImportError:
         # Fallback: simple energy-based trim if librosa not available
@@ -1440,9 +1447,7 @@ def preprocess_reference_audio(
     # Step 5: Loudness normalization (Chatterbox style -27 LUFS)
     if normalize_loudness_flag:
         try:
-            audio = normalize_loudness(
-                audio, sample_rate, target_lufs=target_lufs, method="auto"
-            )
+            audio = normalize_loudness(audio, sample_rate, target_lufs=target_lufs, method="auto")
         except Exception as exc:
             logger.debug("参考音频响度归一化失败（非关键）: %s", exc)
 
@@ -1466,9 +1471,7 @@ def validate_reference_audio(
     Returns:
         Tuple[bool, Optional[str]]: (是否有效, 错误消息)。有效时错误消息为 None。
     """
-    result = validate_and_load_reference_audio(
-        audio_path, min_duration, max_duration, min_rms
-    )
+    result = validate_and_load_reference_audio(audio_path, min_duration, max_duration, min_rms)
     return (result[0], result[1])
 
 
@@ -1496,6 +1499,7 @@ def validate_and_load_reference_audio(
     """
     try:
         import soundfile as sf
+
         audio, sr = sf.read(audio_path)
 
         # Convert to mono if needed
@@ -1556,8 +1560,8 @@ def detect_long_silence(
     threshold_linear = 10 ** (silence_threshold_db / 20)
 
     # Compute per-frame RMS (向量化：reshape 后批量计算，比 Python 循环快 10-100x)
-    frames = audio[:n_frames * frame_len].reshape(n_frames, frame_len)
-    rms = np.sqrt(np.mean(frames ** 2, axis=1))
+    frames = audio[: n_frames * frame_len].reshape(n_frames, frame_len)
+    rms = np.sqrt(np.mean(frames**2, axis=1))
     is_speech = rms >= threshold_linear
 
     # Find first speech frame (向量化)
