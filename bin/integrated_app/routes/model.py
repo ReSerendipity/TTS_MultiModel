@@ -77,9 +77,7 @@ router = APIRouter(prefix="/api/model", tags=["model"])
 logger = logging.getLogger("tts_multimodel.model_routes")
 
 # S-R6: 错误消息脱敏 — 匹配 Windows/Unix 文件路径
-_SENSITIVE_PATH_PATTERN = re.compile(
-    r"[A-Za-z]:\\[^\s\"'<>|*?]+|/(?:[^\s\"'<>|*?]+/)+[^\s\"'<>|*?]*"
-)
+_SENSITIVE_PATH_PATTERN = re.compile(r"[A-Za-z]:\\[^\s\"'<>|*?]+|/(?:[^\s\"'<>|*?]+/)+[^\s\"'<>|*?]*")
 _ERROR_MESSAGE_MAX_LENGTH = 200
 
 
@@ -220,7 +218,14 @@ async def load_model_endpoint(request: Request, engine: str = Form("voxcpm2")) -
     MAX_RETRIES = 2
     try:
         loop = asyncio.get_running_loop()
-        load_fn = load_indextts2 if engine == "indextts2" else load_voxcpm2
+        if engine == "indextts2":
+            load_fn = load_indextts2
+        elif engine == "voxcpm2":
+            load_fn = load_voxcpm2
+        else:
+            # 通用新式引擎（gptsovits / dotstts 等）：通过 switch_engine 走声明式加载。
+            def load_fn() -> Any:  # type: ignore[no-redef]
+                return switch_engine(engine)
 
         from .sse import event_bus
 
@@ -269,7 +274,10 @@ async def load_model_endpoint(request: Request, engine: str = Form("voxcpm2")) -
                 if is_oom_error(exc):
                     logger.warning(
                         "Model load attempt %d/%d failed due to OOM: %s. Retrying...",
-                        attempt, MAX_RETRIES, exc, exc_info=True,
+                        attempt,
+                        MAX_RETRIES,
+                        exc,
+                        exc_info=True,
                     )
                     if attempt < MAX_RETRIES:
                         _notify_load(f"显存不足，正在清理后重试 ({attempt}/{MAX_RETRIES})...")
@@ -342,10 +350,12 @@ async def preload_model_endpoint(request: Request) -> Response:
         engine = body.get("engine", "voxcpm2")
         size = body.get("size", "voxcpm2")
         preload_model(engine, size)
-        return JSONResponse({
-            "status": "ok",
-            "message": f"Preload started for {engine} ({size})",
-        })
+        return JSONResponse(
+            {
+                "status": "ok",
+                "message": f"Preload started for {engine} ({size})",
+            }
+        )
     except TTSError:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -396,6 +406,7 @@ async def switch_engine_endpoint(request: Request, engine: str = Form(...)) -> R
             "engine": engine,
         }
         from .sse import event_bus
+
         event_bus.notify()
 
         def _run_switch() -> str:
@@ -441,22 +452,26 @@ async def switch_engine_endpoint(request: Request, engine: str = Form(...)) -> R
         }
         try:
             from .sse import event_bus
+
             event_bus.notify()
         except Exception as bus_exc:  # noqa: BLE001
             logger.debug("SSE notify 失败: %s", bus_exc)
 
         error_detail = safe_err + (f"\n\n{rollback_msg}" if rollback_msg else "")
-        return JSONResponse({
-            "status": "error",
-            "message": error_detail,
-            "engine": rolled_back_engine,
-            "rolled_back": True,
-        })
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": error_detail,
+                "engine": rolled_back_engine,
+                "rolled_back": True,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
 # LoRA 管理（VoxCPM2 专有）
 # ---------------------------------------------------------------------------
+
 
 def _ensure_voxcpm2_only() -> None:
     """若当前引擎非 VoxCPM2 则抛出 ValidationError（400）。"""
@@ -566,10 +581,12 @@ async def lora_state_endpoint() -> Response:
     """
     try:
         if registry.current_engine != "voxcpm2":
-            return JSONResponse({
-                "status": "ok",
-                "state": {"loaded": False, "message": "LoRA is only available for VoxCPM2 engine"},
-            })
+            return JSONResponse(
+                {
+                    "status": "ok",
+                    "state": {"loaded": False, "message": "LoRA is only available for VoxCPM2 engine"},
+                }
+            )
         state = fn_voxcpm_get_lora_state()
         return JSONResponse({"status": "ok", "state": state})
     except Exception as exc:  # noqa: BLE001
@@ -620,13 +637,16 @@ async def model_download_hints() -> Response:
     """
     try:
         from ..config import get_download_hints
+
         hints = get_download_hints()
         all_ok = len(hints) == 0
-        return JSONResponse({
-            "status": "ok",
-            "all_models_available": all_ok,
-            "hints": hints,
-        })
+        return JSONResponse(
+            {
+                "status": "ok",
+                "all_models_available": all_ok,
+                "hints": hints,
+            }
+        )
     except Exception as exc:  # noqa: BLE001
         logger.error("获取下载提示失败: %s", exc, exc_info=True)
         return JSONResponse({"status": "error", "message": "获取下载提示失败"}, status_code=500)
@@ -645,6 +665,7 @@ async def cancel_generation() -> Response:
         JSON：``{"status": "cancelling" | "no_active_generation", "message": ...}``。
     """
     from ..model_manager import _progress_mgr
+
     if _progress_mgr:
         _progress_mgr.cancel()
         return JSONResponse({"status": "cancelling", "message": "生成任务已取消"})

@@ -52,9 +52,9 @@
 
 import logging
 
-from . import indextts2, voxcpm2  # noqa: F401 — 导入以触发路由注册
+from . import generic, indextts2, voxcpm2  # noqa: F401 — 导入以触发路由注册
 from .utils import router
 
 logger = logging.getLogger("tts_multimodel")
 
-__all__ = ["router", "indextts2", "voxcpm2"]
+__all__ = ["router", "indextts2", "voxcpm2", "generic"]

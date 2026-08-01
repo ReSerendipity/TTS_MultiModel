@@ -69,6 +69,12 @@ LORA_DIR = os.path.join(ROOT_DIR, "lora")
 # --- IndexTTS 2.0 Model Paths ---
 INDEXTTS2_MODEL_PATH = os.path.join(PRETRAINED_DIR, "IndexTTS2")
 
+# --- GPT-SoVITS Model Paths ---
+GPTSOVITS_MODEL_PATH = os.path.join(PRETRAINED_DIR, "GPT-SoVITS")
+
+# --- dots.tts Model Paths ---
+DOTSTTS_MODEL_PATH = os.path.join(PRETRAINED_DIR, "dots.tts")
+
 
 def _ensure_dirs():
     """Create required directories."""

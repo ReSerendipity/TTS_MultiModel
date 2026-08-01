@@ -114,6 +114,8 @@ exclude = [
     "**/node_modules",
     "**/__pycache__",
     "**/.git",
+    "**/pynini_src",
+    "**/reference_repos",
     "dist",
     "build",
 ]
