@@ -1,5 +1,5 @@
 /* =============================================================================
- * TTS MultiModel Voice Studio - Service Worker (Phase 1)
+ * TTS MultiModel Voice Studio - Service Worker (Phase 2)
  *
  * 缓存策略分层：
  *   ┌─────────── HTML GET (navigation) ───────────┐ network-first
@@ -7,6 +7,10 @@
  *   │   - 离线 fallback: precached '/'                │
  *   ├─────────── /static/* / /favicon.ico ───────────┤ cache-first + 后台 revalidate
  *   │   - JS / CSS / fonts / icons                    │
+ *   ├───── /api/audio/*.wav (本地生成音频) ───────┤ IDB-first + 后台 revalidate
+ *   │   - taskId 32-hex 解析                          │
+ *   │   - LRU 100MB 自动清理                          │
+ *   │   - X-IDB-Cache: HIT/MISS 调试头                │
  *   ├─────────── /api/* GET ────────────────────────┤ stale-while-revalidate
  *   │   - model status / persona list / config       │
  *   ├─────────── /api/* POST/PUT/DELETE ─────────────┤ network only + BG Sync（Phase 4）
@@ -24,20 +28,63 @@
  *   - install 事件：self.skipWaiting() 立即激活
  *   - activate 事件：清理无 -${VERSION} 后缀的旧缓存
  *   - 客户端发 SKIP_WAITING 消息强制立即接管（更新提示按钮调用）
+ *
+ * Phase 2 启用条件（与 config.yaml pwa.idb_audio_cache 同步）：
+ *   - 硬编码 IDB_AUDIO_CACHE_ENABLED = true（修改此处需同步 cache_version 升级）
+ *   - 完全运行时配置需要客户端在 SW 激活后 postMessage('CONFIGURE_IDB', { enabled: ... })
  * ============================================================================= */
 
-const VERSION = "v1";  // ⚠️ 与 config.yaml pwa.cache_version 保持同步
+const VERSION = "v2";  // ⚠️ 与 config.yaml pwa.cache_version 保持同步
 const STATIC_CACHE = `tts-static-${VERSION}`;
 const HTML_CACHE = `tts-html-${VERSION}`;
 const API_CACHE = `tts-api-${VERSION}`;
 
-// 预缓存关键资源（Phase 1 最小 app shell：足够打开应用首屏）
+// Phase 2 硬编码启用开关（与 config.yaml pwa.idb_audio_cache 保持同步）
+// 修改此值时务必同时升级 VERSION 触发旧 SW 替换
+const IDB_AUDIO_CACHE_ENABLED = true;
+const IDB_MAX_SIZE_MB = 100;
+const IDB_LRU_TARGET_PCT = 80;
+const IDB_BROADCAST_ENABLED = true;
+const IDB_PERSIST_REQUESTED = true;
+
+// 预缓存关键资源（Phase 2 扩展：加 idb_cache.js 供 SW importScripts）
 // 注意：URL 必须与路由层真实路径一致，否则 install 阶段会 404 失败。
 const PRECACHE_URLS = [
   "/",
   "/favicon.ico",
   "/manifest.json",
+  "/static_pwa/js/idb_cache.js",  // Phase 2: SW importScripts 依赖
 ];
+
+// =============================================================================
+// ImportScripts: 引入 IDB 缓存模块
+// =============================================================================
+// 注意：importScripts 必须在 SW 顶层同步执行，不能放在事件回调中
+try {
+  importScripts("/static_pwa/js/idb_cache.js");
+  // 立即配置（容量、广播、持久化参数来自硬编码常量，与 config.yaml 保持同步）
+  if (self.__idbCache && typeof self.__idbCache.configure === "function") {
+    self.__idbCache.configure({
+      maxSizeMB: IDB_MAX_SIZE_MB,
+      lruTargetPct: IDB_LRU_TARGET_PCT,
+      broadcastEnabled: IDB_BROADCAST_ENABLED,
+      persistRequested: IDB_PERSIST_REQUESTED,
+    });
+    // 异步打开 + 持久化请求（不阻塞 install）
+    self.__idbCache.open().then((ok) => {
+      if (ok) {
+        console.info("[SW] IDB cache initialized, max=" + IDB_MAX_SIZE_MB + "MB");
+        if (IDB_PERSIST_REQUESTED) {
+          self.__idbCache.requestPersist().catch(() => {});
+        }
+      }
+    });
+  } else {
+    console.warn("[SW] idb_cache.js not loaded, IDB audio cache disabled");
+  }
+} catch (err) {
+  console.warn("[SW] importScripts('idb_cache.js') failed:", err);
+}
 
 // =============================================================================
 // Install: 预缓存 + 立即激活
@@ -102,6 +149,18 @@ self.addEventListener("fetch", (event) => {
   // ---- 路由 2：写操作（POST/PUT/DELETE/PATCH）----
   if (request.method !== "GET") {
     event.respondWith(networkOnlyWithBackgroundSync(event));
+    return;
+  }
+
+  // ---- 路由 2.5: 本地生成音频 IDB-first (Phase 2) ----
+  if (
+    IDB_AUDIO_CACHE_ENABLED &&
+    self.__idbCache &&
+    self.__idbCache.isAvailable() &&
+    url.pathname.startsWith("/api/audio/") &&
+    url.pathname.endsWith(".wav")
+  ) {
+    event.respondWith(idbCacheFirstAudio(request));
     return;
   }
 
@@ -211,16 +270,140 @@ async function networkOnlyWithBackgroundSync(event) {
 }
 
 // =============================================================================
-// 客户端消息：SKIP_WAITING 让新 SW 立即接管
+// Phase 2: IDB-first 音频缓存
+// =============================================================================
+
+/**
+ * 从 /api/audio/{filename}.wav 提取 taskId（32 hex 校验）。
+ * 返回 null 表示 URL 不合法（不是本地生成音频或格式不符），调用方应走原 fetch。
+ */
+function extractTaskId(audioUrl) {
+  try {
+    const pathname = new URL(audioUrl).pathname;
+    const filename = pathname.split("/").pop() || "";
+    const stem = filename.replace(/\.wav$/i, "");
+    const taskId = stem.split("_")[0];
+    if (self.__idbCache && self.__idbCache.TASK_ID_PATTERN.test(taskId)) {
+      return taskId;
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * Phase 2 IDB-first 音频响应：
+ *   1. 解析 taskId（32 hex 校验）
+ *   2. 查 IDB 命中 → 直接返回 blob
+ *   3. 未命中 → 走原 fetch + 异步写入
+ */
+async function idbCacheFirstAudio(request) {
+  const taskId = extractTaskId(request.url);
+  if (!taskId) {
+    // 非法 URL（不是本地生成音频或格式不符）→ 走原 fetch
+    return fetch(request);
+  }
+
+  // 1. 查 IDB
+  const cached = await self.__idbCache.get(taskId);
+  if (cached && cached.blob) {
+    return new Response(cached.blob, {
+      status: 200,
+      headers: {
+        "Content-Type": cached.mimeType || "audio/wav",
+        "Content-Length": String(cached.size || cached.blob.size || 0),
+        "X-IDB-Cache": "HIT",
+        "Accept-Ranges": "bytes",  // 兼容 audio_player seek（虽然 Phase 2.0 不支持 206）
+        "Cache-Control": "private, max-age=3600",
+      },
+    });
+  }
+
+  // 2. 未命中 → 走原 fetch
+  try {
+    const response = await fetch(request);
+    if (
+      response.ok &&
+      (response.headers.get("Content-Type") || "").startsWith("audio/")
+    ) {
+      // 3. 异步写入（不阻塞响应；写失败仅 warn，不影响用户）
+      response.clone().blob().then((blob) => {
+        self.__idbCache
+          .put({
+            taskId: taskId,
+            blob: blob,
+            mimeType: response.headers.get("Content-Type"),
+            size: blob.size,
+            timestamp: Date.now(),
+            lastAccessed: Date.now(),
+          })
+          .catch((err) => {
+            console.warn("[SW] IDB put failed (async):", taskId, err);
+          });
+      });
+    }
+    return response;
+  } catch (err) {
+    console.warn("[SW] idbCacheFirstAudio fetch failed:", request.url, err);
+    // 降级：返回 503（前端可重试或 fallback）
+    return new Response(
+      JSON.stringify({ error: "fetch_failed", message: err.message }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      }
+    );
+  }
+}
+
+// =============================================================================
+// 客户端消息：SKIP_WAITING / GET_VERSION / IDB 控制
 // =============================================================================
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
+  const data = event.data;
+  if (!data || typeof data !== "object") return;
+
+  if (data.type === "SKIP_WAITING") {
     console.info("[SW] received SKIP_WAITING, activating");
     self.skipWaiting();
+    return;
   }
-  if (event.data && event.data.type === "GET_VERSION") {
+  if (data.type === "GET_VERSION") {
     if (event.ports && event.ports[0]) {
       event.ports[0].postMessage({ version: VERSION });
     }
+    return;
+  }
+  // Phase 2: 客户端可请求 IDB 统计（调试用）
+  if (data.type === "GET_IDB_STATS") {
+    handleGetIdbStats(event);
+    return;
   }
 });
+
+async function handleGetIdbStats(event) {
+  if (!self.__idbCache) {
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage({ available: false });
+    }
+    return;
+  }
+  const [totalSize, estimateResult] = await Promise.all([
+    self.__idbCache.getTotalSize(),
+    self.__idbCache.estimate(),
+  ]);
+  const response = {
+    available: self.__idbCache.isAvailable(),
+    totalSize: totalSize,
+    maxSizeMB: IDB_MAX_SIZE_MB,
+    usage: estimateResult.usage,
+    quota: estimateResult.quota,
+    version: VERSION,
+  };
+  if (event.ports && event.ports[0]) {
+    event.ports[0].postMessage(response);
+  } else if (event.source && event.source.postMessage) {
+    event.source.postMessage({ type: "IDB_STATS", ...response });
+  }
+}
