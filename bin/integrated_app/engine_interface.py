@@ -578,25 +578,16 @@ class InMemoryEngineRegistry:
 
                 logger = logging.getLogger("tts_multimodel")
                 # 预期内的导入失败类型：仅 debug 级别，避免日志刷屏
-                logger.debug(
-                    f"[EngineRegistry] 懒导入引擎 '{name}' 预期异常 "
-                    f"({type(e).__name__}): {e}"
-                )
-                logger.warning(
-                    f"[EngineRegistry] 懒导入引擎 '{name}' 失败: {e}"
-                )
+                logger.debug(f"[EngineRegistry] 懒导入引擎 '{name}' 预期异常 ({type(e).__name__}): {e}")
+                logger.warning(f"[EngineRegistry] 懒导入引擎 '{name}' 失败: {e}")
                 return None
             except Exception as e:
                 import logging
 
                 logger = logging.getLogger("tts_multimodel")
                 # 非预期的通用异常：记录完整堆栈以便排查（如模块内部 SyntaxError、OSError 等）
-                logger.exception(
-                    f"[EngineRegistry] 懒导入引擎 '{name}' 发生未预期异常: {e}"
-                )
-                logger.warning(
-                    f"[EngineRegistry] 懒导入引擎 '{name}' 失败: {e}"
-                )
+                logger.exception(f"[EngineRegistry] 懒导入引擎 '{name}' 发生未预期异常: {e}")
+                logger.warning(f"[EngineRegistry] 懒导入引擎 '{name}' 失败: {e}")
                 return None
 
     def list_engines(self) -> list[str]:
@@ -708,8 +699,13 @@ def _register_builtin_engines() -> None:
             vram_requirement=6.5,
             languages=["zh", "en", "ja", "ko"],
             supported_features=[
-                "voice_design", "clone", "ultimate", "script",
-                "streaming", "prompt", "lora",
+                "voice_design",
+                "clone",
+                "ultimate",
+                "script",
+                "streaming",
+                "prompt",
+                "lora",
             ],
             sample_rate=24000,
             requires_gpu=True,
@@ -723,8 +719,13 @@ def _register_builtin_engines() -> None:
             vram_requirement=6.5,
             languages=["zh", "en", "ja", "ko"],
             supported_features=[
-                "voice_design", "clone", "ultimate", "script",
-                "streaming", "prompt", "lora",
+                "voice_design",
+                "clone",
+                "ultimate",
+                "script",
+                "streaming",
+                "prompt",
+                "lora",
             ],
             sample_rate=24000,
             requires_gpu=True,
@@ -741,6 +742,34 @@ def _register_builtin_engines() -> None:
         supported_features=["clone", "emotion_control"],
         sample_rate=24000,
         requires_gpu=False,
+        quality="high",
+    )
+
+    # GPT-SoVITS - 少样本/零样本克隆引擎（纯懒导入）
+    # WHY 纯懒导入：其推理依赖（GPT_SoVITS 包、权重）可能未安装/未下载，
+    # 启动期直接 import 会阻断应用启动；懒导入确保缺失时不影响其他引擎。
+    engine_registry.register(
+        "gptsovits",
+        lazy_module=".engines.gptsovits_engine:GPTSoVITSEngine",
+        display_name="GPT-SoVITS",
+        vram_requirement=4.0,
+        languages=["zh", "en", "ja", "ko", "yue"],
+        supported_features=["clone", "streaming"],
+        sample_rate=32000,
+        requires_gpu=True,
+        quality="high",
+    )
+
+    # dots.tts - 48kHz 高保真零样本克隆引擎（纯懒导入）
+    engine_registry.register(
+        "dotstts",
+        lazy_module=".engines.dotstts_engine:DotsTTSEngine",
+        display_name="dots.tts",
+        vram_requirement=8.0,
+        languages=["zh", "en"],
+        supported_features=["clone", "streaming"],
+        sample_rate=48000,
+        requires_gpu=True,
         quality="high",
     )
 

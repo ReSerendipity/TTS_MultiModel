@@ -248,6 +248,13 @@ class ModelRegistry:
         # --- VoxCPM2Engine 懒实例化缓存（get_current_engine 中创建，clear_voxcpm/clear_all 中清理） ---
         self._voxcpm2_engine_instance: Any = None
 
+        # --- 通用引擎实例容器（新式引擎，按名称索引） ---
+        # WHY: VoxCPM2/IndexTTS2 因历史原因拥有专属状态字段（_voxcpm_model / _indextts2_engine），
+        # 而通过 config.yaml + engine_registry 声明式接入的新引擎（如 gptsovits、dotstts）
+        # 统一存放于本字典，key 为引擎名，value 为实现 TTSEngine 协议的引擎实例。
+        # 这样新增引擎无需再为 ModelRegistry 添加专属字段，实现"零改动扩展"。
+        self._engines: dict[str, Any] = {}
+
         # --- Extended VoxCPM2 state ---
         self.voxcpm_enhancer_model: Any = None
         self.voxcpm_ultimate: bool = False
@@ -370,7 +377,7 @@ class ModelRegistry:
         :meth:`is_voxcpm_ready` / :meth:`is_indextts2_ready` / :meth:`is_engine_ready`。
         """
         with self._lock:
-            return self._voxcpm_model is not None or self._indextts2_engine is not None
+            return self._voxcpm_model is not None or self._indextts2_engine is not None or bool(self._engines)
 
     # ------------------------------------------------------------------
     # SSE 通知辅助
@@ -464,6 +471,31 @@ class ModelRegistry:
             self._current_size = EngineName.INDEXTTS2.value
         self._notify_sse()
 
+    def set_engine_loaded(self, name: str, instance: Any) -> None:
+        """原子性设置通用新式引擎的已加载状态，并触发 SSE engine_switch 事件。"""
+        with self._lock:
+            self._engines[name] = instance
+            self._current_engine = name
+            self._current_type = name
+            self._current_size = name
+        self._notify_sse()
+
+    def clear_engine(self, name: str) -> None:
+        """原子性清除指定通用新式引擎的实例引用，并触发 SSE 通知。"""
+        with self._lock:
+            self._engines.pop(name, None)
+        self._notify_sse()
+
+    def get_engine_instance(self, name: str) -> Any:
+        """获取指定名称的通用新式引擎实例（线程安全）。"""
+        with self._lock:
+            return self._engines.get(name)
+
+    def get_all_engine_instances(self) -> dict[str, Any]:
+        """获取所有已加载的通用新式引擎实例快照（浅拷贝）。"""
+        with self._lock:
+            return dict(self._engines)
+
     def clear_voxcpm(self) -> None:
         """原子性清除所有 VoxCPM2 相关引用与标志位，并触发 SSE 通知。
 
@@ -516,6 +548,7 @@ class ModelRegistry:
             self.voxcpm_voiceclone_enabled = False
             self.voxcpm_control_enabled = False
             self._voxcpm2_engine_instance = None
+            self._engines.clear()
         self._notify_sse()
 
     # ------------------------------------------------------------------
@@ -567,6 +600,14 @@ class ModelRegistry:
             return self.is_voxcpm_ready()
         elif engine == EngineName.INDEXTTS2.value:
             return self.is_indextts2_ready()
+        # 通用新式引擎：委托引擎实例自身的 is_ready()
+        if engine:
+            inst = self.get_engine_instance(engine)
+            if inst is not None:
+                try:
+                    return bool(inst.is_ready())
+                except Exception:
+                    return True
         return False
 
     # ------------------------------------------------------------------
@@ -613,7 +654,12 @@ class ModelRegistry:
                     "voiceclone_enabled": self.voxcpm_voiceclone_enabled,
                     "control_enabled": self.voxcpm_control_enabled,
                 }
-            elif engine == EngineName.INDEXTTS2.value and self._indextts2_engine is not None:
+            elif (
+                engine == EngineName.INDEXTTS2.value
+                and self._indextts2_engine is not None
+                or engine
+                and self._engines.get(engine) is not None
+            ):
                 info = {
                     "engine": self._current_engine,
                     "type": self._current_type,
@@ -676,6 +722,12 @@ class ModelRegistry:
             return self._voxcpm2_engine_instance
         elif self.current_engine == EngineName.INDEXTTS2.value and self.indextts2_engine is not None:
             return self.indextts2_engine
+        # 通用新式引擎：直接返回通用容器中的实例
+        current = self.current_engine
+        if current:
+            inst = self.get_engine_instance(current)
+            if inst is not None:
+                return inst
         return None
 
     def switch_to(self, engine: str) -> None:
@@ -695,7 +747,15 @@ class ModelRegistry:
             ValueError: 传入未知引擎名称时抛出。
         """
         if engine not in EngineName._value2member_map_:
-            raise ValueError(f"Unknown engine: {engine!r}")
+            # 通用新式引擎：允许已注册到 engine_registry 的声明式引擎名
+            try:
+                from .engine_interface import engine_registry
+
+                registered = engine_registry.is_registered(engine)
+            except Exception:
+                registered = False
+            if not registered:
+                raise ValueError(f"Unknown engine: {engine!r}")
         with self._lock:
             self._current_engine = engine
         self._notify_sse()

@@ -67,6 +67,7 @@ from .config import (
 )
 from .estimator import GenerationTimeEstimator
 from .exceptions import (
+    EngineLoadError,
     EngineSwitchError,
     InsufficientVRAMError,
     TTSError,
@@ -253,9 +254,7 @@ class PersonaWarmupService:
                                 mtime = os.path.getmtime(full_path)
                                 persona_files.append((f[:-4], mtime))
                             except (OSError, PermissionError) as stat_err:
-                                logger.debug(
-                                    f"[PersonaCacheWarmup] 读取音色 mtime 失败 {full_path}: {stat_err}"
-                                )
+                                logger.debug(f"[PersonaCacheWarmup] 读取音色 mtime 失败 {full_path}: {stat_err}")
 
                 persona_files.sort(key=lambda x: x[1], reverse=True)
                 top_personas = [name for name, _ in persona_files[:_WARMUP_TOP_PERSONAS]]
@@ -462,6 +461,15 @@ def unload_model() -> None:
                 except Exception as e:
                     logger.warning(f"IndexTTS2 卸载失败: {e}")
 
+            # Unload 通用新式引擎（gptsovits / dotstts 等）
+            for gname, ginst in registry.get_all_engine_instances().items():
+                if ginst is not None:
+                    try:
+                        ginst.unload()
+                    except Exception as e:
+                        logger.warning(f"{gname} 卸载失败: {e}")
+                registry.clear_engine(gname)
+
             _persona_embedding_cache.clear()
 
             # Use tiered free_gpu_memory() instead of inline cleanup
@@ -487,8 +495,7 @@ def unload_model() -> None:
         cleanup_elapsed: float = time.time() - cleanup_start
         if cleanup_elapsed > _UNLOAD_SLOW_THRESHOLD_SECONDS:
             logger.warning(
-                f"[模型卸载] 清理操作耗时 {cleanup_elapsed:.1f}s，"
-                f"超过 {_UNLOAD_SLOW_THRESHOLD_SECONDS:.0f} 秒阈值"
+                f"[模型卸载] 清理操作耗时 {cleanup_elapsed:.1f}s，超过 {_UNLOAD_SLOW_THRESHOLD_SECONDS:.0f} 秒阈值"
             )
         else:
             logger.info(f"[模型卸载] 清理完成，耗时 {cleanup_elapsed:.2f}s")
@@ -533,9 +540,7 @@ def _do_load_voxcpm2_internal(
 
     from .gpu_backend import GPUBackend, GPUBackendManager
 
-    device_string: str = (
-        GPUBackendManager.format_device_string(gpu_device) if gpu_device is not None else "cpu"
-    )
+    device_string: str = GPUBackendManager.format_device_string(gpu_device) if gpu_device is not None else "cpu"
 
     status_text: str
     # Step 1: Load VoxCPM2 model
@@ -702,9 +707,7 @@ def load_voxcpm2(
 
         gpu_device: Any = get_gpu_device()
 
-        for status_tuple in _do_load_voxcpm2_internal(
-            gpu_device, backend, include_denoiser=False
-        ):
+        for status_tuple in _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=False):
             if progress_callback is not None:
                 with contextlib.suppress(Exception):
                     progress_callback(status_tuple)
@@ -787,9 +790,7 @@ def load_indextts2(
                 logger.info(f"[IndexTTS2] VRAM 检查: 需要 {needed_vram_gb}GB, 可用 {free_gb:.2f}GB")
 
                 if free_gb < needed_vram_gb:
-                    logger.warning(
-                        f"[IndexTTS2] 显存不足 ({free_gb:.2f}GB < {needed_vram_gb}GB)，将尝试使用 CPU 模式"
-                    )
+                    logger.warning(f"[IndexTTS2] 显存不足 ({free_gb:.2f}GB < {needed_vram_gb}GB)，将尝试使用 CPU 模式")
             except Exception as mem_err:
                 logger.debug(f"[IndexTTS2] 显存查询失败（跳过预检）: {mem_err}")
 
@@ -1138,7 +1139,7 @@ def _can_hot_standby(target_engine: str) -> bool:
         return False
 
     allocated: int = GPUBackendManager.memory_allocated(gpu_device)
-    free_gb: float = (total - allocated) / (1024 ** 3)
+    free_gb: float = (total - allocated) / (1024**3)
 
     current_vram: float = ENGINE_VRAM_REQUIREMENTS.get(registry.current_engine, 0.0)
     target_vram: float = ENGINE_VRAM_REQUIREMENTS.get(target_engine, 0.0)
@@ -1150,14 +1151,10 @@ def _can_hot_standby(target_engine: str) -> bool:
 
     if can_standby:
         logger.info(
-            f"[热待机] 显存充足: 可用 {free_gb:.2f}GB, "
-            f"目标需要 {needed_gb:.2f}GB, 当前引擎占用 {current_vram:.1f}GB"
+            f"[热待机] 显存充足: 可用 {free_gb:.2f}GB, 目标需要 {needed_gb:.2f}GB, 当前引擎占用 {current_vram:.1f}GB"
         )
     else:
-        logger.info(
-            f"[热待机] 显存不足: 可用 {free_gb:.2f}GB, "
-            f"目标需要 {needed_gb:.2f}GB"
-        )
+        logger.info(f"[热待机] 显存不足: 可用 {free_gb:.2f}GB, 目标需要 {needed_gb:.2f}GB")
 
     return can_standby
 
@@ -1178,7 +1175,15 @@ def _validate_engine_name(engine_name: str) -> str:
     """
     engine_name = engine_name.strip()
     if engine_name not in EngineName._value2member_map_:
-        raise EngineSwitchError(f"不支持的引擎: {engine_name}")
+        # 通用新式引擎：允许已注册到 engine_registry 的声明式引擎
+        try:
+            from .engine_interface import engine_registry
+
+            registered = engine_registry.is_registered(engine_name)
+        except Exception:
+            registered = False
+        if not registered:
+            raise EngineSwitchError(f"不支持的引擎: {engine_name}")
     return engine_name
 
 
@@ -1353,6 +1358,8 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
         registry.voxcpm_asr = None
         registry.indextts2_engine = None
         registry.current_engine = None
+        for gname in list(registry.get_all_engine_instances().keys()):
+            registry.clear_engine(gname)
     except Exception as cleanup_err:
         logger.error(f"[引擎切换] 回滚前清理失败: {cleanup_err}")
 
@@ -1386,6 +1393,15 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
             logger.info("[引擎切换] 回滚: IndexTTS2 引擎重新加载完成")
         except Exception as reload_err:
             logger.error(f"[引擎切换] 回滚时重新加载 IndexTTS2 失败: {reload_err}")
+    elif prev_engine:
+        # 通用新式引擎回滚：重新走声明式加载流程
+        try:
+            logger.info(f"[引擎切换] 回滚: 重新加载 {prev_engine} 引擎...")
+            for _ in _load_generic_engine(prev_engine):
+                pass
+            logger.info(f"[引擎切换] 回滚: {prev_engine} 引擎重新加载完成")
+        except Exception as reload_err:
+            logger.error(f"[引擎切换] 回滚时重新加载 {prev_engine} 失败: {reload_err}")
     else:
         logger.warning("[引擎切换] 回滚: 之前没有已加载的引擎，所有状态已置空")
 
@@ -1465,9 +1481,7 @@ def switch_engine(
 
             backend: GPUBackend = GPUBackendManager.detect_backend()
             gpu_device: Any = get_gpu_device()
-            logger.info(
-                f"[引擎切换] 使用设备 {gpu_device if gpu_device is not None else 'CPU'} 进行显存检查"
-            )
+            logger.info(f"[引擎切换] 使用设备 {gpu_device if gpu_device is not None else 'CPU'} 进行显存检查")
 
             # M-R1: VRAM 预检查（阶段 ③）
             logger.info("[引擎切换] 开始 VRAM 预检查...")
@@ -1518,6 +1532,10 @@ def switch_engine(
                     yield status_tuple
             elif engine_name == EngineName.INDEXTTS2.value:
                 for status_tuple in load_indextts2():
+                    yield status_tuple
+            else:
+                # 通用新式引擎（声明式注册）
+                for status_tuple in _load_generic_engine(engine_name):
                     yield status_tuple
 
     except TTSError:
@@ -1572,6 +1590,59 @@ def _load_voxcpm2_engine(
     for status in _do_load_voxcpm2_internal(gpu_device, backend, include_denoiser=True):
         logger.info(f"[引擎切换] {status[0]}")
         yield status
+
+
+def _load_generic_engine(
+    engine_name: str,
+) -> Generator[tuple[str, None, None, None], None, None]:
+    """加载通过 engine_registry 声明式注册的通用新式引擎（内部辅助生成器）。
+
+    流程：
+        1. 从 engine_registry 解析引擎类（触发懒导入）。
+        2. 实例化（无参构造，引擎内部从 config 读取权重路径）。
+        3. 调用 ``engine.load()`` 加载权重到显存/内存。
+        4. 通过 ``registry.set_engine_loaded`` 注册到全局状态。
+    """
+    from .engine_interface import engine_registry
+
+    _progress_mgr.update_phase("正在加载新引擎...")
+    status_text: str = f"正在解析引擎 {engine_name}..."
+    logger.info(f"[引擎切换] {status_text}")
+    yield status_text, None, None, None
+
+    engine_class: Any = engine_registry.get(engine_name)
+    if engine_class is None:
+        raise EngineLoadError(
+            f"引擎 '{engine_name}' 无法解析（未注册或依赖缺失）。请确认已安装对应依赖并下载模型权重。"
+        )
+
+    status_text = f"正在加载 {engine_name} 模型..."
+    logger.info(f"[引擎切换] {status_text}")
+    yield status_text, None, None, None
+
+    start_time: float = time.time()
+    engine: Any = engine_class()
+    engine.load()
+    load_time: float = time.time() - start_time
+    logger.info(f"[引擎切换] {engine_name} 加载完成，耗时 {load_time:.1f}s")
+
+    registry.set_engine_loaded(engine_name, engine)
+
+    # VRAM 记录（best-effort）
+    try:
+        from .gpu_backend import GPUBackend, GPUBackendManager
+
+        monitor: Any = get_health_monitor()
+        if GPUBackendManager.detect_backend() != GPUBackend.CPU:
+            vram_mb: float = GPUBackendManager.memory_allocated() / (1024**2)
+            monitor.record_vram_usage(vram_mb)
+            monitor.set_model_status("ready")
+    except Exception as e:
+        logger.debug(f"[{engine_name}] VRAM 记录失败: {e}")
+
+    status_text = f"{engine_name} 引擎就绪"
+    logger.info(f"[引擎切换] {status_text}")
+    yield status_text, None, None, None
 
 
 def get_generation_tracker() -> GenerationTracker:
