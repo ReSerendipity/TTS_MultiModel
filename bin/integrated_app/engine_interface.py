@@ -745,21 +745,6 @@ def _register_builtin_engines() -> None:
         quality="high",
     )
 
-    # GPT-SoVITS - 少样本/零样本克隆引擎（纯懒导入）
-    # WHY 纯懒导入：其推理依赖（GPT_SoVITS 包、权重）可能未安装/未下载，
-    # 启动期直接 import 会阻断应用启动；懒导入确保缺失时不影响其他引擎。
-    engine_registry.register(
-        "gptsovits",
-        lazy_module=".engines.gptsovits_engine:GPTSoVITSEngine",
-        display_name="GPT-SoVITS",
-        vram_requirement=4.0,
-        languages=["zh", "en", "ja", "ko", "yue"],
-        supported_features=["clone", "streaming"],
-        sample_rate=32000,
-        requires_gpu=True,
-        quality="high",
-    )
-
     # dots.tts - 48kHz 高保真零样本克隆引擎（纯懒导入）
     engine_registry.register(
         "dotstts",

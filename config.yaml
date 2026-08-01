@@ -42,19 +42,6 @@ models:
       supported_features: ["clone", "emotion_control"]
       sample_rate: 24000
       requires_gpu: true
-    gptsovits:
-      name: "gptsovits"
-      display_name: "GPT-SoVITS"
-      hf_repo: "lj1995/GPT-SoVITS"
-      model_dir: "GPT-SoVITS"
-      vram_gb: 4.0
-      ram_gb: 8.0
-      languages: ["zh", "en", "ja", "ko", "yue"]
-      quality: "high"
-      license: "MIT"
-      supported_features: ["clone"]
-      sample_rate: 32000
-      requires_gpu: true
     dotstts:
       name: "dotstts"
       display_name: "dots.tts"

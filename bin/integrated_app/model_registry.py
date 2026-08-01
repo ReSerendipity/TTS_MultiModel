@@ -250,7 +250,7 @@ class ModelRegistry:
 
         # --- 通用引擎实例容器（新式引擎，按名称索引） ---
         # WHY: VoxCPM2/IndexTTS2 因历史原因拥有专属状态字段（_voxcpm_model / _indextts2_engine），
-        # 而通过 config.yaml + engine_registry 声明式接入的新引擎（如 gptsovits、dotstts）
+        # 而通过 config.yaml + engine_registry 声明式接入的新引擎（如 dotstts）
         # 统一存放于本字典，key 为引擎名，value 为实现 TTSEngine 协议的引擎实例。
         # 这样新增引擎无需再为 ModelRegistry 添加专属字段，实现"零改动扩展"。
         self._engines: dict[str, Any] = {}
