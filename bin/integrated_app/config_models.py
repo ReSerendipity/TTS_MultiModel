@@ -342,6 +342,30 @@ class PwaConfig(BaseModel):
     scope: str = Field(default="/", description="SW scope")
     vapid_public_key: str = Field(default="", description="VAPID 公钥（Phase 3）")
 
+    # ===== Phase 2: IndexedDB 音频缓存 =====
+    # 详细设计见 docs/STAGE_E_PWA_PHASE2.md §3
+    # 硬约束：字段名必须与 sw.js 顶部 IDB_* 常量保持同步（人工对齐）
+    idb_audio_cache: bool = Field(
+        default=False,
+        description="Phase 2: 是否启用 IndexedDB 持久化音频缓存（仅本地生成音频）",
+    )
+    idb_max_size_mb: int = Field(
+        default=100, ge=10, le=2000,
+        description="IDB 音频缓存最大字节 (MB)，超出触发 LRU 清理",
+    )
+    idb_lru_target_pct: int = Field(
+        default=80, ge=50, le=95,
+        description="LRU 清理目标百分比（占 max_size），保留缓冲避免频繁清理",
+    )
+    idb_broadcast_channel: bool = Field(
+        default=True,
+        description="是否启用 BroadcastChannel 跨标签页同步",
+    )
+    idb_persist_request: bool = Field(
+        default=True,
+        description="启动时是否调 navigator.storage.persist() 请求持久化",
+    )
+
 
 class ApiAuthConfig(BaseModel):
     """API Bearer Token 认证配置。
