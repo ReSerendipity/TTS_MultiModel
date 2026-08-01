@@ -795,5 +795,10 @@
   "advanced": "詳細",
   "enter_text_and_click_generate": "テキストを入力して生成をクリックすると、AI音声合成を体験できます",
   "ready_to_create": "あなた専用の音声を作成しましょう",
-  "try_sample_text": "サンプルテキストを試す"
+  "try_sample_text": "サンプルテキストを試す",
+  "pwa_install_button": "アプリをインストール",
+  "pwa_ios_install_title": "iOS：共有ボタン → ホーム画面に追加 → 追加 をタップ",
+  "pwa_dismiss": "閉じる",
+  "pwa_update_available": "新しいバージョンがあります。更新してください。",
+  "pwa_update_now": "今すぐ更新"
 }
