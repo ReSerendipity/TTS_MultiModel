@@ -701,5 +701,7 @@ async def sse_events(request: Request) -> StreamingResponse:
             "Cache-Control": "no-cache, no-transform",
             "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
+            # 告知浏览器和反向代理：SSE 连接不应缓冲，断线后 1s 自动重连
+            "X-Accel-Redirect": "off",
         },
     )
