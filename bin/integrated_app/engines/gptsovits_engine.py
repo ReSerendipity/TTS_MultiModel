@@ -38,7 +38,7 @@ from typing import Any
 
 from ..config import GPTSOVITS_MODEL_PATH, ROOT_DIR, SAVE_DIR
 from ..engine_interface import TTSEngine
-from ..exceptions import EngineLoadError, EngineNotLoadedError, GenerationError
+from ..exceptions import EngineLoadError, EngineNotLoadedError, GenerationError, ValidationError
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -292,8 +292,18 @@ class GPTSoVITSEngine(TTSEngine):
         if not reference_audio_path:
             raise ValueError("GPT-SoVITS generate_voice_clone 需要 reference_audio_path")
 
-        text_lang: str = _LANG_MAP.get(kwargs.pop("text_lang", "zh"), "auto")
-        prompt_lang: str = _LANG_MAP.get(kwargs.pop("prompt_lang", "zh"), "auto")
+        text_lang_raw: str = kwargs.pop("text_lang", "zh")
+        prompt_lang_raw: str = kwargs.pop("prompt_lang", "zh")
+        # pyopenjtalk 在 Python 3.12 + Windows MSVC 下无法编译，日语 tokenization 不可用。
+        # 短期降级：检测到 ja 时返回友好错误，避免静默走中文 tokenization 导致发音错误。
+        if text_lang_raw == "ja" or prompt_lang_raw == "ja":
+            raise ValidationError(
+                "日语 TTS 暂不可用：pyopenjtalk 在当前 Python 3.12 + Windows 环境下无法编译。"
+                "请使用中/英/韩/粤等其他语言，或等待上游 pyopenjtalk 修复 Python 3.12 兼容性。",
+                field="text_lang",
+            )
+        text_lang: str = _LANG_MAP.get(text_lang_raw, "auto")
+        prompt_lang: str = _LANG_MAP.get(prompt_lang_raw, "auto")
         req: dict[str, Any] = {
             "text": text,
             "text_lang": text_lang,
@@ -335,8 +345,16 @@ class GPTSoVITSEngine(TTSEngine):
         if not reference_audio_path:
             raise ValueError("GPT-SoVITS generate_streaming 需要 reference_audio_path")
 
-        text_lang: str = _LANG_MAP.get(kwargs.pop("text_lang", "zh"), "auto")
-        prompt_lang: str = _LANG_MAP.get(kwargs.pop("prompt_lang", "zh"), "auto")
+        text_lang_raw: str = kwargs.pop("text_lang", "zh")
+        prompt_lang_raw: str = kwargs.pop("prompt_lang", "zh")
+        if text_lang_raw == "ja" or prompt_lang_raw == "ja":
+            raise ValidationError(
+                "日语 TTS 暂不可用：pyopenjtalk 在当前 Python 3.12 + Windows 环境下无法编译。"
+                "请使用中/英/韩/粤等其他语言。",
+                field="text_lang",
+            )
+        text_lang: str = _LANG_MAP.get(text_lang_raw, "auto")
+        prompt_lang: str = _LANG_MAP.get(prompt_lang_raw, "auto")
         prompt_text: str = kwargs.pop("prompt_text", "")
         req: dict[str, Any] = {
             "text": text,
