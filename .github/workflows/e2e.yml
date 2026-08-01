@@ -1,0 +1,89 @@
+name: E2E (Playwright)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bin/integrated_app/templates/**'
+      - 'bin/integrated_app/static/**'
+      - 'bin/integrated_app/routes/**'
+      - 'tests/e2e/**'
+      - '.github/workflows/e2e.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'bin/integrated_app/templates/**'
+      - 'bin/integrated_app/static/**'
+      - 'tests/e2e/**'
+  schedule:
+    # Run nightly at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Start TTS MultiModel server
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+          MODELSCOPE_OFFLINE: "1"
+          CUDA_VISIBLE_DEVICES: ""
+          TTS_AUTO_LOAD_MODEL: "0"
+        run: |
+          cd bin
+          python -m integrated_app.app_server --host 127.0.0.1 --port 7869 &
+          echo $! > /tmp/server.pid
+          # Wait for server to be ready
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:7869/ > /dev/null 2>&1; then
+              echo "Server is ready"
+              break
+            fi
+            echo "Waiting for server... ($i/30)"
+            sleep 2
+          done
+          curl -s http://127.0.0.1:7869/ > /dev/null || (echo "Server failed to start" && exit 1)
+
+      - name: Run Playwright E2E tests
+        env:
+          TTS_SERVER_URL: "http://127.0.0.1:7869"
+        run: |
+          pytest tests/e2e/ -v --tb=short || true
+
+      - name: Upload E2E screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: tests/e2e/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/server.pid ]; then
+            kill $(cat /tmp/server.pid) || true
+          fi
