@@ -234,6 +234,7 @@
   "dotstts_seed": "随机种子",
   "dotstts_random_seed": "使用随机种子",
   "dotstts_language": "合成语言",
+  "advanced_params_hint": "所有参数均有默认值，仅在需要时调整",
   "optional_alt": "备选",
   "upload_reference": "上传参考",
   "select_voice": "选择音色",
