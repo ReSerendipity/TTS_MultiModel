@@ -65,7 +65,23 @@ _PRAGMA_CONFIG: dict[str, Any] = {
     # 记录 + 用户前台点删除）下锁冲突概率较高。5s 等待是 99th percentile
     # 用户操作延迟阈值（普通用户感知"卡顿"的临界点约 2s，留 2 倍余量）。
     "busy_timeout": 5000,  # H-R3: 5s 锁等待，避免 database is locked 错误
+    # Why recursive_triggers=1（H-R6 FTS5 索引一致性的关键前提）：
+    # 写入使用 INSERT OR REPLACE，冲突时 SQLite 先 DELETE 旧行再 INSERT 新行。
+    # 默认 recursive_triggers=OFF 时，REPLACE 触发的 DELETE 不会触发 AFTER
+    # DELETE 触发器 —— 会导致 generation_history_fts 括留旧行的索引（搜索到
+    # 已被覆盖的过期文本）。开启后 REPLACE 的隐式 DELETE 正常触发 fts 清理
+    # 触发器，保证全文索引与主表严格一致。本库无其他触发器，开启无副作用。
+    "recursive_triggers": 1,
 }
+
+# --- FTS5 全文检索（H-R6）---
+# 外部内容（external-content）FTS5 虚表：仅存索引、不复制正文，正文仍在
+# generation_history 主表，通过 content_rowid=id 关联。trigram 分词器支持
+# 任意脚本（含 CJK）的子串匹配，语义等价于 LOWER(col) LIKE '%kw%'（≥3 字符）。
+_FTS_TABLE: str = "generation_history_fts"
+# trigram 分词器要求查询词至少 3 个 Unicode 字符；不足 3 字符回退 LIKE（
+# LIKE 能处理 1-2 字符子串，trigram 不能），保证短词搜索行为不变。
+_FTS_MIN_QUERY_CHARS: int = 3
 
 # Why _CHUNK_SIZE=500 而不是更大的 999（SQLITE_MAX_VARIABLE_NUMBER 默认）：
 # 21 个字段 × 500 条 = 10500 个变量；SQLite 3.32.0 之后最大值才提升到
@@ -98,18 +114,31 @@ _SECONDS_PER_MONTH: int = 2592000
 _TEXT_PREVIEW_MAX_LENGTH: int = 100
 
 # query_records / count_records 允许的 filter key 白名单
-_ALLOWED_FILTER_KEYS: frozenset[str] = frozenset({
-    "engine", "persona_name", "is_success", "time_from", "time_to",
-})
+_ALLOWED_FILTER_KEYS: frozenset[str] = frozenset(
+    {
+        "engine",
+        "persona_name",
+        "is_success",
+        "time_from",
+        "time_to",
+    }
+)
 
 # order_by 白名单（防止 SQL 注入）— 统一提取，消除 query/query_records 重复
-_ALLOWED_ORDER_BY: frozenset[str] = frozenset({
-    "created_at DESC", "created_at ASC",
-    "file_size_bytes DESC", "file_size_bytes ASC",
-    "duration_seconds DESC", "duration_seconds ASC",
-    "engine ASC", "engine DESC",
-    "created_timestamp DESC", "created_timestamp ASC",
-})
+_ALLOWED_ORDER_BY: frozenset[str] = frozenset(
+    {
+        "created_at DESC",
+        "created_at ASC",
+        "file_size_bytes DESC",
+        "file_size_bytes ASC",
+        "duration_seconds DESC",
+        "duration_seconds ASC",
+        "engine ASC",
+        "engine DESC",
+        "created_timestamp DESC",
+        "created_timestamp ASC",
+    }
+)
 
 
 class HistoryDatabase:
@@ -138,6 +167,7 @@ class HistoryDatabase:
     last_sync_mtime: float
     _all_connections: set[sqlite3.Connection]
     _connections_lock: threading.Lock
+    _fts_enabled: bool
 
     def __init__(self, db_path: str) -> None:
         """初始化历史记录数据库实例。
@@ -170,12 +200,15 @@ class HistoryDatabase:
         # 改为普通 set + 显式 close()/close_all() 清理，由调用方负责生命周期。
         self._all_connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
+        # H-R6: FTS5 可用性在 _ensure_fts() 中探测并缓存；False 时搜索回退 LIKE。
+        self._fts_enabled = False
         self._ensure_table()
         self._migrate_add_hidden_column()
         self._migrate_add_created_timestamp_column()
         self._migrate_add_file_missing_column()
         self._optimize_pragmas()
         self._ensure_indexes()
+        self._ensure_fts()
 
     # ------------------------------------------------------------------
     # 连接管理 (H-R3 重构)
@@ -249,9 +282,7 @@ class HistoryDatabase:
                         logger.error(f"os.replace 也失败: {e2}")
                 if not rename_ok and os.path.exists(self._db_path):
                     # 两种方式都失败，提示用户手动处理
-                    raise RuntimeError(
-                        "无法处理损坏数据库，请手动删除 " + corrupted_path
-                    )
+                    raise RuntimeError("无法处理损坏数据库，请手动删除 " + corrupted_path)
                 # Create fresh connection with unified PRAGMAs (H-R3)
                 conn = sqlite3.connect(self._db_path)
                 conn.row_factory = sqlite3.Row
@@ -259,6 +290,7 @@ class HistoryDatabase:
                 # Re-run table and index creation for the fresh database
                 self._ensure_table()
                 self._ensure_indexes()
+                self._ensure_fts()
                 logger.info("数据库损坏后重建成功")
             # H-R3: 注册到全局 set 以支持 close_all()
             with self._connections_lock:
@@ -358,6 +390,37 @@ class HistoryDatabase:
         """
         return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
+    @staticmethod
+    def _build_fts_query(keyword: str) -> str:
+        """[H-R6] 将用户关键词转为 FTS5 trigram 短语查询串（作为字面量子串）。
+
+        将整个关键词包在双引号中作为一个 phrase，并将内部双引号双写转义，
+        使 FTS5 把整串当作字面子串处理（避免 ``*`` / ``OR`` / ``NEAR`` 等 FTS5
+        查询语法被意外解析）。trigram 分词器下该 phrase 等价于大小写不
+        敏感的子串匹配（等价 LOWER(col) LIKE '%kw%'）。
+
+        Args:
+            keyword: 用户原始搜索关键词。
+
+        Returns:
+            可直接作为 ``MATCH ?`` 参数的 FTS5 查询字符串。
+        """
+        return '"' + keyword.replace('"', '""') + '"'
+
+    def _can_use_fts(self, search_text: str | None) -> bool:
+        """[H-R6] 判断当前搜索是否可走 FTS5 加速路径。
+
+        仅当 FTS5 已启用且关键词长度 ≥ trigram 最小要求（3 个 Unicode
+        字符）时返回 True；否则回退 LIKE（trigram 无法处理 1-2 字符子串）。
+
+        Args:
+            search_text: 搜索关键词（可为 None / 空）。
+
+        Returns:
+            可用 FTS 加速返回 True，否则 False。
+        """
+        return self._fts_enabled and bool(search_text) and len(search_text) >= _FTS_MIN_QUERY_CHARS
+
     def _build_filter_conditions(
         self,
         filters: dict[str, Any] | None = None,
@@ -381,8 +444,7 @@ class HistoryDatabase:
             for key, value in filters.items():
                 if key not in _ALLOWED_FILTER_KEYS:
                     logger.warning(
-                        f"[history_db] 忽略未知 filter key: {key!r}"
-                        f"，允许的 key 为 {sorted(_ALLOWED_FILTER_KEYS)}"
+                        f"[history_db] 忽略未知 filter key: {key!r}，允许的 key 为 {sorted(_ALLOWED_FILTER_KEYS)}"
                     )
                     continue
                 if value is None:
@@ -404,15 +466,23 @@ class HistoryDatabase:
                     params.append(float(value))
 
         if search_text:
-            escaped = self._escape_like(search_text).lower()
-            if search_filename:
-                conditions.append(
-                    "(LOWER(filename) LIKE ? ESCAPE '\\' OR LOWER(text_preview) LIKE ? ESCAPE '\\')"
-                )
-                params.extend([f"%{escaped}%", f"%{escaped}%"])
+            # [H-R6] 优先 FTS5 子查询（O(log n)），不可用时回退 LIKE 全表扫描。
+            # 两者对 ≥3 字符关键词语义一致（大小写不敏感子串匹配）。
+            if self._can_use_fts(search_text):
+                fts_query = self._build_fts_query(search_text)
+                if not search_filename:
+                    # 仅匹配 text_preview 列：使用 FTS5 列过滤语法 ``col : phrase``
+                    fts_query = f"text_preview : {fts_query}"
+                conditions.append(f"id IN (SELECT rowid FROM {_FTS_TABLE} WHERE {_FTS_TABLE} MATCH ?)")
+                params.append(fts_query)
             else:
-                conditions.append("LOWER(text_preview) LIKE ? ESCAPE '\\'")
-                params.append(f"%{escaped}%")
+                escaped = self._escape_like(search_text).lower()
+                if search_filename:
+                    conditions.append("(LOWER(filename) LIKE ? ESCAPE '\\' OR LOWER(text_preview) LIKE ? ESCAPE '\\')")
+                    params.extend([f"%{escaped}%", f"%{escaped}%"])
+                else:
+                    conditions.append("LOWER(text_preview) LIKE ? ESCAPE '\\'")
+                    params.append(f"%{escaped}%")
 
         return conditions, params
 
@@ -470,47 +540,38 @@ class HistoryDatabase:
                 )
             """)
 
-    def _migrate_add_hidden_column(self) -> None:
-        """数据库迁移：添加 'hidden' 列（如果不存在）。
+    def _migrate_add_column(self, column: str, column_def: str) -> None:
+        """通用列迁移：探测列是否存在，缺失时 ALTER TABLE 补齐（消除三处重复）。
 
-        用于兼容旧版本数据库（在隐藏/显示功能引入前创建的库）。
-        通过 SELECT 试探列是否存在，捕获 OperationalError 判断是否需要 ALTER TABLE。
+        REFACTOR: [H-R6] 统一 add-column 迁移逻辑。原 _migrate_add_hidden_column /
+        _migrate_add_created_timestamp_column / _migrate_add_file_missing_column 三处
+        使用完全相同的"SELECT col LIMIT 1 -> 捕获 OperationalError -> ALTER TABLE"模式，
+        仅列名与 DDL 不同。抽取为单一 helper 后新增列迁移只需一行调用。
+
+        Args:
+            column: 待检测/添加的列名（如 ``"hidden"``）。
+            column_def: ALTER TABLE ADD COLUMN 的完整列定义，含类型与默认值
+                （如 ``"INTEGER NOT NULL DEFAULT 0"``）。
         """
         try:
-            cursor = self._execute("SELECT hidden FROM generation_history LIMIT 1")
+            cursor = self._execute(f"SELECT {column} FROM generation_history LIMIT 1")
             cursor.fetchall()
         except sqlite3.OperationalError:
             with self._transaction() as conn:
-                conn.execute("ALTER TABLE generation_history ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
-            logger.info("数据库迁移: 已添加 'hidden' 列")
+                conn.execute(f"ALTER TABLE generation_history ADD COLUMN {column} {column_def}")
+            logger.info("数据库迁移: 已添加 '%s' 列", column)
+
+    def _migrate_add_hidden_column(self) -> None:
+        """数据库迁移：添加 'hidden' 列（兼容隐藏/显示功能引入前的旧库）。"""
+        self._migrate_add_column("hidden", "INTEGER NOT NULL DEFAULT 0")
 
     def _migrate_add_created_timestamp_column(self) -> None:
-        """数据库迁移：添加 'created_timestamp' 列（如果不存在）。
-
-        用于兼容旧版本数据库（在 Unix 时间戳排序功能引入前创建的库）。
-        created_timestamp 为 REAL 类型，存储 Unix 秒级时间戳，用于精确排序和时间过滤。
-        """
-        try:
-            cursor = self._execute("SELECT created_timestamp FROM generation_history LIMIT 1")
-            cursor.fetchall()
-        except sqlite3.OperationalError:
-            with self._transaction() as conn:
-                conn.execute("ALTER TABLE generation_history ADD COLUMN created_timestamp REAL NOT NULL DEFAULT 0")
-            logger.info("数据库迁移: 已添加 'created_timestamp' 列")
+        """数据库迁移：添加 'created_timestamp' 列（Unix 秒级时间戳）。"""
+        self._migrate_add_column("created_timestamp", "REAL NOT NULL DEFAULT 0")
 
     def _migrate_add_file_missing_column(self) -> None:
-        """数据库迁移：添加 'file_missing' 列（如果不存在）。
-
-        用于兼容旧版本数据库（在文件缺失检测功能引入前创建的库）。
-        file_missing 为 INTEGER 布尔标志，1 表示对应磁盘文件已不存在。
-        """
-        try:
-            cursor = self._execute("SELECT file_missing FROM generation_history LIMIT 1")
-            cursor.fetchall()
-        except sqlite3.OperationalError:
-            with self._transaction() as conn:
-                conn.execute("ALTER TABLE generation_history ADD COLUMN file_missing INTEGER NOT NULL DEFAULT 0")
-            logger.info("数据库迁移: 已添加 'file_missing' 列")
+        """数据库迁移：添加 'file_missing' 列（1 表示磁盘文件不存在）。"""
+        self._migrate_add_column("file_missing", "INTEGER NOT NULL DEFAULT 0")
 
     def _ensure_indexes(self) -> None:
         """创建常用查询模式所需的索引（如果不存在）。
@@ -554,6 +615,77 @@ class HistoryDatabase:
             conn.execute("PRAGMA optimize")
         except sqlite3.DatabaseError as e:
             logger.debug(f"设置 PRAGMA optimize 失败: {e}")
+
+    def _ensure_fts(self) -> None:
+        """[H-R6] 创建/修复 FTS5 全文索引（external-content + trigram 分词）。
+
+        设计要点：
+        - **外部内容表**：``content='generation_history', content_rowid='id'``，
+          FTS 表不重复存储正文，仅存倒排索引，磁盘开销极小。
+        - **trigram 分词**：支持任意脚本（含中文）的大小写不敏感子串匹配，
+          语义与现有 ``LOWER(col) LIKE '%kw%'`` 对齐（需 ≥3 字符）。
+        - **三个触发器**（ai/ad/au）：在主表 INSERT/DELETE/UPDATE 时同步维护
+          索引；配合 recursive_triggers=ON，INSERT OR REPLACE 的隐式 DELETE 也能
+          正确清理旧索引项。
+        - **启动时 rebuild**：``INSERT INTO fts(fts) VALUES('rebuild')`` 从主表全量
+          重建索引，保证旧库（FTS 引入前已有数据）与运行中任何潜在不一致
+          在重启后自愈（历史表量级下 rebuild 代价可忽）。
+
+        降级策略：若 SQLite 未启用 FTS5 或 trigram（旧构建/嵌入式环境），
+        捕获 OperationalError，``_fts_enabled`` 保持 False，所有搜索静默回退
+        LIKE 全表扫描（行为与优化前完全一致）。FTS 仅为加速，不影响正确性。
+        """
+        try:
+            with self._transaction() as conn:
+                conn.execute(
+                    f"""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS {_FTS_TABLE} USING fts5(
+                        filename, text_preview,
+                        content='generation_history', content_rowid='id',
+                        tokenize='trigram'
+                    )
+                    """
+                )
+                # 同步触发器：INSERT / DELETE / UPDATE
+                conn.execute(
+                    f"""
+                    CREATE TRIGGER IF NOT EXISTS generation_history_ai
+                    AFTER INSERT ON generation_history BEGIN
+                        INSERT INTO {_FTS_TABLE}(rowid, filename, text_preview)
+                        VALUES (new.id, new.filename, new.text_preview);
+                    END
+                    """
+                )
+                conn.execute(
+                    f"""
+                    CREATE TRIGGER IF NOT EXISTS generation_history_ad
+                    AFTER DELETE ON generation_history BEGIN
+                        INSERT INTO {_FTS_TABLE}({_FTS_TABLE}, rowid, filename, text_preview)
+                        VALUES('delete', old.id, old.filename, old.text_preview);
+                    END
+                    """
+                )
+                conn.execute(
+                    f"""
+                    CREATE TRIGGER IF NOT EXISTS generation_history_au
+                    AFTER UPDATE ON generation_history BEGIN
+                        INSERT INTO {_FTS_TABLE}({_FTS_TABLE}, rowid, filename, text_preview)
+                        VALUES('delete', old.id, old.filename, old.text_preview);
+                        INSERT INTO {_FTS_TABLE}(rowid, filename, text_preview)
+                        VALUES (new.id, new.filename, new.text_preview);
+                    END
+                    """
+                )
+                # 全量重建索引，保证与主表一致（含旧库回填）
+                conn.execute(f"INSERT INTO {_FTS_TABLE}({_FTS_TABLE}) VALUES('rebuild')")
+            self._fts_enabled = True
+            logger.info("[history_db] FTS5 全文索引已就绪（trigram 分词）")
+        except sqlite3.OperationalError as e:
+            self._fts_enabled = False
+            logger.info("[history_db] FTS5/trigram 不可用（%s），搜索回退 LIKE 全表扫描", e)
+        except Exception as e:
+            self._fts_enabled = False
+            logger.warning("[history_db] FTS5 初始化异常（%s），搜索回退 LIKE", e)
 
     # ------------------------------------------------------------------
     # 记录构建 (H-R2 统一 INSERT 逻辑)
@@ -721,9 +853,7 @@ class HistoryDatabase:
         # H-R5: 分块执行，每块 _CHUNK_SIZE 条
         for chunk_start in range(0, len(records), _CHUNK_SIZE):
             chunk = records[chunk_start : chunk_start + _CHUNK_SIZE]
-            params_list: list[tuple[Any, ...]] = [
-                self._build_record_tuple(r, timestamp=now) for r in chunk
-            ]
+            params_list: list[tuple[Any, ...]] = [self._build_record_tuple(r, timestamp=now) for r in chunk]
             with self._transaction() as conn:
                 conn.executemany(_INSERT_SQL, params_list)
                 total_inserted += len(chunk)
@@ -803,9 +933,14 @@ class HistoryDatabase:
             conditions.append("file_missing = 0")
 
         if search_keyword:
-            kw_lower = self._escape_like(search_keyword).lower()
-            conditions.append("(LOWER(filename) LIKE ? ESCAPE '\\' OR LOWER(text_preview) LIKE ? ESCAPE '\\')")
-            params.extend([f"%{kw_lower}%", f"%{kw_lower}%"])
+            # [H-R6] 与 _build_filter_conditions 一致：优先 FTS5，不可用时回退 LIKE。
+            if self._can_use_fts(search_keyword):
+                conditions.append(f"id IN (SELECT rowid FROM {_FTS_TABLE} WHERE {_FTS_TABLE} MATCH ?)")
+                params.append(self._build_fts_query(search_keyword))
+            else:
+                kw_lower = self._escape_like(search_keyword).lower()
+                conditions.append("(LOWER(filename) LIKE ? ESCAPE '\\' OR LOWER(text_preview) LIKE ? ESCAPE '\\')")
+                params.extend([f"%{kw_lower}%", f"%{kw_lower}%"])
 
         # Time filter based on created_timestamp
         now = time.time()
@@ -922,6 +1057,89 @@ class HistoryDatabase:
             (*params, limit, offset),
         )
         return [dict(row) for row in cursor.fetchall()]
+
+    def query_records_keyset(
+        self,
+        limit: int = 50,
+        cursor_timestamp: float | None = None,
+        cursor_id: int | None = None,
+        filters: dict[str, Any] | None = None,
+        search_text: str | None = None,
+        include_hidden: bool = True,
+        include_missing: bool = True,
+    ) -> dict[str, Any]:
+        """[H-R6] 基于游标（keyset / seek）的分页查询，避免深分页 O(offset) 扫描。
+
+        Why keyset 而不是 LIMIT/OFFSET：
+            ``LIMIT ? OFFSET ?`` 在大表上需扫描并丢弃前 ``offset`` 行，翻到
+            第 N 页的代价随 N 线性增长（O(offset)）。keyset 分页用上一页
+            末尾记录的 ``(created_timestamp, id)`` 作游标，直接通过
+            ``idx_history_created_timestamp`` 定位起点，每页恒为 O(log n + limit)，
+            与页码深度无关。适用于下拉无限滚动、SSE 增量加载场景。
+
+        排序：固定为 ``created_timestamp DESC, id DESC``（id 作为同时间戳的
+        稳定次序 tiebreaker，避免同秒多条记录分页遗漏/重复）。
+
+        Args:
+            limit: 单页返回最大记录数（1~1000，越界修正为 50）。
+            cursor_timestamp: 上一页末条记录的 ``created_timestamp``；None 表示首页。
+            cursor_id: 上一页末条记录的 ``id``；与 ``cursor_timestamp`` 配对使用。
+            filters: 过滤条件字典（同 ``query_records``）。
+            search_text: 可选模糊搜索关键词（同样优先走 FTS5）。
+            include_hidden: 是否包含已隐藏记录，默认 True。
+            include_missing: 是否包含文件缺失记录，默认 True。
+
+        Returns:
+            dict[str, Any]: 包含：
+                - ``items`` (list[dict]): 当页记录（按 created_timestamp DESC, id DESC）
+                - ``next_cursor`` (dict | None): 下一页游标；
+                  无更多数据时为 None。
+                - ``hasMore`` (bool): 是否还有下一页。
+        """
+        if limit <= 0 or limit > 1000:
+            limit = 50
+
+        conditions, params = self._build_filter_conditions(filters=filters, search_text=search_text)
+
+        if not include_hidden:
+            conditions.append("hidden = 0")
+        if not include_missing:
+            conditions.append("file_missing = 0")
+
+        # keyset 游标条件：严格小于上一页末尾 (timestamp, id)
+        if cursor_timestamp is not None and cursor_id is not None:
+            conditions.append("(created_timestamp < ? OR (created_timestamp = ? AND id < ?))")
+            params.extend([float(cursor_timestamp), float(cursor_timestamp), int(cursor_id)])
+
+        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+
+        # 多取一条用于判断 hasMore，不需额外 COUNT(*)
+        cursor = self._execute(
+            f"""
+            SELECT * FROM generation_history
+            {where_clause}
+            ORDER BY created_timestamp DESC, id DESC
+            LIMIT ?
+            """,
+            (*params, limit + 1),
+        )
+        rows = [dict(row) for row in cursor.fetchall()]
+
+        has_more = len(rows) > limit
+        items = rows[:limit]
+        next_cursor: dict[str, Any] | None = None
+        if has_more and items:
+            last = items[-1]
+            next_cursor = {
+                "timestamp": last.get("created_timestamp"),
+                "id": last.get("id"),
+            }
+
+        return {
+            "items": items,
+            "next_cursor": next_cursor,
+            "hasMore": has_more,
+        }
 
     def count_records(
         self,
@@ -1409,9 +1627,7 @@ class HistoryDatabase:
             - candidate_count：DB 中 file_missing=1 且磁盘上确实不存在的总数。
             - deleted_count：实际删除的行数（dry_run=True 时恒为 0）。
         """
-        cursor = self._execute(
-            "SELECT id, filepath FROM generation_history WHERE file_missing = 1"
-        )
+        cursor = self._execute("SELECT id, filepath FROM generation_history WHERE file_missing = 1")
         rows = cursor.fetchall()
         to_delete_ids: list[int] = []
         for row in rows:
@@ -1432,10 +1648,7 @@ class HistoryDatabase:
                         chunk,
                     )
                     deleted_count += cursor.rowcount
-            logger.info(
-                f"[history_db] 清理文件缺失记录: 候选 {candidate_count} 条，"
-                f"实际删除 {deleted_count} 条"
-            )
+            logger.info(f"[history_db] 清理文件缺失记录: 候选 {candidate_count} 条，实际删除 {deleted_count} 条")
         return (candidate_count, deleted_count)
 
     # ------------------------------------------------------------------
