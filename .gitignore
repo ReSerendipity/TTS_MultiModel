@@ -127,7 +127,7 @@ full_page.png
 indextts2_page.png
 test_screenshot.png
 test_player.html
-test_*.py
+/test_*.py
 
 # Reference repositories (external, not part of core project)
 reference_repos/

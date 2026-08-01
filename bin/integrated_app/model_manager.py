@@ -54,8 +54,8 @@ import logging
 import os
 import threading
 import time
-from collections.abc import Generator
-from typing import Any, Callable, Optional
+from collections.abc import Callable, Generator
+from typing import Any
 
 from .cache import AdaptiveLRUCache, LRUCache
 from .config import (
@@ -640,7 +640,7 @@ def _do_load_voxcpm2_internal(
 
 
 def load_voxcpm2(
-    progress_callback: Optional[Callable[..., None]] = None,
+    progress_callback: Callable[..., None] | None = None,
 ) -> Generator[tuple[str, None, None, None], None, None]:
     """加载 VoxCPM2 引擎（生成器进度事件流）。
 
@@ -723,7 +723,7 @@ def load_voxcpm2(
 
 
 def load_indextts2(
-    progress_callback: Optional[Callable[..., None]] = None,
+    progress_callback: Callable[..., None] | None = None,
 ) -> Generator[tuple[str, None, None, None], None, None]:
     """加载 IndexTTS 2.0 引擎（生成器进度事件流）。
 
@@ -914,7 +914,7 @@ class PreloadService:
             "error": None,
         }
         self._lock: threading.Lock = threading.Lock()
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
     def preload(
         self,
@@ -1344,7 +1344,7 @@ def _rollback_engine(prev_state: dict[str, Any], error: Exception) -> None:
     error_msg: str = f"引擎切换失败: {type(error).__name__}: {error}\n\n详细错误:\n{tb}"
     logger.error(f"[引擎切换] {error_msg}")
 
-    prev_engine: Optional[str] = prev_state["engine"]
+    prev_engine: str | None = prev_state["engine"]
     logger.info(f"[引擎切换] 开始回滚到之前的引擎状态 (prev_engine={prev_engine})...")
 
     # M-R3: 先清理可能残留的半加载状态（新引擎可能加载了一半）

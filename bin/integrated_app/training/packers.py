@@ -17,7 +17,8 @@ training/ 目录对应 WebUI 中 LoRA 微调 Tab 的训练任务；scripts/train
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Union
+from collections.abc import Callable
+from typing import Any, Protocol
 
 import torch
 import torch.nn as nn
@@ -86,7 +87,7 @@ class LengthSortedBatchPacker:
         self.max_batch_tokens: int = int(max_batch_tokens)
         self.sort_key: Callable[[DatasetEntry], int] = sort_key
 
-    def pack(self, entries: List[DatasetEntry]) -> List[List[DatasetEntry]]:
+    def pack(self, entries: list[DatasetEntry]) -> list[list[DatasetEntry]]:
         """把 entries 按贪心打包成 batch 列表。
 
         Args:
@@ -99,7 +100,7 @@ class LengthSortedBatchPacker:
         if not entries:
             return []
         # 计算每个样本长度，过滤异常条目（sort_key 异常 -> 跳过）
-        scored: List[Tuple[int, DatasetEntry]] = []
+        scored: list[tuple[int, DatasetEntry]] = []
         for e in entries:
             try:
                 n = int(self.sort_key(e))
@@ -121,8 +122,8 @@ class LengthSortedBatchPacker:
             return []
         # 按长度从大到小排序（大的先装桶，碎片最小化）
         scored.sort(key=lambda x: x[0], reverse=True)
-        batches: List[List[DatasetEntry]] = []
-        batch_loads: List[int] = []
+        batches: list[list[DatasetEntry]] = []
+        batch_loads: list[int] = []
         for length, entry in scored:
             placed = False
             # 找到第一个能塞进去的 batch（best-fit）
@@ -161,7 +162,7 @@ class DynamicBucketPacker:
 
     def __init__(
         self,
-        bucket_boundaries_sec: Tuple[float, ...] = (1.0, 5.0, 10.0, 20.0),
+        bucket_boundaries_sec: tuple[float, ...] = (1.0, 5.0, 10.0, 20.0),
         max_batch_tokens: int = 3000,
         sort_key: Callable[[DatasetEntry], int] = lambda e: max(1, int(e.duration * 50)),
     ) -> None:
@@ -178,7 +179,7 @@ class DynamicBucketPacker:
         if max_batch_tokens <= 0:
             logger.warning("max_batch_tokens 非法（%d），回退默认 3000", max_batch_tokens)
             max_batch_tokens = 3000
-        self.bucket_boundaries: Tuple[float, ...] = tuple(bucket_boundaries_sec)
+        self.bucket_boundaries: tuple[float, ...] = tuple(bucket_boundaries_sec)
         self.max_batch_tokens: int = int(max_batch_tokens)
         self.sort_key: Callable[[DatasetEntry], int] = sort_key
 
@@ -196,7 +197,7 @@ class DynamicBucketPacker:
                 return i
         return len(self.bucket_boundaries)
 
-    def pack(self, entries: List[DatasetEntry]) -> List[List[DatasetEntry]]:
+    def pack(self, entries: list[DatasetEntry]) -> list[list[DatasetEntry]]:
         """按时长分桶后，在每个桶内再按贪心打包。
 
         Args:
@@ -208,7 +209,7 @@ class DynamicBucketPacker:
         if not entries:
             return []
         n_buckets = len(self.bucket_boundaries) + 1
-        buckets: List[List[DatasetEntry]] = [[] for _ in range(n_buckets)]
+        buckets: list[list[DatasetEntry]] = [[] for _ in range(n_buckets)]
         for e in entries:
             try:
                 dur = float(e.duration)
@@ -226,7 +227,7 @@ class DynamicBucketPacker:
         sub_packer = LengthSortedBatchPacker(
             max_batch_tokens=self.max_batch_tokens, sort_key=self.sort_key
         )
-        result: List[List[DatasetEntry]] = []
+        result: list[list[DatasetEntry]] = []
         for bucket in buckets:
             if bucket:
                 result.extend(sub_packer.pack(bucket))
@@ -287,15 +288,15 @@ class AudioFeatureProcessingPacker:
         self.max_len = int(max_len)
         self.audio_vae: _AudioVAE = audio_vae
 
-        self.process_functions: Dict[str, Callable[..., Any]] = {"tts": self.process_tts_data}
-        self.task_id_map: Dict[str, int] = {"tts": 1}
-        self.id_to_task: Dict[int, str] = {idx: usage for usage, idx in self.task_id_map.items()}
+        self.process_functions: dict[str, Callable[..., Any]] = {"tts": self.process_tts_data}
+        self.task_id_map: dict[str, int] = {"tts": 1}
+        self.id_to_task: dict[int, str] = {idx: usage for usage, idx in self.task_id_map.items()}
 
     # ------------------------------------------------------------------ #
     # Helpers
     # ------------------------------------------------------------------ #
     @staticmethod
-    def _first_pad_position(tokens: torch.Tensor) -> Optional[int]:
+    def _first_pad_position(tokens: torch.Tensor) -> int | None:
         """找到第一个 pad（-100）位置，不存在时返回 None。"""
         positions = (tokens == -100).nonzero(as_tuple=True)
         if positions[0].numel() == 0:
@@ -369,8 +370,8 @@ class AudioFeatureProcessingPacker:
         text_tokens: torch.Tensor,
         task_ids: torch.Tensor,
         dataset_ids: torch.Tensor,
-        is_prompts: List[bool],
-    ) -> Dict[str, torch.Tensor]:
+        is_prompts: list[bool],
+    ) -> dict[str, torch.Tensor]:
         """Padding-based batching：每条样本独立处理后再 pad 到共同长度。
 
         结果张量形状统一为 ``[B, T, ...]``，T 不超过 ``self.max_len``。
@@ -389,15 +390,15 @@ class AudioFeatureProcessingPacker:
         max_dataset_id = int(dataset_ids.max().item()) if dataset_ids.numel() > 0 else -1
         dataset_cnt = max(self.dataset_cnt, max_dataset_id + 1)
 
-        text_tokens_list: List[torch.Tensor] = []
-        audio_feats_list: List[torch.Tensor] = []
-        text_mask_list: List[torch.Tensor] = []
-        audio_mask_list: List[torch.Tensor] = []
-        loss_mask_list: List[torch.Tensor] = []
-        labels_list: List[torch.Tensor] = []
-        audio_task_ids_list: List[torch.Tensor] = []
-        audio_dataset_ids_list: List[torch.Tensor] = []
-        lengths: List[int] = []
+        text_tokens_list: list[torch.Tensor] = []
+        audio_feats_list: list[torch.Tensor] = []
+        text_mask_list: list[torch.Tensor] = []
+        audio_mask_list: list[torch.Tensor] = []
+        loss_mask_list: list[torch.Tensor] = []
+        labels_list: list[torch.Tensor] = []
+        audio_task_ids_list: list[torch.Tensor] = []
+        audio_dataset_ids_list: list[torch.Tensor] = []
+        lengths: list[int] = []
 
         audio_duration_consumed = torch.zeros(dataset_cnt, dtype=torch.float32, device=device)
         text_token_consumed = torch.zeros(dataset_cnt, dtype=torch.float32, device=device)
@@ -538,7 +539,7 @@ class AudioFeatureProcessingPacker:
     # ------------------------------------------------------------------ #
     # Feature extraction helpers
     # ------------------------------------------------------------------ #
-    def extract_audio_feats(self, audio_data: torch.Tensor) -> Tuple[torch.Tensor, float]:
+    def extract_audio_feats(self, audio_data: torch.Tensor) -> tuple[torch.Tensor, float]:
         """对单条音频执行 AudioVAE 编码 + patch reshape。
 
         Args:
@@ -563,7 +564,7 @@ class AudioFeatureProcessingPacker:
         audio_token: torch.Tensor,
         text_token: torch.Tensor,
         is_prompt: bool = False,
-    ) -> Tuple[
+    ) -> tuple[
         torch.Tensor,
         torch.Tensor,
         torch.Tensor,

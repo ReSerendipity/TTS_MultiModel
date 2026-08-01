@@ -39,7 +39,7 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger("tts_multimodel.vllm_backend")
@@ -214,7 +214,7 @@ class VLLMBackend:
 
             try:
                 import vllm  # noqa: F401
-                from vllm import LLM, SamplingParams
+                from vllm import LLM
 
                 logger.info(f"[vLLM] 正在初始化引擎，模型: {model_path}")
                 logger.info(f"[vLLM] 配置: TP={self._config.tensor_parallel_size}, "

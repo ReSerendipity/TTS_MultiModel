@@ -34,7 +34,7 @@ import threading
 import time
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Union
 
 np: Any = None
 try:
@@ -86,7 +86,7 @@ class PromptCacheEntry:
     audio_hash: str = ""
 
 
-def _serialize_value(obj: Any) -> Tuple[Dict[str, Any], bytes]:
+def _serialize_value(obj: Any) -> tuple[dict[str, Any], bytes]:
     """将任意对象拆分为（JSON 可序列化元信息，二进制嵌入体）。
 
     Returns:
@@ -121,7 +121,7 @@ def _serialize_value(obj: Any) -> Tuple[Dict[str, Any], bytes]:
             buf.getvalue(),
         )
     if isinstance(obj, dict):
-        sub_metas: Dict[str, Any] = {}
+        sub_metas: dict[str, Any] = {}
         parts: list[bytes] = []
         offset: int = 0
         for k, v in obj.items():
@@ -171,7 +171,7 @@ def _deserialize_value(meta: Any, binary: bytes) -> Any:
             return torch.from_numpy(arr)
         return arr
     if type_tag == "dict":
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         items = meta.get("items", {})
         for k, sm in items.items():
             off = int(sm.get("_offset", 0))
@@ -193,7 +193,7 @@ def _deserialize_value(meta: Any, binary: bytes) -> Any:
     return {k: _deserialize_value(v, binary) for k, v in meta.items() if not k.startswith("__")}
 
 
-def _serialize_legacy(obj: Any) -> Dict[str, Any]:
+def _serialize_legacy(obj: Any) -> dict[str, Any]:
     """旧版序列化：全部塞进 JSON（向后兼容读取）。"""
     if _HAS_TORCH and isinstance(obj, torch.Tensor):
         arr = obj.detach().cpu().numpy()
@@ -333,7 +333,7 @@ class PromptCache:
         """从 metadata.json 加载内存索引；损坏或缺失时尝试从旧格式迁移。"""
         self._ensure_cache_dir()
         meta_path = self._metadata_path()
-        raw: Dict[str, Any] = {}
+        raw: dict[str, Any] = {}
         if meta_path.exists():
             try:
                 with open(meta_path, encoding="utf-8") as f:
@@ -361,7 +361,7 @@ class PromptCache:
                 entries_list.append((k, entry))
             except (TypeError, ValueError):
                 continue
-        
+
         # 按 last_access_ts 升序排序，初始化 OrderedDict 的 LRU 顺序
         entries_list.sort(key=lambda x: x[1].last_access_ts)
         self._meta = OrderedDict(entries_list)
@@ -380,9 +380,9 @@ class PromptCache:
             if (now - self._last_meta_save < _META_SAVE_THROTTLE_SECONDS and
                     self._meta_dirty_count < _META_SAVE_DIRTY_THRESHOLD):
                 return
-        
+
         meta_path = self._metadata_path()
-        payload: Dict[str, Any] = {"version": _METADATA_VERSION}
+        payload: dict[str, Any] = {"version": _METADATA_VERSION}
         for k, entry in self._meta.items():
             payload[k] = {
                 "key": entry.key,
@@ -405,18 +405,18 @@ class PromptCache:
                 tmp_path = meta_path.with_suffix(meta_path.suffix + ".tmp")
                 if tmp_path.exists():
                     tmp_path.unlink()
-    
+
     def _mark_meta_dirty(self) -> None:
         """标记元数据已变更，增加脏计数（供节流使用）。"""
         self._meta_dirty_count += 1
-    
+
     def flush(self) -> None:
         """强制将所有未保存的元数据写入磁盘。"""
         with self._lock:
             if self._meta_dirty_count > 0:
                 self._save_meta(force=True)
 
-    def _migrate_legacy_metadata(self) -> Dict[str, Any]:
+    def _migrate_legacy_metadata(self) -> dict[str, Any]:
         """从旧版 metadata.pkl（pickle 格式）迁移元数据索引。
 
         迁移成功后删除旧 .pkl 文件，失败仅记录 warning 返回空 dict。
@@ -443,7 +443,7 @@ class PromptCache:
 
     # -------------------------------------------------------------- hash
     @staticmethod
-    def _compute_audio_hash(audio_path_or_data: Optional[_BinaryInput]) -> str:
+    def _compute_audio_hash(audio_path_or_data: _BinaryInput | None) -> str:
         """计算参考音频内容哈希（sha256，前 16 位十六进制）。
 
         - ``str`` / ``Path``：按文件读取，为了大音频性能只 hash 前 1MB
@@ -479,7 +479,7 @@ class PromptCache:
         return h.hexdigest()[:16]
 
     # ------------------------------------------------------ public API
-    def get(self, cache_key: str, audio_hash: Optional[str] = None) -> Optional[Any]:
+    def get(self, cache_key: str, audio_hash: str | None = None) -> Any | None:
         """读取缓存条目。
 
         若传入 ``audio_hash``，会与缓存内记录的 ``audio_hash`` 对比；
@@ -559,8 +559,8 @@ class PromptCache:
             return value
 
     def _try_read_legacy(
-        self, cache_key: str, audio_hash: Optional[str], now: float
-    ) -> Optional[Any]:
+        self, cache_key: str, audio_hash: str | None, now: float
+    ) -> Any | None:
         json_path = self._old_json_path(cache_key)
         if json_path.exists():
             try:
@@ -600,7 +600,7 @@ class PromptCache:
                         pkl_path.unlink()
         return None
 
-    def _read_legacy_json(self, cache_file: Path) -> Optional[Any]:
+    def _read_legacy_json(self, cache_file: Path) -> Any | None:
         """文件头不是 MAGIC_HEADER 时，尝试按旧版纯 JSON 格式解析。
 
         Args:
@@ -620,7 +620,7 @@ class PromptCache:
         self,
         cache_key: str,
         embedding: Any,
-        audio_path_or_data: Optional[_BinaryInput] = None,
+        audio_path_or_data: _BinaryInput | None = None,
     ) -> None:
         """写入缓存条目（原子写 + LRU 淘汰）。
 
@@ -693,7 +693,7 @@ class PromptCache:
                     break
                 self._evict_nolock(oldest_key, reason="lru")
                 evicted_count += 1
-            
+
             if evicted_count > 0:
                 self._mark_meta_dirty()
             self._mark_meta_dirty()
@@ -831,7 +831,7 @@ class PromptCache:
         """向后兼容别名：等价于 :meth:`clear_all`。"""
         return self.clear_all()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """获取缓存统计信息。
 
         Returns:
@@ -872,7 +872,7 @@ _MAX_CACHE_ENTRIES = _DEFAULT_MAX_ENTRIES
 _CACHE_TTL_SECONDS = _DEFAULT_TTL_SECONDS
 
 _lock = threading.RLock()
-_default_cache: Optional[PromptCache] = None
+_default_cache: PromptCache | None = None
 
 
 def get_prompt_cache() -> PromptCache:
@@ -906,7 +906,7 @@ def _get_prompt_cache_key(audio_path: str) -> str:
     return h.hexdigest()[:16]
 
 
-def load_cached_prompt(audio_path: str) -> Optional[Any]:
+def load_cached_prompt(audio_path: str) -> Any | None:
     """向后兼容：按音频路径读取缓存嵌入。
 
     等价于：``key = hash(audio_path); cache.get(key, audio_hash=hash_content(audio_path))``
@@ -929,7 +929,7 @@ def clear_prompt_cache() -> None:
     get_prompt_cache().clear_all()
 
 
-def get_cache_stats() -> Dict[str, Any]:
+def get_cache_stats() -> dict[str, Any]:
     """向后兼容：获取全局 PromptCache 统计。"""
     return get_prompt_cache().get_stats()
 

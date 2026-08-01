@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """多语言文本前端处理模块
 
 提供语言检测、文本规范化、G2P 桩实现及统一门面接口，
@@ -17,7 +16,6 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -1254,7 +1252,7 @@ class TextNormalizer:
 
         if 2000 <= year <= 2099:
             if year % 100 == 0:
-                return f"two thousand"
+                return "two thousand"
             elif year % 100 < 10:
                 return f"two thousand and {TextNormalizer._number_to_en_word(year % 100)}"
             else:
@@ -1585,7 +1583,7 @@ class TextFrontend:
         self._g2p = G2PProcessor()
 
     def process(
-        self, text: str, lang: Optional[str] = None
+        self, text: str, lang: str | None = None
     ) -> tuple[str, str]:
         """处理输入文本
 
@@ -1682,7 +1680,7 @@ class TextFrontend:
 # ---------------------------------------------------------------------------
 
 # 模块级单例（懒初始化）
-_frontend_instance: Optional[TextFrontend] = None
+_frontend_instance: TextFrontend | None = None
 
 
 def get_frontend() -> TextFrontend:
@@ -1697,7 +1695,7 @@ def get_frontend() -> TextFrontend:
     return _frontend_instance
 
 
-def process_text(text: str, lang: Optional[str] = None) -> tuple[str, str]:
+def process_text(text: str, lang: str | None = None) -> tuple[str, str]:
     """便捷函数：处理文本
 
     Args:

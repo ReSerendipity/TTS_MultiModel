@@ -29,17 +29,19 @@
 
 import contextlib
 import gc
-import logging
 import os
 import re
 import tempfile
 import threading
 import time
 import zipfile
-from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, Tuple
+from collections.abc import Callable
+from typing import Any, NamedTuple
 
 import numpy as np
 
+from ...exceptions import EngineSwitchError
+from ...gpu_utils import free_gpu_memory, is_oom_error
 from ._base import (
     SAVE_DIR,
     GenerationError,
@@ -51,8 +53,6 @@ from ._base import (
     logger,
 )
 from .decorators import with_generation_context
-from ...exceptions import EngineSwitchError
-from ...gpu_utils import free_gpu_memory, is_oom_error
 
 
 class ScriptLine(NamedTuple):
@@ -74,12 +74,12 @@ class ScriptLine(NamedTuple):
     """
 
     line_id: int
-    role: Optional[str]
+    role: str | None
     text: str
     is_instruction: bool
-    audio: Optional[np.ndarray] = None
-    duration_ms: Optional[int] = None
-    error: Optional[str] = None
+    audio: np.ndarray | None = None
+    duration_ms: int | None = None
+    error: str | None = None
 
 
 _SCRIPT_LINE_RE: re.Pattern[str] = re.compile(
@@ -98,7 +98,7 @@ def _is_instruction(role_or_token: str) -> bool:
     return False
 
 
-def parse_script(script_text: str) -> List[ScriptLine]:
+def parse_script(script_text: str) -> list[ScriptLine]:
     """把剧本字符串解析为结构化 ScriptLine 列表。
 
     解析规则：
@@ -118,7 +118,7 @@ def parse_script(script_text: str) -> List[ScriptLine]:
         logger.info("[VoxCPM剧本工坊] 输入剧本为空，返回空列表")
         return []
 
-    lines: List[ScriptLine] = []
+    lines: list[ScriptLine] = []
     raw_lines = script_text.split("\n")
     for idx, raw in enumerate(raw_lines, start=1):
         stripped = raw.strip()
@@ -191,9 +191,9 @@ def parse_script(script_text: str) -> List[ScriptLine]:
 
 
 def _lookup_persona_wav(
-    persona_map: Dict[str, Any],
+    persona_map: dict[str, Any],
     role_name: str,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     """在 persona_map 中按大小写不敏感查找角色对应的音色音频路径。
 
     persona_map 接受两种格式（向后兼容）：
@@ -205,8 +205,8 @@ def _lookup_persona_wav(
             未找到时返回 (None, None)。
     """
     role_lower = role_name.lower()
-    matched_key: Optional[str] = None
-    for k in persona_map.keys():
+    matched_key: str | None = None
+    for k in persona_map:
         if str(k).lower() == role_lower:
             matched_key = k
             break
@@ -243,15 +243,15 @@ def _parse_pause_ms_from_instruction(text: str, default_ms: int) -> int:
 
 def generate_script_lines(
     model: Any,
-    lines: List[ScriptLine],
-    persona_map: Dict[str, str],
+    lines: list[ScriptLine],
+    persona_map: dict[str, str],
     global_cfg: float = 5.0,
     global_steps: int = 30,
-    per_character_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+    per_character_overrides: dict[str, dict[str, Any]] | None = None,
     denoise_reference: bool = False,
-    progress_cb: Optional[Callable[[int, int, str], None]] = None,
-    stop_event: Optional[threading.Event] = None,
-) -> List[ScriptLine]:
+    progress_cb: Callable[[int, int, str], None] | None = None,
+    stop_event: threading.Event | None = None,
+) -> list[ScriptLine]:
     """按剧本行顺序逐角色串行生成音频，支持 OOM 容错 + 用户取消。
 
     Why 单角色串行生成（而不是并行多角色）：
@@ -292,8 +292,8 @@ def generate_script_lines(
     if total == 0:
         return []
 
-    overrides: Dict[str, Dict[str, Any]] = per_character_overrides or {}
-    results: List[ScriptLine] = []
+    overrides: dict[str, dict[str, Any]] = per_character_overrides or {}
+    results: list[ScriptLine] = []
 
     for idx, line in enumerate(lines, start=1):
         if stop_event is not None and stop_event.is_set():
@@ -349,7 +349,7 @@ def generate_script_lines(
             )
             continue
 
-        role_override: Dict[str, Any] = {}
+        role_override: dict[str, Any] = {}
         for k, v in overrides.items():
             if str(k).lower() == line.role.lower():
                 role_override = dict(v)
@@ -357,13 +357,13 @@ def generate_script_lines(
 
         cfg = float(role_override.get("cfg", global_cfg))
         steps = int(role_override.get("steps", global_steps))
-        extra_kwargs: Dict[str, Any] = {
+        extra_kwargs: dict[str, Any] = {
             k: v for k, v in role_override.items()
             if k not in ("cfg", "steps")
         }
 
         try:
-            generate_kwargs: Dict[str, Any] = dict(
+            generate_kwargs: dict[str, Any] = dict(
                 text=line.text,
                 reference_wav_path=wav_path,
                 normalize=True,
@@ -420,7 +420,8 @@ def _resample_or_pad(
     try:
         try:
             import librosa
-            return librosa.resample(wav.astype(np.float32), orig_sr=from_sr, target_sr=to_sr)
+            import numpy as _np
+            return librosa.resample(wav.astype(_np.float32), orig_sr=from_sr, target_sr=to_sr)
         except (ImportError, Exception):
             import numpy as np
             ratio = to_sr / float(from_sr)
@@ -438,10 +439,10 @@ def _resample_or_pad(
 
 
 def concatenate_lines(
-    lines: List[ScriptLine],
+    lines: list[ScriptLine],
     silence_ms: int = 250,
     sample_rate: int = 24000,
-) -> Tuple[np.ndarray, int]:
+) -> tuple[np.ndarray, int]:
     """把已生成的 ScriptLine.audio 拼接为完整波形。
 
     Why 段间默认插 250ms silence：
@@ -472,7 +473,7 @@ def concatenate_lines(
     silence_ms = max(0, min(silence_ms, 5000))
     base_silence_samples = int(sample_rate * silence_ms / 1000.0)
 
-    segments: List[np.ndarray] = []
+    segments: list[np.ndarray] = []
     last_was_instruction = False
 
     for line in lines:
@@ -530,8 +531,8 @@ def _format_srt_timestamp(ms: int) -> str:
 
 
 def export_script_to_zip(
-    lines: List[ScriptLine],
-    full_wav: Tuple[np.ndarray, int],
+    lines: list[ScriptLine],
+    full_wav: tuple[np.ndarray, int],
     export_path: str,
 ) -> str:
     """把剧本生成分段 WAV + SRT 字幕 + 合并完整 WAV 打包为 ZIP。
@@ -559,8 +560,8 @@ def export_script_to_zip(
     except (OSError, PermissionError) as e:
         raise GenerationError(f"导出 ZIP 目标目录创建失败: {e}") from e
 
-    srt_entries: List[str] = []
-    manifest_lines: List[str] = []
+    srt_entries: list[str] = []
+    manifest_lines: list[str] = []
     manifest_lines.append("{")
     manifest_lines.append('  "segments": [')
 
@@ -581,7 +582,7 @@ def export_script_to_zip(
                         os.remove(full_tmp)
 
             for line in lines:
-                entry_json_fields: List[str] = []
+                entry_json_fields: list[str] = []
                 entry_json_fields.append(f'    "line_id": {line.line_id}')
                 entry_json_fields.append(f'    "role": {_json_str(line.role or "")}')
                 entry_json_fields.append(f'    "text": {_json_str(line.text)}')
@@ -655,7 +656,7 @@ def export_script_to_zip(
         raise GenerationError(f"剧本导出 ZIP 失败: {type(e).__name__}: {e}") from e
 
 
-def _json_str(s: Optional[str]) -> str:
+def _json_str(s: str | None) -> str:
     """极简 JSON 字符串转义（仅用在 manifest 内部，避免引入 json 依赖的格式复杂度）。"""
     if s is None:
         return "null"

@@ -8,8 +8,9 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 import torch
 
@@ -32,8 +33,8 @@ class BatchInferenceResult:
 
     index: int
     success: bool
-    audio: Optional[torch.Tensor] = None
-    error: Optional[str] = None
+    audio: torch.Tensor | None = None
+    error: str | None = None
     elapsed_ms: float = 0.0
 
 
@@ -156,8 +157,8 @@ class BatchInferencer:
         self,
         items: list[dict[str, Any]],
         inference_fn: Callable[[list[dict[str, Any]]], list[torch.Tensor]],
-        device: Optional[torch.device] = None,
-        on_item_done: Optional[Callable[[BatchInferenceResult], None]] = None,
+        device: torch.device | None = None,
+        on_item_done: Callable[[BatchInferenceResult], None] | None = None,
     ) -> tuple[list[BatchInferenceResult], BatchInferenceStats]:
         """执行批量推理。
 
@@ -289,8 +290,8 @@ class BatchInferencer:
         self,
         texts: list[str],
         inference_fn: Callable[[str], torch.Tensor],
-        device: Optional[torch.device] = None,
-    ) -> list[Optional[torch.Tensor]]:
+        device: torch.device | None = None,
+    ) -> list[torch.Tensor | None]:
         """简化的批量推理接口，逐项目执行但共享 no_grad 上下文。
 
         适用于不支持批量输入的模型，提供统一接口和错误处理。
@@ -303,7 +304,7 @@ class BatchInferencer:
         Returns:
             音频张量列表，失败项为 None。
         """
-        results: list[Optional[torch.Tensor]] = []
+        results: list[torch.Tensor | None] = []
         for text in texts:
             try:
                 audio = inference_fn(text)
@@ -314,7 +315,7 @@ class BatchInferencer:
         return results
 
 
-_default_inferencer: Optional[BatchInferencer] = None
+_default_inferencer: BatchInferencer | None = None
 
 
 def get_batch_inferencer(

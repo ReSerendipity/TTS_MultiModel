@@ -23,7 +23,7 @@
 """
 
 from collections.abc import Generator
-from typing import Any, Protocol, TypeVar, Optional, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 #: 泛型类型变量，用于引擎注册表等场景的类型占位
 _T = TypeVar("_T")
@@ -114,7 +114,7 @@ class TTSEngine(Protocol):
     def generate_voice_clone(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         instruction: str = "",
         normalize: bool = True,
         **kwargs: Any,
@@ -145,8 +145,8 @@ class TTSEngine(Protocol):
     def generate_script(
         self,
         text: str,
-        speaker_map: Optional[dict[str, Any]] = None,
-        persona_map: Optional[dict[str, Any]] = None,
+        speaker_map: dict[str, Any] | None = None,
+        persona_map: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> tuple[Any, str]:
         """剧本工坊模式：多角色对话批量生成。
@@ -176,7 +176,7 @@ class TTSEngine(Protocol):
     def generate_streaming(
         self,
         text: str,
-        reference_audio_path: Optional[str] = None,
+        reference_audio_path: str | None = None,
         **kwargs: Any,
     ) -> Generator[tuple[Any, str], None, None]:
         """流式生成模式：长文本分段合成并实时输出音频块。
@@ -220,7 +220,7 @@ class ControllableTTSEngine(Protocol):
         self,
         text: str,
         instruction: str = "",
-        ref_audio_path: Optional[str] = None,
+        ref_audio_path: str | None = None,
         advanced_cfg: float = 2.0,
         advanced_norm: bool = True,
         advanced_denoise: float = 1.0,
@@ -393,12 +393,12 @@ class EngineRegistry(Protocol):
     def register(
         self,
         name: str,
-        engine_class: Optional[type] = None,
+        engine_class: type | None = None,
         display_name: str = "",
         vram_requirement: float = 6.0,
         lazy_module: str = "",
-        languages: Optional[list[str]] = None,
-        supported_features: Optional[list[str]] = None,
+        languages: list[str] | None = None,
+        supported_features: list[str] | None = None,
         sample_rate: int = 24000,
         requires_gpu: bool = True,
         quality: str = "high",
@@ -425,7 +425,7 @@ class EngineRegistry(Protocol):
         """
         ...
 
-    def get(self, name: str) -> Optional[type]:
+    def get(self, name: str) -> type | None:
         """根据标识符获取引擎类引用。
 
         对于懒注册的引擎，首次调用时触发实际的模块导入。
@@ -481,12 +481,12 @@ class InMemoryEngineRegistry:
     def register(
         self,
         name: str,
-        engine_class: Optional[type] = None,
+        engine_class: type | None = None,
         display_name: str = "",
         vram_requirement: float = 6.0,
         lazy_module: str = "",
-        languages: Optional[list[str]] = None,
-        supported_features: Optional[list[str]] = None,
+        languages: list[str] | None = None,
+        supported_features: list[str] | None = None,
         sample_rate: int = 24000,
         requires_gpu: bool = True,
         quality: str = "high",
@@ -526,7 +526,7 @@ class InMemoryEngineRegistry:
                 "quality": quality,
             }
 
-    def get(self, name: str) -> Optional[type]:
+    def get(self, name: str) -> type | None:
         """获取引擎类引用，支持懒导入解析与双重检查锁。
 
         双重检查锁（Double-Checked Locking）设计说明：

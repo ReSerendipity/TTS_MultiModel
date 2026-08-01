@@ -17,7 +17,7 @@
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -71,10 +71,10 @@ async def index(request: Request) -> Response:
         ``Cache-Control: no-cache`` 禁用首页缓存；模板渲染失败时降级为
         静态 HTML fallback（状态码 200，避免展示 500 白屏）。
     """
-    templates: Optional[Jinja2Templates] = getattr(request.app.state, "templates", None)
+    templates: Jinja2Templates | None = getattr(request.app.state, "templates", None)
     lang = get_lang(request)
     config = get_config()
-    ctx: Dict[str, Any] = {
+    ctx: dict[str, Any] = {
         "version": getattr(request.app.state, "version", "0.0.0"),
         "lang": lang,
         "i18n_json": get_i18n_json(lang),
@@ -149,7 +149,7 @@ async def download_guide(request: Request, path: str = "") -> Any:
     if path:
         logger.info("download-guide 拦截路径: %s", path[:120])
 
-    templates: Optional[Jinja2Templates] = getattr(request.app.state, "templates", None)
+    templates: Jinja2Templates | None = getattr(request.app.state, "templates", None)
     lang = get_lang(request)
     headers = {"Cache-Control": "no-cache, no-store, must-revalidate"}
 

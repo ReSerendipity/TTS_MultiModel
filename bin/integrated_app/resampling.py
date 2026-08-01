@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """自动音频重采样管线：引擎切换时的采样率统一转换
 
 本模块提供统一的音频重采样功能，用于在 TTS 引擎之间切换时
@@ -16,9 +15,9 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass
 from enum import Enum
-from typing import Sequence
 
 import numpy as np
 

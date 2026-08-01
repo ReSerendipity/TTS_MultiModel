@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """模型编译与预热模块。
 
 提供 torch.compile JIT 编译加速和预热推理功能，参考：
@@ -24,7 +23,8 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -63,7 +63,7 @@ def is_torch_compile_available() -> bool:
 
 def apply_torch_compile(
     model: Any,
-    compile_submodules: Optional[list[str]] = None,
+    compile_submodules: list[str] | None = None,
     backend: str = "inductor",
     mode: str = "reduce-overhead",
     fullgraph: bool = False,
@@ -132,7 +132,7 @@ def apply_torch_compile(
 
 def warmup_model(
     model: Any,
-    progress_callback: Optional[Callable[[str], None]] = None,
+    progress_callback: Callable[[str], None] | None = None,
     timeout: float = _WARMUP_MAX_SECONDS,
 ) -> bool:
     """执行模型预热推理，触发 CUDA kernel 编译和内存分配。
@@ -169,7 +169,6 @@ def warmup_model(
         warmup_text = _WARMUP_TEXT_ZH
         try:
             _report(f"预热推理: '{warmup_text}'（短文本）")
-            import numpy as np
 
             # 执行一次短文本生成，使用默认参数
             # 注意：不保存生成结果，仅用于触发 kernel 编译
@@ -218,7 +217,7 @@ def warmup_model(
 
 def warmup_indextts2(
     engine: Any,
-    progress_callback: Optional[Callable[[str], None]] = None,
+    progress_callback: Callable[[str], None] | None = None,
     timeout: float = _WARMUP_MAX_SECONDS,
 ) -> bool:
     """IndexTTS2 引擎预热。
@@ -265,9 +264,9 @@ def warmup_indextts2(
 
 def optimize_and_warmup_voxcpm(
     model: Any,
-    enable_compile: Optional[bool] = None,
+    enable_compile: bool | None = None,
     enable_warmup: bool = True,
-    progress_callback: Optional[Callable[[str], None]] = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> bool:
     """一站式优化 + 预热入口函数。
 

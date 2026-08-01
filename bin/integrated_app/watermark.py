@@ -94,7 +94,7 @@ def _generate_watermark_key(source_id: str, timestamp: float) -> np.ndarray:
     Returns:
         双极性序列（+1/-1）组成的密钥数组。
     """
-    seed_data = f"{source_id}:{timestamp:.6f}".encode("utf-8")
+    seed_data = f"{source_id}:{timestamp:.6f}".encode()
     seed = int(hashlib.sha256(seed_data).hexdigest()[:8], 16) % (2**32)
     rng = np.random.RandomState(seed)
     return rng.choice([-1.0, 1.0], size=_WATERMARK_BITS)

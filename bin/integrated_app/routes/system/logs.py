@@ -30,10 +30,10 @@ import threading
 import time
 from collections import deque
 from datetime import datetime, timedelta
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -53,7 +53,7 @@ VALID_ACTIONS: frozenset = frozenset({
     "system_startup", "system_shutdown", "config_update",
 })
 
-ACTION_LEVEL_MAP: Dict[str, str] = {
+ACTION_LEVEL_MAP: dict[str, str] = {
     "generation_failed": "ERROR",
     "model_unload": "WARN",
     "system_shutdown": "WARN",
@@ -85,7 +85,7 @@ class LogEntryResponse(BaseModel):
     level: str = Field(description="等级 INFO/WARN/ERROR")
     action: str = Field(description="动作类型")
     message: str = Field(description="摘要文本")
-    extra: Dict[str, Any] = Field(default_factory=dict, description="扩展元数据")
+    extra: dict[str, Any] = Field(default_factory=dict, description="扩展元数据")
 
 
 class LogListResponse(BaseModel):
@@ -101,7 +101,7 @@ class LogListResponse(BaseModel):
     total_count: int = Field(description="满足条件的总条数")
     page: int = Field(description="当前页码，1 起始")
     page_size: int = Field(description="每页大小")
-    items: List[LogEntryResponse] = Field(default_factory=list, description="日志条目列表")
+    items: list[LogEntryResponse] = Field(default_factory=list, description="日志条目列表")
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ class OperationLog:
     """
 
     def __init__(self, maxlen: int = 2000) -> None:
-        self._logs: Deque[Dict[str, Any]] = deque(maxlen=maxlen)
+        self._logs: deque[dict[str, Any]] = deque(maxlen=maxlen)
         self._lock = threading.RLock()
         self._counter: int = 0
 
@@ -127,8 +127,8 @@ class OperationLog:
         self,
         operation_type: str,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
-        level: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        level: str | None = None,
     ) -> int:
         """追加一条日志，返回分配的自增 ID。"""
         resolved_level = level or ACTION_LEVEL_MAP.get(operation_type, "INFO")
@@ -136,7 +136,7 @@ class OperationLog:
             resolved_level = "INFO"
         with self._lock:
             self._counter += 1
-            entry: Dict[str, Any] = {
+            entry: dict[str, Any] = {
                 "id": self._counter,
                 "timestamp": time.time() * 1000,
                 "type": operation_type,
@@ -150,11 +150,11 @@ class OperationLog:
     def get_latest(
         self,
         limit: int = 50,
-        filter_type: Optional[str] = None,
-        level: Optional[str] = None,
-        start_ts: Optional[int] = None,
-        end_ts: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        filter_type: str | None = None,
+        level: str | None = None,
+        start_ts: int | None = None,
+        end_ts: int | None = None,
+    ) -> list[dict[str, Any]]:
         """读取最新 N 条，可按 action type / level / 时间窗过滤。"""
         with self._lock:
             logs = list(self._logs)
@@ -184,8 +184,8 @@ def get_operation_log() -> OperationLog:
 def log_operation(
     operation_type: str,
     message: str,
-    details: Optional[Dict[str, Any]] = None,
-    level: Optional[str] = None,
+    details: dict[str, Any] | None = None,
+    level: str | None = None,
 ) -> None:
     """对外暴露的写日志入口（向后兼容，settings.py 等模块使用）。
 
@@ -257,7 +257,7 @@ def _ensure_action_logs_table(db: Any) -> None:
         return
 
 
-def _db_available() -> Optional[Any]:
+def _db_available() -> Any | None:
     """返回可用的 history_db 实例；不可用返回 None。"""
     try:
         from ...history_db import get_history_db
@@ -277,12 +277,12 @@ def _db_available() -> Optional[Any]:
 
 @router.get("/logs", summary="查询操作日志", description="分页查询操作日志，支持 level/action/时间窗过滤", response_model=LogListResponse)
 def get_logs(
-    level: Optional[str] = Query(default=None, description="日志等级 INFO/WARN/ERROR"),
-    action: Optional[str] = Query(default=None, description="动作类型过滤，如 generation_success"),
+    level: str | None = Query(default=None, description="日志等级 INFO/WARN/ERROR"),
+    action: str | None = Query(default=None, description="动作类型过滤，如 generation_success"),
     page: int = Query(default=1, ge=1, description="页码，1 起始"),
     page_size: int = Query(default=50, ge=1, le=500, description="每页 1-500 条"),
-    start_ts: Optional[int] = Query(default=None, description="起始时间戳（毫秒，含）"),
-    end_ts: Optional[int] = Query(default=None, description="结束时间戳（毫秒，含）"),
+    start_ts: int | None = Query(default=None, description="起始时间戳（毫秒，含）"),
+    end_ts: int | None = Query(default=None, description="结束时间戳（毫秒，含）"),
 ) -> LogListResponse:
     """分页查询操作日志。
 
@@ -302,14 +302,14 @@ def get_logs(
 
 
 def _build_filter_sql(
-    level: Optional[str],
-    action: Optional[str],
-    start_ts: Optional[int],
-    end_ts: Optional[int],
-) -> tuple[str, List[Any]]:
+    level: str | None,
+    action: str | None,
+    start_ts: int | None,
+    end_ts: int | None,
+) -> tuple[str, list[Any]]:
     """构建 WHERE 子句与参数列表。"""
-    clauses: List[str] = []
-    params: List[Any] = []
+    clauses: list[str] = []
+    params: list[Any] = []
     if level:
         clauses.append("level = ?")
         params.append(level)
@@ -328,12 +328,12 @@ def _build_filter_sql(
 
 def _query_from_db(
     db: Any,
-    level: Optional[str],
-    action: Optional[str],
+    level: str | None,
+    action: str | None,
     page: int,
     page_size: int,
-    start_ts: Optional[int],
-    end_ts: Optional[int],
+    start_ts: int | None,
+    end_ts: int | None,
 ) -> LogListResponse:
     where, params = _build_filter_sql(level, action, start_ts, end_ts)
 
@@ -347,7 +347,7 @@ def _query_from_db(
         total_count = 0
 
     # items（按 ts_ms DESC + id DESC 保证时间倒序）
-    items: List[LogEntryResponse] = []
+    items: list[LogEntryResponse] = []
     if total_count > 0:
         offset = (page - 1) * page_size
         try:
@@ -361,7 +361,7 @@ def _query_from_db(
             for row in cursor.fetchall():
                 row_id, ts_ms, row_level, row_action, row_msg, extra_json = row
                 try:
-                    extra_parsed: Dict[str, Any] = json.loads(extra_json) if extra_json else {}
+                    extra_parsed: dict[str, Any] = json.loads(extra_json) if extra_json else {}
                     if not isinstance(extra_parsed, dict):
                         extra_parsed = {"raw": extra_parsed}
                 except (json.JSONDecodeError, TypeError, ValueError):
@@ -384,12 +384,12 @@ def _query_from_db(
 
 
 def _query_from_memory(
-    level: Optional[str],
-    action: Optional[str],
+    level: str | None,
+    action: str | None,
     page: int,
     page_size: int,
-    start_ts: Optional[int],
-    end_ts: Optional[int],
+    start_ts: int | None,
+    end_ts: int | None,
 ) -> LogListResponse:
     # 先拿过滤后的全量，再在 Python 层分页
     filter_type = action or "all"
@@ -404,7 +404,7 @@ def _query_from_memory(
     offset = (page - 1) * page_size
     page_slice = filtered[offset : offset + page_size]
 
-    items: List[LogEntryResponse] = []
+    items: list[LogEntryResponse] = []
     for raw in page_slice:
         details = raw.get("details") or {}
         if not isinstance(details, dict):
@@ -427,7 +427,7 @@ def _query_from_memory(
 # ---------------------------------------------------------------------------
 
 @router.delete("/logs/clean", summary="清理旧日志", description="清理 30 天前或超过 10 万条之前的操作日志")
-def clean_logs() -> Dict[str, Any]:
+def clean_logs() -> dict[str, Any]:
     """按双重阈值清理操作日志。
 
     双重阈值 Why：
@@ -440,7 +440,7 @@ def clean_logs() -> Dict[str, Any]:
 
     if db is not None:
         # OperationalError（DB 锁）→ 重试 3 次 × 0.5s
-        last_err: Optional[sqlite3.OperationalError] = None
+        last_err: sqlite3.OperationalError | None = None
         for attempt in range(3):
             try:
                 _ensure_action_logs_table(db)
@@ -506,13 +506,13 @@ def clean_logs() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/logs-compat", include_in_schema=False)
-def get_logs_simple(limit: int = 50, filter_type: str = "all") -> Dict[str, Any]:
+def get_logs_simple(limit: int = 50, filter_type: str = "all") -> dict[str, Any]:
     """（内部兼容）原 Settings 页面使用的简单无分页格式。"""
     valid_types = {"all", "generation", "model", "config"}
     if filter_type not in valid_types:
         filter_type = "all"
     logs_raw = _operation_log.get_latest(limit=limit, filter_type=filter_type)
-    logs_public: List[Dict[str, Any]] = []
+    logs_public: list[dict[str, Any]] = []
     for raw in logs_raw:
         logs_public.append({
             "id": raw.get("id"),

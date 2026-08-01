@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """生成路由通用工具模块。
 
 架构说明：
@@ -29,7 +28,7 @@ import threading
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 from urllib.parse import quote
 
 import aiofiles
@@ -44,7 +43,6 @@ from ...gpu_utils import free_gpu_memory, is_oom_error
 from ...history_db import get_history_db
 from ...model_manager import _time_estimator
 from ...monitor import get_health_monitor
-from ...text_frontend import process_text
 from ..system import increment_generation, log_operation
 
 router = APIRouter(prefix="/api/generate", tags=["generate"])
@@ -56,9 +54,9 @@ logger = logging.getLogger("tts_multimodel")
 # 修复 P0 数据一致性 Bug：生成路由写入 outputs/history.db，但读取页面
 # 查询 data/history.db，导致用户看不到刚生成的历史记录。
 # ---------------------------------------------------------------------------
-_generation_semaphores: Dict[str, asyncio.Semaphore] = {}
+_generation_semaphores: dict[str, asyncio.Semaphore] = {}
 _generation_semaphore_lock = asyncio.Lock()
-_generation_retry_counter: Dict[str, int] = {"total": 0, "oom_retries": 0}
+_generation_retry_counter: dict[str, int] = {"total": 0, "oom_retries": 0}
 
 # REFACTOR: 集中常量，消除魔法数字
 _MAX_CONCURRENT_GENERATIONS: int = max(1, int(os.environ.get("TTS_MAX_CONCURRENT_GENERATIONS", "1")))
@@ -85,9 +83,9 @@ _DIALECT_NAMES: set = {"四川话", "粤语", "吴语", "东北话", "河南话"
 
 def format_sse_event(
     event_type: str,
-    data: Dict[str, Any],
-    event_id: Optional[str] = None,
-    retry: Optional[int] = None,
+    data: dict[str, Any],
+    event_id: str | None = None,
+    retry: int | None = None,
 ) -> str:
     """构建 SSE (Server-Sent Events) 格式字符串。
 
@@ -110,7 +108,7 @@ def format_sse_event(
             [retry: {retry}\\n]
             \\n
     """
-    lines: List[str] = [f"event: {event_type}"]
+    lines: list[str] = [f"event: {event_type}"]
 
     # data 序列化：非 JSON Serializable 对象先 default=str 兜底，再失败写 {} 保证流不中断
     try:
@@ -146,9 +144,9 @@ def new_task_id() -> str:
 
 async def write_history_and_save_audio(
     audio_bytes: bytes,
-    request: Dict[str, Any],
+    request: dict[str, Any],
     task_id: str,
-    persona_id: Optional[str],
+    persona_id: str | None,
     engine: str,
 ) -> str:
     """保存生成音频到磁盘，并插入 history_db 历史记录。
@@ -264,7 +262,7 @@ async def _get_generation_semaphore(engine: str) -> asyncio.Semaphore:
         对应引擎的 asyncio.Semaphore 单例。
     """
     engine = (engine or "voxcpm2").lower()
-    semaphore: Optional[asyncio.Semaphore] = _generation_semaphores.get(engine)
+    semaphore: asyncio.Semaphore | None = _generation_semaphores.get(engine)
     if semaphore is None:
         async with _generation_semaphore_lock:
             semaphore = _generation_semaphores.get(engine)
@@ -355,7 +353,7 @@ def _migrate_legacy_history_db_if_needed() -> None:
                 return
 
             # 转换为 dict 列表（sqlite3.Row 转 dict）
-            records: List[Dict[str, Any]] = [dict(row) for row in rows]
+            records: list[dict[str, Any]] = [dict(row) for row in rows]
 
             # 写入目标数据库（get_history_db 全局单例）
             # insert_batch 内部使用 INSERT OR REPLACE，filepath UNIQUE 约束保证去重
@@ -388,9 +386,9 @@ class _suppress_os_errors:
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
+        exc_type: type | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
     ) -> bool:
         return exc_type is not None and issubclass(exc_type, OSError)
 
@@ -401,8 +399,8 @@ class _suppress_os_errors:
 
 def _check_engine_ready(
     request: Any,
-    engine_name: Optional[str] = None,
-) -> Optional[HTMLResponse]:
+    engine_name: str | None = None,
+) -> HTMLResponse | None:
     """检查当前引擎是否已加载，未就绪时返回 HTML 错误片段。
 
     Args:
@@ -430,12 +428,12 @@ def _record_to_history_db(
     text: str,
     engine: str,
     duration: float,
-    model_type: Optional[str] = None,
-    model_size: Optional[str] = None,
-    persona_name: Optional[str] = None,
+    model_type: str | None = None,
+    model_size: str | None = None,
+    persona_name: str | None = None,
     output_format: str = "wav",
     is_success: bool = True,
-    error_msg: Optional[str] = None,
+    error_msg: str | None = None,
 ) -> None:
     """将单次生成结果写入 history_db。
 
@@ -544,7 +542,7 @@ def _log_generation(
     success: bool,
     duration: float,
     is_degraded: bool = False,
-    error_msg: Optional[str] = None,
+    error_msg: str | None = None,
 ) -> None:
     """记录生成操作日志（写入 health_monitor + operation_log）。
 
@@ -560,7 +558,7 @@ def _log_generation(
     """
     if success:
         increment_generation(success=True)
-        details: Dict[str, Any] = {
+        details: dict[str, Any] = {
             "endpoint": endpoint_name,
             "engine": engine,
             "voice_persona": voice_or_persona,
@@ -591,7 +589,7 @@ def _log_generation(
 def _apply_post_processing_to_file(
     filename: str,
     tempo_factor: float,
-    voice_enhancement: Union[str, bool],
+    voice_enhancement: str | bool,
     target_lufs: float,
 ) -> str:
     """对已保存的音频文件应用后处理，输出为 *_pp.wav。
@@ -715,10 +713,10 @@ def _error_html(
 
 async def save_uploaded_audio(
     request: Any,
-    upload_file: Optional[UploadFile],
-    upload_dir: Optional[str] = None,
+    upload_file: UploadFile | None,
+    upload_dir: str | None = None,
     max_size_mb: int = 25,
-) -> Tuple[Optional[str], Optional[HTMLResponse]]:
+) -> tuple[str | None, HTMLResponse | None]:
     """保存上传的音频文件，返回 (path, None) 或 (None, error_html)。
 
     Args:
@@ -756,8 +754,8 @@ async def save_uploaded_audio(
 
 async def resolve_persona_ref(
     request: Any,
-    persona_name: Optional[str],
-) -> Tuple[Optional[str], Optional[HTMLResponse]]:
+    persona_name: str | None,
+) -> tuple[str | None, HTMLResponse | None]:
     """将 Persona 名称解析为参考音频路径。
 
     Args:
@@ -774,7 +772,7 @@ async def resolve_persona_ref(
     from ...persona_manager import load_persona_embedding
 
     safe_name: str = os.path.basename(persona_name)
-    persona_data: Optional[Any] = load_persona_embedding(safe_name)
+    persona_data: Any | None = load_persona_embedding(safe_name)
     if persona_data is not None:
         wav_path, ref_text = persona_data
         if wav_path and os.path.isfile(wav_path):
@@ -787,10 +785,10 @@ async def resolve_persona_ref(
 
 def pre_validate(
     request: Any,
-    engine_name: Optional[str],
-    text: Optional[str],
-    max_length: Optional[int] = None,
-) -> Optional[HTMLResponse]:
+    engine_name: str | None,
+    text: str | None,
+    max_length: int | None = None,
+) -> HTMLResponse | None:
     """生成前预校验：引擎就绪 + 文本非空 + 长度限制。
 
     Args:
@@ -802,7 +800,7 @@ def pre_validate(
     Returns:
         校验失败返回 HTMLResponse，成功返回 None。
     """
-    model_not_ready: Optional[HTMLResponse] = _check_engine_ready(request, engine_name)
+    model_not_ready: HTMLResponse | None = _check_engine_ready(request, engine_name)
     if model_not_ready:
         return model_not_ready
     if not text or not text.strip():
@@ -838,9 +836,9 @@ def _success_html(filename: str, status_message: str) -> HTMLResponse:
 def _run_with_oom_retry(
     run_fn: Any,
     endpoint_name: str,
-    degraded_fn: Optional[Any] = None,
+    degraded_fn: Any | None = None,
     max_retries: int = 2,
-) -> Tuple[Any, str]:
+) -> tuple[Any, str]:
     """执行生成函数；OOM 时自动清理显存并使用降级参数重试。
 
     Args:
@@ -857,7 +855,7 @@ def _run_with_oom_retry(
         其他异常：非 OOM 异常原样抛出。
     """
     _generation_retry_counter["total"] += 1
-    degraded_note: Optional[str] = None
+    degraded_note: str | None = None
     retry_count: int = 0
 
     try:
@@ -935,7 +933,7 @@ async def _execute_generation(
     voice_enhancement: str = "false",
     target_lufs: float = -16.0,
     oom_retry: bool = True,
-    degraded_fn: Optional[Any] = None,
+    degraded_fn: Any | None = None,
 ) -> HTMLResponse:
     """生成执行入口：获取 per-engine 信号量 → 加硬超时 → 调用实现函数。
 
@@ -1009,7 +1007,7 @@ async def _execute_generation_impl(
     voice_enhancement: str = "false",
     target_lufs: float = -16.0,
     oom_retry: bool = True,
-    degraded_fn: Optional[Any] = None,
+    degraded_fn: Any | None = None,
 ) -> HTMLResponse:
     """生成核心实现：线程池执行同步 run_fn → 记录历史 → 后处理 → 返回 HTML。
 
@@ -1084,7 +1082,7 @@ async def validate_audio_upload(
     file: UploadFile,
     max_size_mb: int = MAX_AUDIO_SIZE_MB,
     supported_formats: set = SUPPORTED_AUDIO_FORMATS,
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """验证上传的音频文件扩展名和大小。
 
     Args:
@@ -1108,7 +1106,7 @@ async def validate_audio_upload(
         size_mb: float = len(content) / (1024 * 1024)
         if size_mb > max_size_mb:
             return False, f"音频文件过大: {size_mb:.1f}MB，最大支持: {max_size_mb}MB"
-    except (OSError, IOError, ValueError) as read_err:
+    except (OSError, ValueError) as read_err:
         logger.warning(f"读取音频文件失败: {read_err}")
         return False, f"读取音频文件失败: {read_err}"
 
@@ -1119,7 +1117,7 @@ def validate_text_input(
     text: str,
     max_length: int = MAX_TEXT_LENGTH_DEFAULT,
     field_name: str = "文本",
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """验证文本输入非空且长度合法。
 
     Args:
@@ -1144,7 +1142,7 @@ async def load_reference_audio(
     file: UploadFile,
     output_dir: str,
     prefix: str = "ref",
-) -> Tuple[Optional[str], str]:
+) -> tuple[str | None, str]:
     """校验并保存参考音频文件到指定目录。
 
     Args:
@@ -1171,6 +1169,6 @@ async def load_reference_audio(
             await f.write(content)
 
         return filepath, ""
-    except (OSError, IOError, PermissionError) as save_err:
+    except (OSError, PermissionError) as save_err:
         logger.error(f"保存参考音频失败: {save_err}")
         return None, f"保存参考音频失败: {save_err}"

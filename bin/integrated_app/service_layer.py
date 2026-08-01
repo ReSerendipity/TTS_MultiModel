@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """服务层模块 (Chapter 11) — 将业务逻辑从路由处理器中分离。
 
 提供三大服务类，封装核心业务逻辑：
@@ -799,7 +798,7 @@ class ModelService:
 
         start_time = time.time()
         try:
-            from .model_manager import load_voxcpm2, load_indextts2
+            from .model_manager import load_indextts2, load_voxcpm2
 
             if engine == "voxcpm2":
                 # 消费 generator 获取最终状态
@@ -1064,10 +1063,9 @@ class PersonaService:
             if self._is_cache_valid() and name in self._cache:
                 return self._cache[name]
 
-        from .persona_manager import load_persona_embedding
-
         # 验证名称合法性
         from .config import _PERSONA_NAME_RE
+        from .persona_manager import load_persona_embedding
 
         if not name or not _PERSONA_NAME_RE.match(name):
             return None

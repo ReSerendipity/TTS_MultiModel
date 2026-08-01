@@ -19,7 +19,7 @@ for frontend rendering via HTMX partial updates.
 import logging
 import threading
 import time
-from typing import Any, Optional
+from typing import Any
 
 
 class ProgressManager:

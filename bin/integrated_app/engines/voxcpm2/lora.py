@@ -19,18 +19,13 @@ LoRA 物理结构：
       或加性合并为单一效果，融合多种音色风格（如温柔 + 活泼）。
 """
 
-import copy
 import json
 import os
 import threading
 from typing import (
     Any,
-    Dict,
-    List,
     Literal,
     NamedTuple,
-    Optional,
-    Tuple,
 )
 
 from pydantic import ValidationError
@@ -38,20 +33,16 @@ from pydantic import ValidationError
 from ._base import EngineSwitchError, logger
 
 
-LoRAMeta = NamedTuple(
-    "LoRAMeta",
-    [
-        ("lora_id", str),
-        ("name", str),
-        ("path", str),
-        ("rank", int),
-        ("alpha", float),
-        ("target_modules", List[str]),
-        ("trained_steps", int),
-        ("enabled", bool),
-        ("weight", float),
-    ],
-)
+class LoRAMeta(NamedTuple):
+    lora_id: str
+    name: str
+    path: str
+    rank: int
+    alpha: float
+    target_modules: list[str]
+    trained_steps: int
+    enabled: bool
+    weight: float
 """LoRA 元数据 NamedTuple，描述单个 LoRA 适配器的完整信息。
 
 Attributes:
@@ -96,7 +87,7 @@ class LoRAManager:
         self._model = model
         self._lora_dir = lora_dir
         self._max_loaded = max_loaded
-        self._loaded: Dict[str, Dict[str, Any]] = {}
+        self._loaded: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
         try:
             os.makedirs(self._lora_dir, exist_ok=True)
@@ -157,7 +148,7 @@ class LoRAManager:
                 ],
             ) from exc
 
-    def _read_meta(self, meta_path: str) -> Dict[str, Any]:
+    def _read_meta(self, meta_path: str) -> dict[str, Any]:
         """读取并解析 LoRA 元数据 JSON，校验必需字段。
 
         Args:
@@ -178,7 +169,7 @@ class LoRAManager:
                 "trained_steps": 0,
             }
         try:
-            with open(meta_path, "r", encoding="utf-8") as f:
+            with open(meta_path, encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning(f"[LoRAManager] meta JSON 读取失败 {meta_path}: {exc}")
@@ -275,7 +266,7 @@ class LoRAManager:
             self._validate_safetensors_header(safetensors_path)
             raw_meta = self._read_meta(meta_path)
 
-            target_modules: List[str] = list(raw_meta.get("target_modules") or [])
+            target_modules: list[str] = list(raw_meta.get("target_modules") or [])
             rank = int(raw_meta.get("rank", 8))
             alpha = float(raw_meta.get("alpha", 8.0))
             trained_steps = int(raw_meta.get("trained_steps", 0))
@@ -339,7 +330,7 @@ class LoRAManager:
                     ],
                 ) from exc
 
-            state_backup: Optional[Dict[str, Any]] = None
+            state_backup: dict[str, Any] | None = None
             try:
                 try:
                     state_backup = {
@@ -460,7 +451,7 @@ class LoRAManager:
                                 return False
                         else:
                             raise
-            except (OSError, IOError) as exc:
+            except OSError as exc:
                 logger.exception(
                     f"[LoRAManager] 卸载时磁盘/IO 异常，不抛错让应用继续: {exc}"
                 )
@@ -478,14 +469,14 @@ class LoRAManager:
             logger.info(f"[LoRAManager] 卸载 LoRA id={lora_id} 完成")
             return True
 
-    def list(self) -> List[LoRAMeta]:
+    def list(self) -> list[LoRAMeta]:
         """返回当前所有已加载的 LoRA 元数据快照。
 
         Returns:
             List[LoRAMeta]: 按加载顺序排列的副本，修改返回值不影响管理器内部状态。
         """
         with self._lock:
-            snapshot: List[LoRAMeta] = []
+            snapshot: list[LoRAMeta] = []
             for entry in self._loaded.values():
                 m = entry["meta"]
                 snapshot.append(
@@ -697,11 +688,11 @@ class LoRAManager:
             )
 
 
-_default_manager: Optional[LoRAManager] = None
+_default_manager: LoRAManager | None = None
 _manager_lock = threading.RLock()
 
 
-def _get_manager() -> Optional[LoRAManager]:
+def _get_manager() -> LoRAManager | None:
     """懒加载模块级默认 LoRAManager。
 
     返回 None 表示还没初始化（需要 VoxCPM2Engine 在 load_lora 时传入
@@ -751,7 +742,7 @@ def fn_voxcpm_load_lora(lora_path: str) -> bool:
     except ValidationError as exc:
         logger.warning(f"[VoxCPM LoRA] 加载 LoRA 校验失败: {exc}")
         return False
-    except (OSError, IOError, RuntimeError, ValueError, TypeError) as exc:
+    except (OSError, RuntimeError, ValueError, TypeError) as exc:
         logger.warning(f"[VoxCPM LoRA] 加载 LoRA 失败: {type(exc).__name__}: {exc}")
         return False
     except Exception as exc:  # noqa: BLE001
@@ -779,7 +770,7 @@ def fn_voxcpm_unload_lora() -> bool:
         return registry.voxcpm_model.unload_lora()
     except EngineSwitchError:
         raise
-    except (OSError, IOError, RuntimeError, ValueError) as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         logger.warning(f"[VoxCPM LoRA] 卸载 LoRA 失败: {type(exc).__name__}: {exc}")
         return False
     except Exception as exc:  # noqa: BLE001

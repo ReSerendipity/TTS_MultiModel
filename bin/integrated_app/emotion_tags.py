@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 from utils import get_logger
 
@@ -67,8 +66,8 @@ class EmotionDefinition:
 
     name: str
     display_name_zh: str
-    emotion_vector: Optional[dict[str, float]] = None
-    cfg_instruction: Optional[str] = None
+    emotion_vector: dict[str, float] | None = None
+    cfg_instruction: str | None = None
     aliases: list[str] = field(default_factory=list)
     is_prosody: bool = False
 
@@ -336,7 +335,7 @@ def parse_tags(text: str) -> tuple[list[EmotionTag], str]:
 
 def tags_to_control_instruction(
     tags: list[EmotionTag],
-) -> tuple[Optional[dict[str, float]], Optional[str]]:
+) -> tuple[dict[str, float] | None, str | None]:
     """将情感标签转换为 (情感向量, CFG 控制指令)。
 
     当多个情感标签存在时，情感向量按强度加权取平均；
@@ -368,7 +367,7 @@ def tags_to_control_instruction(
                 cfg_parts.append(defn.cfg_instruction)
 
     # 合并情感向量
-    merged_vec: Optional[dict[str, float]] = None
+    merged_vec: dict[str, float] | None = None
     if emotion_vecs:
         all_keys: set[str] = set()
         for v in emotion_vecs:

@@ -28,8 +28,9 @@ import json
 import logging
 import secrets
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, ClassVar, Optional
+from typing import Any, ClassVar
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
@@ -57,8 +58,8 @@ class SSEEvent:
 
     type: str
     data: dict[str, Any] = field(default_factory=dict)
-    id: Optional[str] = None
-    retry: Optional[int] = None
+    id: str | None = None
+    retry: int | None = None
 
 
 def _format_sse_frame(event: SSEEvent) -> str:
@@ -123,20 +124,20 @@ class SSEEventBus:
                 导致内存无限增长。
         """
         self._max_queue_size: int = max_queue_size or self._DEFAULT_MAX_QUEUE_SIZE
-        self._subscribers: dict[str, "asyncio.Queue[SSEEvent | dict[str, Any]]"] = {}
+        self._subscribers: dict[str, asyncio.Queue[SSEEvent | dict[str, Any]]] = {}
         self._lock: asyncio.Lock = asyncio.Lock()
         self._shutdown: bool = False
         # 兼容旧代码的 Event 唤醒机制
         self._event: asyncio.Event = asyncio.Event()
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     # ------------------------------------------------------------------
     # 订阅队列模式 API
     # ------------------------------------------------------------------
     async def subscribe(
         self,
-        client_id: Optional[str] = None,
-    ) -> tuple[str, "asyncio.Queue[SSEEvent | dict[str, Any]]"]:
+        client_id: str | None = None,
+    ) -> tuple[str, asyncio.Queue[SSEEvent | dict[str, Any]]]:
         """注册一个新的订阅者，返回 (client_id, queue)。
 
         Args:
@@ -157,7 +158,7 @@ class SSEEventBus:
             while client_id in self._subscribers:
                 suffix += 1
                 client_id = f"{base_id}_{suffix}"
-            queue: "asyncio.Queue[SSEEvent | dict[str, Any]]" = asyncio.Queue(
+            queue: asyncio.Queue[SSEEvent | dict[str, Any]] = asyncio.Queue(
                 maxsize=self._max_queue_size
             )
             self._subscribers[client_id] = queue
@@ -199,7 +200,7 @@ class SSEEventBus:
             loop = self._get_loop()
 
         if event is not None:
-            subscribers_snapshot: dict[str, "asyncio.Queue[SSEEvent | dict[str, Any]]"] = {}
+            subscribers_snapshot: dict[str, asyncio.Queue[SSEEvent | dict[str, Any]]] = {}
             try:
                 # 快照：避免长时间持有锁；self._subscribers 在 Python 中
                 # dict.copy 是原子的（GIL 保护），不需要 async lock 做快照
@@ -265,7 +266,7 @@ class SSEEventBus:
     # ------------------------------------------------------------------
     # 内部工具
     # ------------------------------------------------------------------
-    def _get_loop(self) -> Optional[asyncio.AbstractEventLoop]:
+    def _get_loop(self) -> asyncio.AbstractEventLoop | None:
         """获取当前事件循环，缓存以供非 asyncio 线程使用。
 
         Returns:
@@ -281,7 +282,7 @@ class SSEEventBus:
                     self._loop = None
         return self._loop
 
-    async def _heartbeat_task(self, queue: "asyncio.Queue[SSEEvent | dict[str, Any]]") -> None:
+    async def _heartbeat_task(self, queue: asyncio.Queue[SSEEvent | dict[str, Any]]) -> None:
         """向指定 queue 周期性注入心跳注释帧（作为特殊 SSEEvent）。
 
         Why 将心跳也放入队列而非在流生成器中单独 sleep：
@@ -385,14 +386,14 @@ async def sse_events(request: Request) -> StreamingResponse:
 
     # ---- 订阅队列 & 心跳 ----
     client_id, event_queue = await event_bus.subscribe()
-    heartbeat_task: Optional[asyncio.Task[None]] = asyncio.create_task(
+    heartbeat_task: asyncio.Task[None] | None = asyncio.create_task(
         event_bus._heartbeat_task(event_queue),
         name=f"sse-heartbeat-{client_id}",
     )
 
     async def event_stream() -> AsyncIterator[str]:
         """SSE事件流内部异步生成器，负责实际的事件推送与心跳维护"""
-        gen_start_time: Optional[float] = None
+        gen_start_time: float | None = None
         last_depth: int = 0
         idle_count: int = 0
         last_heartbeat_ts: float = time.time()
@@ -403,7 +404,7 @@ async def sse_events(request: Request) -> StreamingResponse:
                     break
 
                 # ---- 优先消费订阅队列中的 SSEEvent ----
-                queue_event: Optional[SSEEvent | dict[str, Any]] = None
+                queue_event: SSEEvent | dict[str, Any] | None = None
                 try:
                     queue_event = event_queue.get_nowait()
                 except asyncio.QueueEmpty:

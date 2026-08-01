@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """MCP (Model Context Protocol) 服务器模块。
 
 提供符合 MCP 规范的服务器实现，允许 AI 助手（如 Claude Desktop、Cursor 等）
@@ -31,7 +30,7 @@ import json
 import logging
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("tts_multimodel")
 
@@ -77,7 +76,7 @@ class MCPRequest:
         params: 参数字典。
     """
 
-    id: Optional[int | str]
+    id: int | str | None
     method: str
     params: dict[str, Any] = field(default_factory=dict)
 
@@ -92,9 +91,9 @@ class MCPResponse:
         error: 错误信息。
     """
 
-    id: Optional[int | str]
-    result: Optional[Any] = None
-    error: Optional[dict[str, Any]] = None
+    id: int | str | None
+    result: Any | None = None
+    error: dict[str, Any] | None = None
 
     def to_json(self) -> str:
         """序列化为 JSON 字符串。
@@ -377,10 +376,10 @@ class MCPServer:
         self,
         text: str,
         instruction: str = "",
-        reference_audio: Optional[str] = None,
+        reference_audio: str | None = None,
         engine: str = "voxcpm2",
         cfg_value: float = 2.0,
-        output_path: Optional[str] = None,
+        output_path: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """文本转语音工具处理函数。
@@ -571,7 +570,7 @@ class MCPServer:
     # -----------------------------------------------------------------------
 
     @staticmethod
-    def _parse_message(line: str) -> Optional[MCPRequest]:
+    def _parse_message(line: str) -> MCPRequest | None:
         """解析一行 JSON-RPC 消息。
 
         Args:

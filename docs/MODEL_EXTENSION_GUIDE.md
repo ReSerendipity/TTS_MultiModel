@@ -1,30 +1,37 @@
 # TTS MultiModel - 模型扩展指南
 
-> 最后更新: 2026-06-02
+> 最后更新: 2026-07-31
 
-> 本文档说明如何向 TTS MultiModel 项目添加新的 TTS 模型引擎
+> 本文档说明如何向 TTS MultiModel 项目添加新的 TTS 模型引擎。
+> 已对齐当前真实架构（声明式引擎注册表 + 通用化调度层）。
 
 ## 项目架构概述
 
-TTS MultiModel 采用**插件式引擎架构**，核心设计原则：
+TTS MultiModel 采用**声明式插件引擎架构**，核心设计原则：
 
-- **引擎接口协议化** - 所有引擎必须实现 `TTSEngine` 或 `ControllableTTSEngine` 接口
-- **模型加载解耦** - 引擎负责自己的模型加载和卸载
-- **路由层统一调用** - 路由层只调用引擎接口，不关心具体实现
+- **引擎接口协议化** - 所有引擎必须实现 `TTSEngine` 或 `ControllableTTSEngine` 协议（Protocol）
+- **声明式注册** - 引擎通过 `engine_interface.engine_registry` 懒导入注册 + `config.yaml` 声明规格，无需侵入调度层
+- **通用化调度** - `model_manager` 对未在 `EngineName` 白名单中的引擎走 `_load_generic_engine` 通用加载路径，`model_registry` 用通用容器 `_engines` 保存实例，因此**新增引擎无需修改 model_manager/model_registry 的分支**
+- **构造轻量、显式 load()** - 声明式引擎遵循"无参构造 + `load()` 加载权重"契约，由调度层统一调用
 
 ### 核心组件
 
 ```
 bin/integrated_app/
-├── engine_interface.py      # 引擎接口定义（Protocol）
-├── model_registry.py        # 模型状态管理
-├── model_manager.py         # 模型加载/卸载管理
-├── engines/
-│   ├── __init__.py          # 引擎注册
-│   └── voxcpm2_engine.py    # VoxCPM2 引擎实现（参考示例）
-└── routes/
-    └── *.py                 # 路由层调用引擎
+├── engine_interface.py      # TTSEngine 协议 + InMemoryEngineRegistry（engine_registry 单例）
+├── model_registry.py        # 模型状态单例；通用引擎存于 _engines 容器
+├── model_manager.py         # 加载/卸载/切换；_load_generic_engine 通用加载路径
+├── config.py                # 路径常量（如 <ENGINE>_MODEL_PATH）
+├── config_models.py         # EngineSpecConfig（config.yaml 的 models.engines 映射）
+└── engines/
+    ├── voxcpm2/             # VoxCPM2 引擎子包（参考示例）
+    ├── indextts2_engine.py  # IndexTTS2 引擎（单文件参考示例）
+    ├── gptsovits_engine.py  # GPT-SoVITS 引擎（声明式接入示例）
+    └── dotstts_engine.py    # dots.tts 引擎（声明式接入示例）
 ```
+
+> 说明：VoxCPM2/IndexTTS2 因历史原因在 model_manager/model_registry 中保留专属分支；
+> **新引擎应走声明式通用路径**（如 gptsovits/dotstts），无需触碰这两个模块。
 
 ---
 
@@ -286,86 +293,78 @@ class MyNewEngine:
             logger.error(f"Streaming failed: {e}")
 ```
 
-### 步骤 2：注册引擎
+### 步骤 2：注册引擎（懒导入）
 
-在 `bin/integrated_app/engines/__init__.py` 中注册新引擎：
+在 `bin/integrated_app/engine_interface.py` 的 `_register_builtin_engines()` 中
+用**懒导入**方式注册（避免启动期强依赖，缺失时不影响其他引擎）：
 
 ```python
-# -*- coding: utf-8 -*-
-"""Engine registry and factory."""
-
-from typing import Dict, Type, Optional
-from bin.integrated_app.engine_interface import TTSEngine
-
-# 导入引擎实现
-from bin.integrated_app.engines.voxcpm2_engine import VoxCPM2Engine
-from bin.integrated_app.engines.my_new_engine import MyNewEngine
-
-# 引擎注册表
-ENGINE_REGISTRY: Dict[str, Type] = {
-    "voxcpm2": VoxCPM2Engine,
-    "my_new_engine": MyNewEngine,  # 添加新引擎
-}
-
-
-def get_engine(engine_name: str) -> Optional[Type[TTSEngine]]:
-    """根据名称获取引擎类"""
-    return ENGINE_REGISTRY.get(engine_name)
-
-
-def list_engines() -> list:
-    """列出所有已注册的引擎名称"""
-    return list(ENGINE_REGISTRY.keys())
+engine_registry.register(
+    "my_new_engine",
+    lazy_module=".engines.my_new_engine:MyNewEngine",  # "module:ClassName"
+    display_name="My New Engine",
+    vram_requirement=6.0,
+    languages=["zh", "en"],
+    supported_features=["clone"],
+    sample_rate=24000,
+    requires_gpu=True,
+    quality="high",
+)
 ```
 
-### 步骤 3：添加模型配置
+> 真实示例见同文件中 `gptsovits` 与 `dotstts` 的注册。
 
-在 `bin/integrated_app/config.py` 中添加新引擎的模型路径配置：
+### 步骤 3：声明引擎规格（config.yaml）
+
+在根目录 `config.yaml` 的 `models.engines` 下声明规格（驱动显存预检与 UI 渲染）：
+
+```yaml
+models:
+  engines:
+    my_new_engine:
+      name: "my_new_engine"
+      display_name: "My New Engine"
+      model_dir: "MyNewEngine"      # 相对 pretrained_models/
+      vram_gb: 6.0
+      ram_gb: 16.0
+      languages: ["zh", "en"]
+      quality: "high"
+      license: "Apache-2.0"
+      supported_features: ["clone"]
+      sample_rate: 24000
+      requires_gpu: true
+```
+
+同时在 `config.py` 添加权重路径常量（供引擎自行读取）：
 
 ```python
-# 在 config.py 中添加新引擎配置
-
-# My New Engine 模型路径
 MY_NEW_ENGINE_MODEL_PATH = os.path.join(PRETRAINED_DIR, "MyNewEngine")
 ```
 
-### 步骤 4：更新 ModelRegistry
+### 步骤 4：无需修改 model_manager / model_registry
 
-在 `bin/integrated_app/model_registry.py` 中添加新引擎的状态管理：
+**这是与旧架构最大的区别。** 只要引擎已在 `engine_registry` 注册且实现
+"无参构造 + `load()`"契约，`model_manager` 会自动：
 
-```python
-class ModelRegistry:
-    def __init__(self):
-        # ... 现有代码 ...
-        
-        # My New Engine 状态
-        self.my_new_model = None
-        self.my_new_loaded = False
+- `_validate_engine_name` 放行已注册引擎；
+- `switch_engine` / `/api/model/load` 对其调用 `_load_generic_engine`：
+  `engine_registry.get(name)` 解析类 → 实例化 → `engine.load()` →
+  `registry.set_engine_loaded(name, engine)`；
+- `unload_model` 遍历 `registry.get_all_engine_instances()` 调用 `.unload()`；
+- 切换失败时 `_rollback_engine` 通过通用路径重载。
 
-    # 添加状态管理方法
-    def set_my_new_loaded(self, model):
-        self.my_new_model = model
-        self.my_new_loaded = True
-        self.current_engine = "my_new_engine"
+**无需**再为 `ModelRegistry` 添加专属字段或 set/clear 方法。
 
-    def clear_my_new(self):
-        self.my_new_model = None
-        self.my_new_loaded = False
-```
+### 步骤 5：生成路由（复用通用克隆端点）
 
-### 步骤 5：更新 ModelManager
+通用新式引擎可直接复用引擎无关的通用克隆端点：
 
-在 `bin/integrated_app/model_manager.py` 中添加新引擎的加载/卸载逻辑：
+- `POST /api/generate/generic/clone`（`routes/generate/generic/clone.py`）
+  调用 `registry.get_current_engine().generate_voice_clone(...)`，
+  复用统一执行器（信号量串行、硬超时、OOM 降级、历史入库、SSE 进度）。
 
-```python
-def load_engine(self, engine_name: str):
-    """加载指定引擎"""
-    if engine_name == "my_new_engine":
-        model_path = config.MY_NEW_ENGINE_MODEL_PATH
-        engine = MyNewEngine(model_path=model_path, config={})
-        engine.load()
-        self.registry.set_my_new_loaded(engine)
-```
+若需引擎特定参数/模式，可仿照 `routes/generate/voxcpm2/` 新建子包并在
+`routes/generate/__init__.py` 中导入触发注册。
 
 ---
 

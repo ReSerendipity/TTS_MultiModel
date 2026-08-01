@@ -34,10 +34,16 @@ import os
 import random
 import tempfile
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
+from ...exceptions import (
+    InsufficientVRAMError,
+    ValidationError,
+)
+from ...gpu_utils import free_gpu_memory, is_oom_error
 from ._base import (
     GenerationError,
     _advanced_kwargs,
@@ -46,12 +52,6 @@ from ._base import (
     logger,
 )
 from .decorators import with_generation_context
-from ...exceptions import (
-    InsufficientVRAMError,
-    ValidationError,
-)
-from ...gpu_utils import free_gpu_memory, is_oom_error
-
 
 _MIN_REFERENCE_DURATION_SEC: float = 1.0
 _MAX_REFERENCE_DURATION_SEC: float = 60.0
@@ -60,8 +60,8 @@ _DEFAULT_SEED_MAX: int = 2**32 - 1
 
 
 def _load_reference(
-    path_or_bytes: Union[str, bytes, Tuple[np.ndarray, int]],
-) -> Tuple[np.ndarray, int]:
+    path_or_bytes: str | bytes | tuple[np.ndarray, int],
+) -> tuple[np.ndarray, int]:
     """统一加载参考音频：支持文件路径 / bytes 二进制 / (wav, sr) 元组三种输入。
 
     三种输入场景对应三种调用方：
@@ -170,7 +170,7 @@ def _load_reference(
 def _validate_reference_duration(
     wav: np.ndarray,
     sr: int,
-) -> Tuple[bool, float]:
+) -> tuple[bool, float]:
     """校验参考音频时长是否在合理区间 [1s, 60s]。
 
     为什么不做自动截断而让用户明确知道？
@@ -197,12 +197,12 @@ def _validate_reference_duration(
 def fn_voxcpm_clone(
     text: str,
     instruction: str,
-    ref_audio_path: Optional[str],
+    ref_audio_path: str | None,
     cfg_value: float = 2.0,
     inference_timesteps: int = 10,
     denoise: bool = True,
     normalize: bool = True,
-) -> Tuple[Optional[Tuple[int, np.ndarray, str]], str]:
+) -> tuple[tuple[int, np.ndarray, str] | None, str]:
     """VoxCPM2 语音克隆 WebUI 主入口：参考音频 → 目标音色克隆生成。
 
     执行流程（与装饰器 `@with_generation_context` 协作）：
@@ -252,7 +252,7 @@ def fn_voxcpm_clone(
     # 100 次可以累计省 30~80 秒；且 prompt_cache 采用 LRU 容量淘汰
     # + TTL（默认 7 天）时间淘汰双保险，脏数据/旧数据自动失效，无需人工管理。
     _progress_mgr.update_phase("加载音色缓存...")
-    cached_prompt: Optional[Any] = None
+    cached_prompt: Any | None = None
     if ref_audio_path:
         try:
             cached_prompt = load_cached_prompt(ref_audio_path)
@@ -266,9 +266,9 @@ def fn_voxcpm_clone(
 
     def gen_kwargs_builder(
         seg_text: str,
-        ref_path: Optional[str],
+        ref_path: str | None,
         prompt_cache_val: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """构建单段推理的 kwargs 字典（语音克隆模式专用）。
 
         优先级策略：优先使用 prompt_cache（已计算好的音色嵌入，省 300~800ms）；
@@ -282,7 +282,7 @@ def fn_voxcpm_clone(
         Returns:
             Dict[str, Any]: model.generate() 可直接消费的 kwargs 字典。
         """
-        kwargs: Dict[str, Any] = dict(
+        kwargs: dict[str, Any] = dict(
             text=seg_text,
             normalize=normalize,
             cfg_value=cfg_value,
@@ -311,16 +311,16 @@ def fn_voxcpm_clone(
 
 def clone_from_audio(
     model: Any,
-    reference_audio: Union[str, bytes, Tuple[np.ndarray, int]],
+    reference_audio: str | bytes | tuple[np.ndarray, int],
     target_text: str,
     cfg: float = 5.0,
     steps: int = 30,
     denoise_reference: bool = False,
     seed: int = -1,
-    prompt_cache_key: Optional[str] = None,
-    prompt_cache: Optional[Any] = None,
-    progress_cb: Optional[Callable[[int, int], None]] = None,
-) -> Tuple[np.ndarray, int, Dict[str, Any]]:
+    prompt_cache_key: str | None = None,
+    prompt_cache: Any | None = None,
+    progress_cb: Callable[[int, int], None] | None = None,
+) -> tuple[np.ndarray, int, dict[str, Any]]:
     """程序化 API：从参考音频（路径/二进制/数组）执行零样本克隆。
 
     面向 Python SDK / 第三方服务集成的低级 API，与 `fn_voxcpm_clone` 的区别：
@@ -375,7 +375,7 @@ def clone_from_audio(
     if seed == -1:
         resolved_seed = random.randint(0, _DEFAULT_SEED_MAX)
 
-    meta: Dict[str, Any] = {
+    meta: dict[str, Any] = {
         "embedding_used": False,
         "reference_duration_sec": 0.0,
         "seed_used": resolved_seed,
@@ -384,7 +384,7 @@ def clone_from_audio(
     }
 
     _cache_hit: bool = False
-    _cached_embedding: Optional[Any] = None
+    _cached_embedding: Any | None = None
     if prompt_cache_key is not None and prompt_cache is not None:
         try:
             _get_fn = getattr(prompt_cache, "get", None) or getattr(prompt_cache, "load", None)
@@ -401,9 +401,9 @@ def clone_from_audio(
 
     import torch
 
-    _ref_wav: Optional[np.ndarray] = None
+    _ref_wav: np.ndarray | None = None
     _ref_sr: int = 48000
-    _temp_path: Optional[str] = None
+    _temp_path: str | None = None
 
     def _do_cleanup_temp() -> None:
         """安全清理临时参考音频文件。
@@ -473,7 +473,7 @@ def clone_from_audio(
                 except Exception:  # noqa: BLE001
                     pass
 
-        _generation_kwargs: Dict[str, Any] = dict(
+        _generation_kwargs: dict[str, Any] = dict(
             text=target_text,
             cfg_value=cfg,
             inference_timesteps=steps,
@@ -487,7 +487,7 @@ def clone_from_audio(
         if progress_cb is not None:
             progress_cb(0, steps)
 
-        _wav_out: Optional[np.ndarray] = None
+        _wav_out: np.ndarray | None = None
         _sr_out: int = getattr(model, "sample_rate", 48000)
         try:
             _raw_out: Any = model.generate(**_generation_kwargs)

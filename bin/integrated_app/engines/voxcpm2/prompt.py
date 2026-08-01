@@ -17,17 +17,12 @@
     保持整本书的朗读风格 / 人物语气 / 叙事节奏高度连贯，避免每章换风格。
 """
 
-import json
 import os
 import time
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
-    Dict,
     NamedTuple,
-    Optional,
-    Tuple,
-    Union,
 )
 
 import numpy as np
@@ -46,13 +41,9 @@ from ._base import (
 )
 
 
-PromptPair = NamedTuple(
-    "PromptPair",
-    [
-        ("prompt_text", str),
-        ("prompt_audio", Union[str, Tuple[np.ndarray, int]]),
-    ],
-)
+class PromptPair(NamedTuple):
+    prompt_text: str
+    prompt_audio: str | tuple[np.ndarray, int]
 """Prompt 延续模式的参考音频-文本对 NamedTuple。
 
 用于 Prompt Continuation 模式，提供一段"已读文本 + 对应音频"作为风格参考，
@@ -66,7 +57,7 @@ Attributes:
 """
 
 
-def _load_audio_fallback(path: str) -> Tuple[np.ndarray, int]:
+def _load_audio_fallback(path: str) -> tuple[np.ndarray, int]:
     """依次尝试 librosa / soundfile / torchaudio 三种加载器读取音频。
 
     三种加载器对格式的支持范围略有差异：torchaudio 对 mp3 / flac 较好，
@@ -131,7 +122,7 @@ def _load_audio_fallback(path: str) -> Tuple[np.ndarray, int]:
 def validate_prompt_pair(
     pair: PromptPair,
     max_prompt_seconds: float = 30.0,
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """校验 Prompt 参考对的文本长度与音频时长是否匹配。
 
     Why max_prompt_seconds 限制 30s（不是 120s）：
@@ -218,8 +209,8 @@ def generate_with_prompt_continuation(
     steps: int = 30,
     seed: int = -1,
     denoise_reference: bool = False,
-    progress_cb: Optional[Callable[[int, int], None]] = None,
-) -> Tuple[np.ndarray, int, Dict[str, Any]]:
+    progress_cb: Callable[[int, int], None] | None = None,
+) -> tuple[np.ndarray, int, dict[str, Any]]:
     """基于 Prompt 参考对生成延续音频。
 
     OOM 降级策略：
@@ -279,7 +270,7 @@ def generate_with_prompt_continuation(
 
     sample_rate = 48000
     actual_seed = seed if seed != -1 else int(time.time()) & 0x7FFFFFFF
-    meta: Dict[str, Any] = {
+    meta: dict[str, Any] = {
         "prompt_aligned_score": prompt_aligned_score,
         "seed_used": actual_seed,
         "retry_count": 0,
@@ -302,7 +293,7 @@ def generate_with_prompt_continuation(
             )
 
     max_attempts = 2
-    wav_out: Optional[np.ndarray] = None
+    wav_out: np.ndarray | None = None
     for attempt in range(1, max_attempts + 1):
         try:
             if attempt == 1:
@@ -399,7 +390,7 @@ def generate_with_prompt_continuation(
             raise GenerationError(
                 f"Prompt 延续参数错误: {type(exc).__name__}: {exc}"
             ) from exc
-        except (OSError, IOError) as exc:
+        except OSError as exc:
             logger.warning(f"[prompt] 文件 IO 异常: {exc}")
             raise GenerationError(f"Prompt 延续文件操作失败: {exc}") from exc
 

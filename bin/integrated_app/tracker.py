@@ -10,7 +10,7 @@ EMA α=0.2 的取值说明：由公式 α=2/(N+1) 推导，等效于约 N≈9 �
 """
 
 import threading
-from typing import Any, Optional
+from typing import Any
 
 
 class GenerationTracker:

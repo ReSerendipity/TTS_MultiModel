@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """VoxCPM2 语音设计（Text-to-Voice Design）路由模块。
 
 **路由前缀与端点**：
@@ -51,19 +50,12 @@
 """
 
 import os
-import logging
-from typing import Optional
 
 from fastapi import Form, Request
 from fastapi.responses import HTMLResponse
 
 from ....config import MAX_TEXT_LENGTH
 from ....model_registry import registry
-from ....exceptions import (
-    InsufficientVRAMError,
-    ValidationError,
-)
-from ....gpu_utils import is_oom_error, free_gpu_memory
 from ..utils import (
     _check_engine_ready,
     _error_html,
@@ -141,7 +133,7 @@ async def generate_voxcpm_design(
     # ------------------------------------------------------------------
     # 1. 参数校验（Pydantic Form 级别 + 业务级双重校验）
     # ------------------------------------------------------------------
-    model_not_ready: Optional[HTMLResponse] = _check_engine_ready(request, "voxcpm2")
+    model_not_ready: HTMLResponse | None = _check_engine_ready(request, "voxcpm2")
     if model_not_ready is not None:
         return model_not_ready
 
@@ -174,7 +166,7 @@ async def generate_voxcpm_design(
     # ------------------------------------------------------------------
     # 3. Persona 参考音频加载（可选锚点）
     # ------------------------------------------------------------------
-    actual_ref_path: Optional[str] = None
+    actual_ref_path: str | None = None
     if persona_name:
         from ....persona_manager import load_persona_embedding
 

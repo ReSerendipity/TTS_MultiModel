@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """音频后处理模块。
 
 覆盖 8 大能力域：
@@ -31,7 +30,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -52,7 +51,7 @@ try:
 
     _HAS_PYLOUDNORM: bool = True
 except ImportError:
-    _pyloudnorm: Optional[Any] = None
+    _pyloudnorm: Any | None = None
     _HAS_PYLOUDNORM: bool = False
 
 # ---------------------------------------------------------------------------
@@ -63,7 +62,7 @@ try:
 
     _HAS_PEDALBOARD: bool = True
 except ImportError:
-    _pedalboard: Optional[Any] = None
+    _pedalboard: Any | None = None
     _HAS_PEDALBOARD: bool = False
 
 # ---------------------------------------------------------------------------
@@ -74,7 +73,7 @@ try:
 
     _HAS_NOISEREDUCE: bool = True
 except ImportError:
-    _noisereduce: Optional[Any] = None
+    _noisereduce: Any | None = None
     _HAS_NOISEREDUCE: bool = False
 
 # ---------------------------------------------------------------------------
@@ -85,7 +84,7 @@ try:
 
     _HAS_WEBRTCVAD: bool = True
 except ImportError:
-    _webrtcvad: Optional[Any] = None
+    _webrtcvad: Any | None = None
     _HAS_WEBRTCVAD: bool = False
 
 # webrtcvad 对象缓存：(sample_rate, aggressive_mode) -> Vad 对象
@@ -838,7 +837,7 @@ def apply_effects_chain(
 # ======================================================================
 
 
-def _get_webrtcvad(sample_rate: int, aggressive_mode: int = 3) -> Optional[Any]:
+def _get_webrtcvad(sample_rate: int, aggressive_mode: int = 3) -> Any | None:
     """获取或创建缓存的 webrtcvad 对象。
 
     Args:
@@ -1126,7 +1125,7 @@ def trim_tts_output(
 def reduce_noise(
     audio: np.ndarray,
     sample_rate: int,
-    noise_sample: Optional[np.ndarray] = None,
+    noise_sample: np.ndarray | None = None,
 ) -> np.ndarray:
     """降噪（ZipEnhancer 模型优先，noisereduce 库为回退）。
 
@@ -1313,7 +1312,7 @@ def enhance_audio(
     method: str = "auto",
     trim_silence: bool = False,
     denoise: bool = False,
-    effects_preset: Optional[str] = None,
+    effects_preset: str | None = None,
 ) -> np.ndarray:
     """按顺序应用全部后处理步骤（统一入口流水线）。
 
@@ -1455,7 +1454,7 @@ def validate_reference_audio(
     min_duration: float = 2.0,
     max_duration: float = 30.0,
     min_rms: float = 0.01,
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """验证用于语音克隆的参考音频。
 
     Args:
@@ -1478,7 +1477,7 @@ def validate_and_load_reference_audio(
     min_duration: float = 2.0,
     max_duration: float = 30.0,
     min_rms: float = 0.01,
-) -> Tuple[bool, Optional[str], Optional[np.ndarray], Optional[int]]:
+) -> tuple[bool, str | None, np.ndarray | None, int | None]:
     """一次性完成参考音频验证与加载。
 
     在检查前先应用 :func:`preprocess_reference_audio`，避免略高电平的录音
@@ -1533,7 +1532,7 @@ def detect_long_silence(
     frame_ms: int = 20,
     silence_threshold_db: float = -40.0,
     max_internal_silence_ms: int = 1000,
-) -> Optional[int]:
+) -> int | None:
     """检测可能表明模型幻觉的内部长静音段。
 
     参考 VoiceBox 的 trim_tts_output 实现，检测音频中超过阈值的内部静音段，
@@ -1570,18 +1569,18 @@ def detect_long_silence(
     # Walk forward from first speech; detect long internal silence gaps
     # 使用向量化操作检测连续静音段
     max_silence_frames = int(max_internal_silence_ms / frame_ms)
-    
+
     # 提取从 first_speech 开始的语音/静音序列
     segment = is_speech[first_speech:]
     if len(segment) == 0:
         return None
-    
+
     # 找连续 False（静音）的运行长度
     # 方法：计算相邻 True 之间的距离
     # 先补一个 True 在开头，确保从语音段开始
     padded = np.concatenate([[True], segment])
     true_positions = np.where(padded)[0]
-    
+
     # 计算两个相邻 True 之间的 False 数量
     if len(true_positions) >= 2:
         gaps = np.diff(true_positions) - 1

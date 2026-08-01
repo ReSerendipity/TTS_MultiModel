@@ -21,17 +21,11 @@ import base64
 import io
 import threading
 import time
+from collections.abc import Callable, Generator
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Generator,
-    List,
     Literal,
     NamedTuple,
-    Optional,
-    Tuple,
-    Union,
 )
 
 import numpy as np
@@ -46,21 +40,16 @@ from ._base import (
 )
 from .decorators import with_generation_context
 
-
 StreamingMode = Literal["sse", "binary"]
 
 
-SegmentResult = NamedTuple(
-    "SegmentResult",
-    [
-        ("index", int),
-        ("text", str),
-        ("audio", np.ndarray),
-        ("sample_rate", int),
-        ("duration_ms", int),
-        ("seed_used", int),
-    ],
-)
+class SegmentResult(NamedTuple):
+    index: int
+    text: str
+    audio: np.ndarray
+    sample_rate: int
+    duration_ms: int
+    seed_used: int
 """流式生成单段结果 NamedTuple，封装一段音频的完整生成信息。
 
 Attributes:
@@ -76,8 +65,8 @@ Attributes:
 def split_text_for_streaming(
     long_text: str,
     segment_chars: int = 100,
-    split_on: Tuple[str, ...] = ("。", "！", "？", ".", "!", "?", "\n", "；", ";"),
-) -> List[str]:
+    split_on: tuple[str, ...] = ("。", "！", "？", ".", "!", "?", "\n", "；", ";"),
+) -> list[str]:
     """将长文本按语义边界 + 字符窗口切分为流式生成友好的短片段。
 
     Why segment_chars 默认 100（而不是 300）：
@@ -112,7 +101,7 @@ def split_text_for_streaming(
     if n <= segment_chars:
         return [text]
 
-    segments: List[str] = []
+    segments: list[str] = []
     cursor = 0
     window = max(1, int(segment_chars * 0.3))
 
@@ -175,17 +164,17 @@ def _wav_to_bytes(wav: np.ndarray, sample_rate: int) -> bytes:
 
 def stream_generate(
     model: Any,
-    segments: List[str],
-    persona_id: Optional[str] = None,
-    reference_audio: Optional[Any] = None,
+    segments: list[str],
+    persona_id: str | None = None,
+    reference_audio: Any | None = None,
     cfg: float = 5.0,
     steps: int = 30,
     seed: int = -1,
     mode: str = "sse",
     denoise_reference: bool = False,
-    progress_cb: Optional[Callable[[int, int], None]] = None,
-    stop_event: Optional[threading.Event] = None,
-) -> Generator[Union[Dict[str, Any], bytes], None, Dict[str, Any]]:
+    progress_cb: Callable[[int, int], None] | None = None,
+    stop_event: threading.Event | None = None,
+) -> Generator[dict[str, Any] | bytes, None, dict[str, Any]]:
     """流式分段生成并实时产出 SSE dict 或 WAV binary chunk。
 
     单段异常容错：
@@ -232,12 +221,12 @@ def stream_generate(
         )
 
     total = len(segments)
-    all_seed_used: List[int] = []
+    all_seed_used: list[int] = []
     total_duration_ms = 0
     success_count = 0
     sample_rate = 48000
-    merged_audio: Optional[np.ndarray] = None
-    temp_files: List[str] = []
+    merged_audio: np.ndarray | None = None
+    temp_files: list[str] = []
 
     try:
         for idx, seg_text in enumerate(segments):
@@ -257,10 +246,10 @@ def stream_generate(
                 continue
 
             try:
-                ref_path: Optional[str] = None
+                ref_path: str | None = None
                 if isinstance(reference_audio, str):
                     ref_path = reference_audio
-                kwargs: Dict[str, Any] = dict(
+                kwargs: dict[str, Any] = dict(
                     text=seg_text,
                     reference_wav_path=ref_path if ref_path else "",
                     normalize=True,
@@ -272,7 +261,7 @@ def stream_generate(
                     **_advanced_kwargs(),
                 )
                 if hasattr(model, "generate_streaming"):
-                    chunks_collected: List[np.ndarray] = []
+                    chunks_collected: list[np.ndarray] = []
                     for chunk in model.generate_streaming(**kwargs):
                         chunks_collected.append(chunk)
                     wav = (
@@ -393,7 +382,7 @@ def stream_generate(
                 logger.warning(f"[streaming] 合并音频保存失败: {save_exc}")
                 final_audio_url = ""
 
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "total_segments": total,
             "success_segments": success_count,
             "total_duration_ms": total_duration_ms,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """引擎 UI 数据定义模块。
 
 提供 TTS 引擎在前端界面展示所需的元数据、参数定义、默认值、
@@ -20,8 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, Union
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # 枚举类型
@@ -81,7 +79,7 @@ class ParamOption:
 
     value: Any
     label_i18n: str
-    description_i18n: Optional[str] = None
+    description_i18n: str | None = None
 
 
 @dataclass
@@ -111,14 +109,14 @@ class ParamDefinition:
     label_i18n: str
     param_type: ParamType
     group: ParamGroup = ParamGroup.BASIC
-    description_i18n: Optional[str] = None
+    description_i18n: str | None = None
     default: Any = None
-    min: Optional[Union[int, float]] = None
-    max: Optional[Union[int, float]] = None
-    step: Optional[Union[int, float]] = None
-    options: Optional[list[ParamOption]] = None
-    placeholder_i18n: Optional[str] = None
-    file_types: Optional[list[str]] = None
+    min: int | float | None = None
+    max: int | float | None = None
+    step: int | float | None = None
+    options: list[ParamOption] | None = None
+    placeholder_i18n: str | None = None
+    file_types: list[str] | None = None
     required: bool = False
     visible: bool = True
     affects_quality: bool = False
@@ -162,7 +160,7 @@ class EngineUIData:
     color: str = "#6366f1"
     sample_rate: int = 24000
 
-    def get_param(self, key: str) -> Optional[ParamDefinition]:
+    def get_param(self, key: str) -> ParamDefinition | None:
         """根据键名获取参数定义。
 
         Args:
@@ -450,7 +448,7 @@ def register_engine_ui(ui_data: EngineUIData) -> None:
     _ENGINE_UI_REGISTRY[ui_data.engine_id] = ui_data
 
 
-def get_engine_ui(engine_id: str) -> Optional[EngineUIData]:
+def get_engine_ui(engine_id: str) -> EngineUIData | None:
     """获取指定引擎的 UI 数据。
 
     Args:

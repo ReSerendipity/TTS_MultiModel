@@ -22,7 +22,7 @@ import json
 import logging
 import os
 import tempfile
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import aiofiles
 import yaml
@@ -35,7 +35,6 @@ router = APIRouter(prefix="/api/system", tags=["system"])
 
 from .gpu import _get_gpu_device, _get_gpu_utilization  # noqa: E402
 from .logs import log_operation  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # 路径与常量
@@ -71,7 +70,7 @@ BLACKLIST_PATHS: frozenset = frozenset({
 })
 
 # 各数值字段合法范围（用于 PUT 校验，失败 → 400 ValidationError）
-FIELD_RANGES: Dict[tuple, tuple] = {
+FIELD_RANGES: dict[tuple, tuple] = {
     ("generation", "cfg_value"): (1.0, 15.0),
     ("generation", "inference_timesteps"): (1, 400),
     ("generation", "retry_badcase_max_times"): (0, 10),
@@ -99,23 +98,23 @@ class GenerationDefaultsUpdate(BaseModel):
     """VoxCPM2 生成默认参数（全部 Optional → 部分更新）。"""
     model_config = {"extra": "forbid"}
 
-    cfg_value: Optional[float] = None
-    inference_timesteps: Optional[int] = None
-    normalize: Optional[bool] = None
-    denoise: Optional[bool] = None
-    retry_badcase: Optional[bool] = None
-    retry_badcase_max_times: Optional[int] = None
-    retry_badcase_ratio_threshold: Optional[float] = None
-    min_len: Optional[int] = None
-    max_len: Optional[int] = None
-    split_max_chars: Optional[int] = None
-    default_sample_rate: Optional[int] = None
-    default_speed: Optional[float] = None
-    default_seed: Optional[int] = None
-    script_studio_silence_secs: Optional[float] = None
-    target_lufs: Optional[float] = None
-    trim_silence_vad: Optional[bool] = None
-    idle_timeout: Optional[int] = None
+    cfg_value: float | None = None
+    inference_timesteps: int | None = None
+    normalize: bool | None = None
+    denoise: bool | None = None
+    retry_badcase: bool | None = None
+    retry_badcase_max_times: int | None = None
+    retry_badcase_ratio_threshold: float | None = None
+    min_len: int | None = None
+    max_len: int | None = None
+    split_max_chars: int | None = None
+    default_sample_rate: int | None = None
+    default_speed: float | None = None
+    default_seed: int | None = None
+    script_studio_silence_secs: float | None = None
+    target_lufs: float | None = None
+    trim_silence_vad: bool | None = None
+    idle_timeout: int | None = None
 
 
 class ServerSettingsUpdate(BaseModel):
@@ -127,9 +126,9 @@ class ServerSettingsUpdate(BaseModel):
         log_level: 日志级别（DEBUG/INFO/WARNING/ERROR）。
     """
 
-    auto_load_model: Optional[bool] = None
-    auto_open_browser: Optional[bool] = None
-    log_level: Optional[str] = None
+    auto_load_model: bool | None = None
+    auto_open_browser: bool | None = None
+    log_level: str | None = None
 
 
 class MemorySettingsUpdate(BaseModel):
@@ -140,8 +139,8 @@ class MemorySettingsUpdate(BaseModel):
         target_vram_usage_pct: 目标显存占用百分比（超过则触发 LRU 淘汰）。
     """
 
-    persona_cache_size: Optional[int] = None
-    target_vram_usage_pct: Optional[float] = None
+    persona_cache_size: int | None = None
+    target_vram_usage_pct: float | None = None
 
 
 class UISettingsUpdate(BaseModel):
@@ -154,10 +153,10 @@ class UISettingsUpdate(BaseModel):
         sidebar_collapsed_width: 侧边栏折叠宽度（像素，24-200）。
     """
 
-    language: Optional[str] = None
-    theme: Optional[str] = None
-    sidebar_width: Optional[int] = None
-    sidebar_collapsed_width: Optional[int] = None
+    language: str | None = None
+    theme: str | None = None
+    sidebar_width: int | None = None
+    sidebar_collapsed_width: int | None = None
 
 
 class SSESettingsUpdate(BaseModel):
@@ -169,9 +168,9 @@ class SSESettingsUpdate(BaseModel):
         heartbeat_interval: 心跳包发送间隔（秒，1.0-300.0）。
     """
 
-    enabled: Optional[bool] = None
-    reconnect_interval: Optional[float] = None
-    heartbeat_interval: Optional[float] = None
+    enabled: bool | None = None
+    reconnect_interval: float | None = None
+    heartbeat_interval: float | None = None
 
 
 class AudioPlayerSettingsUpdate(BaseModel):
@@ -187,25 +186,25 @@ class AudioPlayerSettingsUpdate(BaseModel):
         output_format: 默认输出格式（wav/mp3/flac）。
     """
 
-    waveform_steps: Optional[int] = None
-    default_sample_rate: Optional[int] = None
-    progress_update_ms: Optional[int] = None
-    auto_play: Optional[bool] = None
-    auto_save: Optional[bool] = None
-    notifications: Optional[bool] = None
-    output_format: Optional[str] = None
+    waveform_steps: int | None = None
+    default_sample_rate: int | None = None
+    progress_update_ms: int | None = None
+    auto_play: bool | None = None
+    auto_save: bool | None = None
+    notifications: bool | None = None
+    output_format: str | None = None
 
 
 class SettingsUpdateRequest(BaseModel):
     """运行时设置部分更新请求（所有字段 Optional，未传则保持原值）。"""
     model_config = {"extra": "allow"}
 
-    server: Optional[ServerSettingsUpdate] = None
-    generation: Optional[GenerationDefaultsUpdate] = None
-    memory: Optional[MemorySettingsUpdate] = None
-    ui: Optional[UISettingsUpdate] = None
-    sse: Optional[SSESettingsUpdate] = None
-    audio_player: Optional[AudioPlayerSettingsUpdate] = None
+    server: ServerSettingsUpdate | None = None
+    generation: GenerationDefaultsUpdate | None = None
+    memory: MemorySettingsUpdate | None = None
+    ui: UISettingsUpdate | None = None
+    sse: SSESettingsUpdate | None = None
+    audio_player: AudioPlayerSettingsUpdate | None = None
 
 
 class SettingsResponse(BaseModel):
@@ -213,29 +212,29 @@ class SettingsResponse(BaseModel):
     model_config = {"extra": "allow"}
 
     version: str = Field(default="0.0.0", description="应用版本")
-    server: Dict[str, Any] = Field(default_factory=dict, description="服务器配置")
-    generation: Dict[str, Any] = Field(default_factory=dict, description="生成参数")
-    memory: Dict[str, Any] = Field(default_factory=dict, description="显存/缓存策略")
-    models: Dict[str, Any] = Field(default_factory=dict, description="模型路径（只读，不可通过 API 修改）")
-    i18n: Dict[str, Any] = Field(default_factory=dict, description="国际化")
-    sse: Dict[str, Any] = Field(default_factory=dict, description="SSE 事件流参数")
-    audio_player: Dict[str, Any] = Field(default_factory=dict, description="音频播放器")
-    ui: Dict[str, Any] = Field(default_factory=dict, description="UI 布局/语言/主题")
-    cache: Optional[Dict[str, Any]] = Field(default=None, description="缓存命中统计（仅 Settings 页填充）")
+    server: dict[str, Any] = Field(default_factory=dict, description="服务器配置")
+    generation: dict[str, Any] = Field(default_factory=dict, description="生成参数")
+    memory: dict[str, Any] = Field(default_factory=dict, description="显存/缓存策略")
+    models: dict[str, Any] = Field(default_factory=dict, description="模型路径（只读，不可通过 API 修改）")
+    i18n: dict[str, Any] = Field(default_factory=dict, description="国际化")
+    sse: dict[str, Any] = Field(default_factory=dict, description="SSE 事件流参数")
+    audio_player: dict[str, Any] = Field(default_factory=dict, description="音频播放器")
+    ui: dict[str, Any] = Field(default_factory=dict, description="UI 布局/语言/主题")
+    cache: dict[str, Any] | None = Field(default=None, description="缓存命中统计（仅 Settings 页填充）")
 
 
 # ---------------------------------------------------------------------------
 # 通用 JSON 辅助（general_settings / generation_defaults / advanced_params）
 # ---------------------------------------------------------------------------
 
-_DEFAULT_GENERATION_DEFAULTS: Dict[str, Any] = {
+_DEFAULT_GENERATION_DEFAULTS: dict[str, Any] = {
     "default_sample_rate": 24000,
     "default_speed": 1.0,
     "default_seed": 42,
     "script_studio_silence_secs": 0.4,
 }
 
-_DEFAULT_GENERAL_SETTINGS: Dict[str, Any] = {
+_DEFAULT_GENERAL_SETTINGS: dict[str, Any] = {
     "language": "zh-CN",
     "theme": "dark",
     "auto_save": True,
@@ -245,7 +244,7 @@ _DEFAULT_GENERAL_SETTINGS: Dict[str, Any] = {
 }
 
 
-async def _load_json_file(path: str, defaults: Dict[str, Any]) -> Dict[str, Any]:
+async def _load_json_file(path: str, defaults: dict[str, Any]) -> dict[str, Any]:
     """读取 JSON 文件并与 defaults 合并；文件不存在/损坏时返回 defaults。"""
     try:
         if os.path.exists(path):
@@ -261,7 +260,7 @@ async def _load_json_file(path: str, defaults: Dict[str, Any]) -> Dict[str, Any]
     return dict(defaults)
 
 
-async def _save_json_file(path: str, payload: Dict[str, Any]) -> None:
+async def _save_json_file(path: str, payload: dict[str, Any]) -> None:
     """原子化写 JSON：.tmp → os.replace。"""
     dir_ = os.path.dirname(path) or "."
     os.makedirs(dir_, exist_ok=True)
@@ -283,7 +282,7 @@ async def _save_json_file(path: str, payload: Dict[str, Any]) -> None:
 # YAML config.yaml 读写（核心）
 # ---------------------------------------------------------------------------
 
-def _load_yaml_raw() -> Dict[str, Any]:
+def _load_yaml_raw() -> dict[str, Any]:
     """读取 config.yaml 原生 dict；失败返回 {}。"""
     if not os.path.exists(CONFIG_YAML_PATH):
         return {}
@@ -296,7 +295,7 @@ def _load_yaml_raw() -> Dict[str, Any]:
         return {}
 
 
-def _save_yaml_raw(payload: Dict[str, Any]) -> None:
+def _save_yaml_raw(payload: dict[str, Any]) -> None:
     """原子化写 config.yaml：.tmp → os.replace，UTF-8 BOM + yaml.safe_dump。
 
     Why 先写 .tmp 再 os.replace：
@@ -328,10 +327,10 @@ def _save_yaml_raw(payload: Dict[str, Any]) -> None:
         raise RuntimeError(f"写入 config.yaml 失败: {exc}") from exc
 
 
-def _deep_update(base: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
+def _deep_update(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     """深度合并 patch 到 base（非原地，返回新 dict）。用于 PUT /settings 部分更新语义。"""
     result = copy.deepcopy(base)
-    stack: List[tuple] = [(result, patch)]
+    stack: list[tuple] = [(result, patch)]
     while stack:
         cur, p = stack.pop()
         for k, v in p.items():
@@ -342,7 +341,7 @@ def _deep_update(base: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-def _check_blacklist(patch: Dict[str, Any], prefix: tuple = ()) -> Optional[str]:
+def _check_blacklist(patch: dict[str, Any], prefix: tuple = ()) -> str | None:
     """检查 patch 是否包含黑名单路径。返回第一个命中的路径描述，没命中返回 None。"""
     for k, v in patch.items():
         path = prefix + (k,)
@@ -355,7 +354,7 @@ def _check_blacklist(patch: Dict[str, Any], prefix: tuple = ()) -> Optional[str]
     return None
 
 
-def _validate_ranges(patch: Dict[str, Any], prefix: tuple = ()) -> Optional[str]:
+def _validate_ranges(patch: dict[str, Any], prefix: tuple = ()) -> str | None:
     """对传入的 patch 做数值范围校验；第一个非法字段返回描述，没发现返回 None。"""
     for k, v in patch.items():
         path = prefix + (k,)
@@ -370,7 +369,7 @@ def _validate_ranges(patch: Dict[str, Any], prefix: tuple = ()) -> Optional[str]
     return None
 
 
-def _apply_patch_to_runtime(patch: Dict[str, Any]) -> None:
+def _apply_patch_to_runtime(patch: dict[str, Any]) -> None:
     """把 patch 的值同步到内存单例 AppConfig（浅同步：仅支持已存在字段）。"""
     try:
         from ...config import get_config
@@ -404,7 +403,7 @@ def _apply_patch_to_runtime(patch: Dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 @router.get("/settings", summary="读取运行时设置", description="返回 config.yaml 全量设置 + 当前状态（向后兼容 Settings 页混合格式）")
-async def get_settings() -> Dict[str, Any]:
+async def get_settings() -> dict[str, Any]:
     """读取完整运行时设置。
 
     响应混合格式（100% 向后兼容原 Settings 页使用方式）：
@@ -412,7 +411,7 @@ async def get_settings() -> Dict[str, Any]:
     """
     # --- 新结构：各段设置（来自 AppConfig Pydantic 模型或 YAML raw） ---
     yaml_data = _load_yaml_raw()
-    from_pydantic: Dict[str, Any] = {}
+    from_pydantic: dict[str, Any] = {}
     try:
         from ...config import get_config
 
@@ -423,7 +422,7 @@ async def get_settings() -> Dict[str, Any]:
             from_pydantic = cfg.model_dump()
     except (ImportError, AttributeError, TypeError, RuntimeError) as exc:
         logger.debug(f"AppConfig 取数失败，回退 yaml raw: {exc}")
-    merged: Dict[str, Any] = _deep_update(yaml_data, from_pydantic)
+    merged: dict[str, Any] = _deep_update(yaml_data, from_pydantic)
 
     response = SettingsResponse(
         version=str(merged.get("version", "2.0.2")),
@@ -570,7 +569,7 @@ async def get_settings() -> Dict[str, Any]:
 
 
 @router.put("/settings", summary="部分更新运行时设置", description="deep_merge 语义，未传字段保持不变；命中黑名单或范围非法返回 403/400")
-async def update_settings(request: Request) -> Dict[str, Any]:
+async def update_settings(request: Request) -> dict[str, Any]:
     """运行时部分更新（PUT 语义）。
 
     三步：(1) 黑名单校验 → 403；(2) 数值范围校验 → 400；(3) 原子写 YAML + 同步内存单例。
@@ -628,12 +627,12 @@ async def update_settings(request: Request) -> Dict[str, Any]:
 
 
 @router.post("/settings/reset", summary="恢复出厂默认", description="读取 config.yaml.bak，没有则回退硬编码 DefaultConfig")
-def reset_settings() -> Dict[str, Any]:
+def reset_settings() -> dict[str, Any]:
     """恢复出厂默认设置。
 
     优先级：config.yaml.bak（若存在且合法）> config_models 硬编码默认值。
     """
-    defaults: Dict[str, Any] = {}
+    defaults: dict[str, Any] = {}
 
     # 1) 尝试读 config.yaml.bak
     if os.path.exists(CONFIG_BAK_PATH):
@@ -688,7 +687,7 @@ def reset_settings() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/advanced_params", summary="高级生成参数", description="读取 VoxCPM2 引擎专用高级参数")
-def get_advanced_params() -> Dict[str, Any]:
+def get_advanced_params() -> dict[str, Any]:
     try:
         from ...engines.voxcpm2_engine import get_advanced_params as _get_params
 
@@ -700,7 +699,7 @@ def get_advanced_params() -> Dict[str, Any]:
 
 
 @router.post("/advanced_params", summary="保存高级生成参数", description="更新并持久化 VoxCPM2 高级参数")
-async def save_advanced_params(request: Request) -> Dict[str, Any]:
+async def save_advanced_params(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except (json.JSONDecodeError, ValueError, TypeError):
@@ -711,7 +710,7 @@ async def save_advanced_params(request: Request) -> Dict[str, Any]:
     try:
         from ...engines.voxcpm2_engine import build_advanced_params
 
-        validated: Dict[str, Any] = {}
+        validated: dict[str, Any] = {}
         if "retry_badcase" in payload:
             validated["retry_badcase"] = bool(payload["retry_badcase"])
         if "retry_badcase_max_times" in payload:
@@ -748,7 +747,7 @@ async def save_advanced_params(request: Request) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.post("/general_settings", summary="保存通用设置", description="持久化 UI 语言/主题/自动保存等通用偏好")
-async def save_general_settings(request: Request) -> Dict[str, Any]:
+async def save_general_settings(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except (json.JSONDecodeError, ValueError, TypeError):
@@ -756,7 +755,7 @@ async def save_general_settings(request: Request) -> Dict[str, Any]:
     if not isinstance(payload, dict):
         payload = {}
 
-    validated: Dict[str, Any] = {}
+    validated: dict[str, Any] = {}
     for k in ("language", "theme", "output_format"):
         if k in payload:
             validated[k] = str(payload[k])
@@ -780,7 +779,7 @@ async def save_general_settings(request: Request) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/generation_defaults", summary="默认生成参数", description="读取默认生成参数（sample_rate/speed/seed/silence）")
-async def get_generation_defaults() -> Dict[str, Any]:
+async def get_generation_defaults() -> dict[str, Any]:
     try:
         params = await _load_json_file(GENERATION_DEFAULTS_PATH, _DEFAULT_GENERATION_DEFAULTS)
         return {"status": "ok", "params": params}
@@ -790,7 +789,7 @@ async def get_generation_defaults() -> Dict[str, Any]:
 
 
 @router.post("/generation_defaults", summary="保存默认生成参数", description="持久化默认生成参数")
-async def save_generation_defaults(request: Request) -> Dict[str, Any]:
+async def save_generation_defaults(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except (json.JSONDecodeError, ValueError, TypeError):
@@ -798,7 +797,7 @@ async def save_generation_defaults(request: Request) -> Dict[str, Any]:
     if not isinstance(payload, dict):
         payload = {}
 
-    validated: Dict[str, Any] = {}
+    validated: dict[str, Any] = {}
     if "default_sample_rate" in payload:
         v = int(payload["default_sample_rate"])
         validated["default_sample_rate"] = max(16000, min(48000, v))
