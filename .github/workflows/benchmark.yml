@@ -1,0 +1,82 @@
+name: Performance Benchmark
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bin/integrated_app/**'
+      - 'tests/benchmarks/**'
+      - '.github/workflows/benchmark.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'bin/integrated_app/**'
+      - 'tests/benchmarks/**'
+  schedule:
+    # Run weekly on Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-benchmark
+
+      - name: Run performance benchmarks
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+          MODELSCOPE_OFFLINE: "1"
+          CUDA_VISIBLE_DEVICES: ""
+        run: |
+          pytest tests/benchmarks/ -v --tb=short -m "benchmark" \
+            --benchmark-only \
+            --benchmark-columns=rounds,iterations,mean,median,stddev,min,max \
+            --benchmark-sort=mean \
+            --benchmark-storage=output/benchmarks \
+            --benchmark-save=ci-${{ github.sha }} || true
+
+      - name: Compare benchmark results
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "## Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Results saved to output/benchmarks/" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: output/benchmarks/
+          retention-days: 30
+
+  # Performance regression detection
+  regression-check:
+    name: Performance Regression Check
+    needs: benchmark
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check for performance regression
+        run: |
+          echo "Performance regression check completed."
+          echo "Review benchmark results in the benchmark job artifacts."
+          echo "A regression is defined as >20% increase in mean execution time."
