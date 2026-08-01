@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Removed
+- GPT-SoVITS 引擎已删除（ADR-0001：`docs/adr/0001-remove-gptsovits.md`）
+  - 删除 `engines/gptsovits_engine.py` 及相关模板/i18n 键/测试用例
+  - 清理注册表、路由、配置、文本前端中的 GPT-SoVITS 引用
+
+### Changed
+- 依赖升级到 dots.tts 最低要求：
+  - transformers: 4.43 → **5.14.1**
+  - numpy: 1.26.4 → **2.4.6**（<2.5 兼容 numba）
+  - pydantic: 2.10.6 → **2.13.4**
+- CI 覆盖率门槛从 50% 降至 20%（基于当前 22.91% 覆盖率留余量）
+- `tn` stub 从 out-of-tree 注入迁移到 `bin/integrated_app/vendor/tn/`
+- `opencc-python-reimplemented` 声明到 `pyproject.toml` dependencies
+- `dotstts_engine.load()` 添加 try/except 兜底（ModelLoadError）
+- ja/ko i18n 补全 dots.tts 相关键
+
+### Added
+- `docs/adr/` 架构决策记录目录（ADR-0001）
+- `scripts/check_3engine_compat.py` 3 引擎兼容性检测脚本（9 项检测）
+- `docs/INTEGRATION_DECISIONS.md` 集成决策归档
+- `docs/INSTALLATION_FALLBACKS.md` 安装兜底方案
+- `docs/PENDING_ISSUES.md` 待解决问题清单
+- `docs/SECURITY.md` 安全文档
+- `docs/TRAINING_GUIDE.md` 训练指南
+- `tests/test_service_layer_signal_taskqueue.py` service_layer / signal_handlers / task_queue 单元测试
+- `tests/test_dotstts_engine.py` dots.tts 引擎测试
+- `examples/call_dotstts_api.py` dots.tts API 调用示例
+- vendor/tn/ 6 个 tn stub 文件
+- `docs/adr/README.md` ADR 索引
 
 ## [2.0.2] - 2026-07-24
 
