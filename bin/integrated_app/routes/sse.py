@@ -59,6 +59,7 @@ class SSEEvent:
     type: str
     data: dict[str, Any] = field(default_factory=dict)
     id: str | None = None
+    #: 默认浏览器重连间隔（毫秒）。None 时不写 retry 行，浏览器使用内置默认。
     retry: int | None = None
 
 
@@ -79,8 +80,8 @@ def _format_sse_frame(event: SSEEvent) -> str:
     lines.append(f"event: {event.type}")
     if event.id is not None:
         lines.append(f"id: {event.id}")
-    if event.retry is not None:
-        lines.append(f"retry: {event.retry}")
+    # 默认 retry: 3000ms — 指导浏览器断线重连间隔（None 时浏览器用内置默认 ~3s）
+    lines.append(f"retry: {event.retry if event.retry is not None else 3000}")
     try:
         data_json = json.dumps(event.data, ensure_ascii=False)
     except (TypeError, ValueError, UnicodeEncodeError) as e:
