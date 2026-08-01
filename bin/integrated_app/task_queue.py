@@ -324,3 +324,173 @@ async def shutdown_queue() -> None:
     _cancelled_generation_ids.clear()
 
     logger.info("[TaskQueue] 生成队列已关闭")
+
+
+# ======================================================================
+# PerEngineQueueManager — 每引擎独立队列管理器
+# ======================================================================
+
+
+class PerEngineQueueManager:
+    """每引擎独立队列管理器 — 支持不同引擎的生成任务并行处理。
+
+    传统单队列模式下，所有引擎的生成任务共享一个 worker，
+    如果 VoxCPM2 正在推理，IndexTTS2 的请求必须等待。
+    本管理器为每个引擎创建独立的队列和 worker，允许不同引擎并行推理。
+
+    注意:
+        并行推理需要足够的显存同时容纳多个引擎。
+        在显存受限时，应保持使用全局单队列（``enqueue_generation``）。
+
+    Usage::
+
+        from .task_queue import per_engine_queue_manager
+        await per_engine_queue_manager.init_engine_queue("voxcpm2")
+        await per_engine_queue_manager.enqueue("voxcpm2", "gen-1", my_coro())
+    """
+
+    def __init__(self) -> None:
+        """初始化每引擎队列管理器。"""
+        self._engine_queues: dict[str, asyncio.Queue[GenerationJob]] = {}
+        self._engine_workers: dict[str, asyncio.Task] = {}
+        self._engine_running: dict[str, dict[str, asyncio.Task]] = {}
+
+    async def init_engine_queue(self, engine: str) -> None:
+        """初始化指定引擎的独立队列和 worker。
+
+        Args:
+            engine: 引擎名称。
+        """
+        if engine in self._engine_queues:
+            logger.debug("[PerEngineQueue] 队列已存在: %s", engine)
+            return
+
+        self._engine_queues[engine] = asyncio.Queue()
+        self._engine_running[engine] = {}
+        worker = create_background_task(self._engine_worker(engine))
+        self._engine_workers[engine] = worker
+        logger.info("[PerEngineQueue] 队列已初始化: %s", engine)
+
+    async def _engine_worker(self, engine: str) -> None:
+        """指定引擎的 worker 协程。"""
+        queue = self._engine_queues[engine]
+        running = self._engine_running[engine]
+        while True:
+            try:
+                job = await queue.get()
+            except asyncio.CancelledError:
+                logger.info("[PerEngineQueue] worker 已取消: %s", engine)
+                break
+            except Exception as exc:
+                logger.error("[PerEngineQueue] 获取任务出错 %s: %s", engine, exc)
+                await asyncio.sleep(0.1)
+                continue
+
+            try:
+                task = asyncio.create_task(job.coro)
+                running[job.generation_id] = task
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    logger.info("[PerEngineQueue] 生成已取消: %s", job.generation_id)
+                except Exception as exc:
+                    logger.error(
+                        "[PerEngineQueue] 生成失败 %s: %s", job.generation_id, exc
+                    )
+                    await _notify_generation_failed(job.generation_id, str(exc))
+            except Exception as exc:
+                logger.error("[PerEngineQueue] worker 出错 %s: %s", engine, exc)
+            finally:
+                running.pop(job.generation_id, None)
+                queue.task_done()
+
+    async def enqueue(self, engine: str, generation_id: str, coro: Coroutine) -> None:
+        """将生成任务添加到指定引擎的队列。
+
+        Args:
+            engine: 引擎名称。
+            generation_id: 生成任务 ID。
+            coro: 要执行的协程。
+
+        Raises:
+            RuntimeError: 引擎队列未初始化时抛出。
+        """
+        if engine not in self._engine_queues:
+            coro.close()
+            raise RuntimeError(
+                f"引擎 {engine} 的队列尚未初始化。请先调用 init_engine_queue()。"
+            )
+        job = GenerationJob(generation_id=generation_id, coro=coro)
+        await self._engine_queues[engine].put(job)
+        logger.debug(
+            "[PerEngineQueue] 已入队 %s -> %s (深度: %d)",
+            generation_id, engine, self._engine_queues[engine].qsize()
+        )
+
+    def cancel(self, engine: str, generation_id: str) -> str | None:
+        """取消指定引擎中的生成任务。
+
+        Args:
+            engine: 引擎名称。
+            generation_id: 生成任务 ID。
+
+        Returns:
+            "running" / "queued" / None
+        """
+        running = self._engine_running.get(engine, {})
+        task = running.get(generation_id)
+        if task is not None and not task.done():
+            task.cancel()
+            return "running"
+        return None
+
+    def get_status(self, engine: str) -> dict[str, Any]:
+        """获取指定引擎的队列状态。
+
+        Args:
+            engine: 引擎名称。
+
+        Returns:
+            队列状态字典。
+        """
+        queue = self._engine_queues.get(engine)
+        running = self._engine_running.get(engine, {})
+        return {
+            "engine": engine,
+            "queued_count": queue.qsize() if queue else 0,
+            "running_count": len(running),
+            "running_ids": list(running.keys()),
+        }
+
+    async def shutdown_engine(self, engine: str) -> None:
+        """关闭指定引擎的队列和 worker。
+
+        Args:
+            engine: 引擎名称。
+        """
+        queue = self._engine_queues.pop(engine, None)
+        worker = self._engine_workers.pop(engine, None)
+        running = self._engine_running.pop(engine, {})
+
+        for task in running.values():
+            if not task.done():
+                task.cancel()
+
+        if worker is not None and not worker.done():
+            worker.cancel()
+            try:
+                await asyncio.wait_for(worker, timeout=2.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+
+        logger.info("[PerEngineQueue] 队列已关闭: %s", engine)
+
+    async def shutdown_all(self) -> None:
+        """关闭所有引擎的队列和 worker。"""
+        engines = list(self._engine_queues.keys())
+        for engine in engines:
+            await self.shutdown_engine(engine)
+
+
+#: 每引擎队列管理器单例
+per_engine_queue_manager = PerEngineQueueManager()
