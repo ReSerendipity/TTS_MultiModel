@@ -230,6 +230,7 @@
   "dotstts_seed": "Random Seed",
   "dotstts_random_seed": "Use Random Seed",
   "dotstts_language": "Synthesis Language",
+  "advanced_params_hint": "All parameters have defaults, only adjust if needed",
   "optional_alt": "Alt.",
   "upload_reference": "Upload Reference",
   "select_voice": "Select Voice",
