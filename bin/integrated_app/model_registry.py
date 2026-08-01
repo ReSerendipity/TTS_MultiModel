@@ -776,6 +776,137 @@ class ModelRegistry:
 
 
 # ------------------------------------------------------------------
+# MultiEngineRegistry — 多引擎并发管理扩展
+# ------------------------------------------------------------------
+
+
+class MultiEngineRegistry:
+    """多引擎注册表扩展 — 支持同时加载和独立管理多个引擎实例。
+
+    基于 ``ModelRegistry`` 的通用引擎容器（``_engines`` 字典），
+    提供引擎级别的生命周期管理和状态查询。
+
+    设计原则:
+        - 不破坏现有 ``registry`` 单例的线程安全约定
+        - 通用引擎容器（``_engines``）与专属字段（``_voxcpm_model`` 等）共存
+        - 新增引擎只需通过 ``register_engine`` 注册，无需修改本类
+
+    Usage::
+
+        from .model_registry import multi_engine_registry
+        multi_engine_registry.register_engine("dotstts", engine_instance)
+        info = multi_engine_registry.get_engine_info("dotstts")
+    """
+
+    def __init__(self, registry_instance: ModelRegistry | None = None) -> None:
+        """初始化多引擎注册表。
+
+        Args:
+            registry_instance: 可选的 ModelRegistry 实例。
+                默认使用全局 ``registry`` 单例。
+        """
+        self._registry = registry_instance or registry
+
+    def register_engine(self, name: str, instance: Any) -> None:
+        """注册一个引擎实例到通用容器。
+
+        等同于 ``registry.set_engine_loaded(name, instance)``，
+        但语义更明确（面向多引擎管理而非引擎切换）。
+
+        Args:
+            name: 引擎名称。
+            instance: 实现 TTSEngine 协议的引擎实例。
+        """
+        self._registry.set_engine_loaded(name, instance)
+
+    def unregister_engine(self, name: str) -> None:
+        """从通用容器中移除引擎实例。
+
+        等同于 ``registry.clear_engine(name)``。
+
+        Args:
+            name: 要移除的引擎名称。
+        """
+        self._registry.clear_engine(name)
+
+    def get_engine(self, name: str) -> Any:
+        """获取指定引擎的实例。
+
+        Args:
+            name: 引擎名称。
+
+        Returns:
+            引擎实例，不存在时返回 None。
+        """
+        return self._registry.get_engine_instance(name)
+
+    def get_all_engines(self) -> dict[str, Any]:
+        """获取所有已注册的通用引擎实例快照。
+
+        Returns:
+            引擎名称到实例的字典（浅拷贝）。
+        """
+        return self._registry.get_all_engine_instances()
+
+    def is_engine_loaded(self, name: str) -> bool:
+        """检查指定引擎是否已加载。
+
+        Args:
+            name: 引擎名称。
+
+        Returns:
+            引擎已加载时返回 True。
+        """
+        return self._registry.get_engine_instance(name) is not None
+
+    def get_engine_info(self, name: str) -> dict[str, Any]:
+        """获取指定引擎的信息字典。
+
+        Args:
+            name: 引擎名称。
+
+        Returns:
+            引擎信息字典，包含 spec 字段（如有）。
+        """
+        instance = self._registry.get_engine_instance(name)
+        if instance is None:
+            return {"name": name, "loaded": False}
+        info: dict[str, Any] = {
+            "name": name,
+            "loaded": True,
+        }
+        spec = _engine_specs.get(name)
+        if spec is not None:
+            info["spec"] = {
+                "display_name": spec.display_name,
+                "vram_gb": spec.vram_gb,
+                "ram_gb": spec.ram_gb,
+                "languages": spec.languages,
+                "quality": spec.quality,
+                "license": spec.license,
+                "supported_features": spec.supported_features,
+                "sample_rate": spec.sample_rate,
+            }
+        return info
+
+    def get_loaded_engine_names(self) -> list[str]:
+        """获取所有已加载引擎的名称列表。
+
+        Returns:
+            引擎名称列表（包括通用容器和专属字段中的引擎）。
+        """
+        names = list(self._registry.get_all_engine_instances().keys())
+        if self._registry.voxcpm_model is not None:
+            names.append(EngineName.VOXCPM2.value)
+        if self._registry.indextts2_engine is not None:
+            names.append(EngineName.INDEXTTS2.value)
+        return names
+
+
+# ------------------------------------------------------------------
 # 模块级单例 —— 全局权威访问入口
 # ------------------------------------------------------------------
 registry = ModelRegistry()
+
+#: 多引擎注册表单例（面向多引擎并发管理场景）
+multi_engine_registry = MultiEngineRegistry()
