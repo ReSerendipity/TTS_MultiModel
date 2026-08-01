@@ -461,7 +461,7 @@ def unload_model() -> None:
                 except Exception as e:
                     logger.warning(f"IndexTTS2 卸载失败: {e}")
 
-            # Unload 通用新式引擎（gptsovits / dotstts 等）
+            # Unload 通用新式引擎（dotstts 等）
             for gname, ginst in registry.get_all_engine_instances().items():
                 if ginst is not None:
                     try:

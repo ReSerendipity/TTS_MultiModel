@@ -1,7 +1,6 @@
 """多语言文本前端处理模块
 
 提供语言检测、文本规范化、G2P 桩实现及统一门面接口，
-参考 GPT-SoVITS text/ 目录的 G2P + G2PW 设计，
 支持 zh/en/ja/ko 四种主要语言。
 
 类层次:
@@ -1487,7 +1486,7 @@ class G2PProcessor:
     提供统一的 G2P 处理接口，当前为桩实现直接返回原文。
     预留未来集成 G2PW / pypinyin / g2p_en / pyopenjtalk / g2pk 等引擎。
 
-    设计参考 GPT-SoVITS text/ 目录：
+    设计参考主流 TTS 文本前端：
       - chinese.py  使用 pypinyin + jieba + cn2an
       - english.py  使用 g2p_en + CMU dict
       - japanese.py 使用 pyopenjtalk

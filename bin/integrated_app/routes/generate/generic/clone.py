@@ -3,7 +3,7 @@
 **端点**：POST ``/api/generate/generic/clone``
 
 **适用引擎**：任何实现 ``TTSEngine.generate_voice_clone`` 的当前激活引擎，
-    典型为通过 config.yaml 声明式接入的 gptsovits、dotstts。
+    典型为通过 config.yaml 声明式接入的 dotstts。
 
 **表单参数（multipart/form-data）**：
     - text (str, 必填)：待合成文本。
@@ -14,8 +14,6 @@
     - tempo_factor / voice_enhancement / target_lufs：通用后处理参数。
 
 **引擎专属高级参数（折叠区，用户可视场景选择是否调整）**：
-    - GPT-SoVITS：top_k / top_p / temperature / speed_factor /
-      text_split_method / prompt_lang / text_lang。
     - dots.tts：num_steps / guidance_scale / seed / random_seed / language。
 
     由于 ``TTSEngine.generate_voice_clone`` 协议定义为 ``**kwargs``，
@@ -50,7 +48,7 @@ logger = logging.getLogger("tts_multimodel")
 @router.post(
     "/generic/clone",
     summary="通用语音克隆",
-    description="调用当前激活引擎的 generate_voice_clone（适配 gptsovits / dotstts 等）",
+    description="调用当前激活引擎的 generate_voice_clone（适配 dotstts 等）",
 )
 async def generic_clone_endpoint(
     request: Request,
@@ -62,14 +60,6 @@ async def generic_clone_endpoint(
     tempo_factor: float = Form(1.0),
     voice_enhancement: str = Form("false"),
     target_lufs: float = Form(-16.0),
-    # --- GPT-SoVITS 高级参数（折叠面板默认值，引擎忽略不属于自己的字段） ---
-    top_k: int = Form(20),
-    top_p: float = Form(0.6),
-    temperature: float = Form(0.6),
-    speed_factor: float = Form(1.0),
-    text_split_method: str = Form("cut5"),
-    prompt_lang: str = Form("zh"),
-    text_lang: str = Form("zh"),
     # --- dots.tts 高级参数 ---
     num_steps: int = Form(10),
     guidance_scale: float = Form(1.2),
@@ -89,8 +79,6 @@ async def generic_clone_endpoint(
         tempo_factor: 语速因子。
         voice_enhancement: 是否人声增强（"true"/"false"）。
         target_lufs: 目标响度 LUFS。
-        top_k/top_p/temperature/speed_factor/text_split_method/prompt_lang/text_lang:
-            GPT-SoVITS 推理参数（其余引擎忽略）。
         num_steps/guidance_scale/seed/random_seed/language:
             dots.tts 推理参数（其余引擎忽略）。
 
@@ -129,15 +117,7 @@ async def generic_clone_endpoint(
             text,
             reference_audio_path=ref_path,
             instruction=prompt_text,
-            # GPT-SoVITS 字段（其他引擎通过 kwargs.get 自动忽略未知键）
-            top_k=top_k,
-            top_p=top_p,
-            temperature=temperature,
-            speed_factor=speed_factor,
-            text_split_method=text_split_method,
-            prompt_lang=prompt_lang,
-            text_lang=text_lang,
-            # dots.tts 字段
+            # dots.tts 字段（其他引擎通过 kwargs.get 自动忽略未知键）
             num_steps=num_steps,
             guidance_scale=guidance_scale,
             seed=effective_seed,
