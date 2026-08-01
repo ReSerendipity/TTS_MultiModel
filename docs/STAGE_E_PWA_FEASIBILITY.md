@@ -291,7 +291,37 @@ PWA 完整功能（IndexedDB 音频缓存 + 推送通知）建议作为阶段 F 
 
 ---
 
-## 8. 参考资料
+## 8. 实施状态（已落地）
+
+> 2026-08 起本项目决定完整实施 PWA 5.5 周方案（与第 6 节"不实施"建议相反——根据用户决策
+> 调整，认为 PWA 对 TTS 多模型应用有"断网回听"和"安装到桌面"明确价值）。
+> 详细设计见 [STAGE_E_PWA_PHASE2.md](./STAGE_E_PWA_PHASE2.md)。
+
+### 8.1 Phase 1 — manifest + Service Worker（已 commit fde7575）
+
+- ✅ Web App Manifest（`bin/integrated_app/static_pwa/manifest.json`）
+- ✅ Service Worker v1（`bin/integrated_app/static_pwa/sw.js`）
+- ✅ 客户端控制器（`bin/integrated_app/static_pwa/js/pwa.js`）
+- ✅ `PwaConfig` 模型（5 字段，3 路由）
+- ✅ 4 语言 i18n 键
+- ✅ 复用现有 `/favicon.ico`（不生成新 PNG）
+
+### 8.2 Phase 2 — IndexedDB 音频缓存（commit 待提）
+
+- ✅ `idb_cache.js` 模块（Promise 封装、LRU、BroadcastChannel、降级）
+- ✅ Service Worker v2（`/api/audio/*.wav` IDB-first 拦截 + 32-hex taskId 校验）
+- ✅ `PwaConfig` 扩展 5 字段（idb_audio_cache / max_size_mb / lru_target_pct / broadcast_channel / persist_request）
+- ✅ `/api/system/pwa-config` 返回 `idb` 字典 + `phase.idb_audio_cache` 从 Pydantic 读取
+- ✅ 用户决策：预存+按需读混合 / 100MB 保守 / 仅本地生成
+
+### 8.3 Phase 3 / 4（待实施）
+
+- ⏳ Phase 3 — VAPID 推送通知（`pwa.vapid_public_key` 已留占位）
+- ⏳ Phase 4 — Background Sync 离线生成队列（`networkOnlyWithBackgroundSync` 已留入口）
+
+---
+
+## 9. 参考资料
 
 - MDN: [Progressive Web Apps (PWAs)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
 - Vite: [vite-plugin-pwa](https://vite-pwa-org.netlify.app/)

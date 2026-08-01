@@ -301,11 +301,20 @@ async def pwa_config() -> dict[str, object]:
         "api_cache_max_age_s": pwa.api_cache_max_age_s,
         "precache_urls": pwa.precache_urls,
         "vapid_public_key": pwa.vapid_public_key,
+        # ===== Phase 2: IndexedDB 音频缓存运行时配置 =====
+        # 前端 /api/system/pwa-config 调试 UI 可读；SW 自身硬编码 IDB_* 常量
+        "idb": {
+            "enabled": pwa.idb_audio_cache,
+            "max_size_mb": pwa.idb_max_size_mb,
+            "lru_target_pct": pwa.idb_lru_target_pct,
+            "broadcast_channel": pwa.idb_broadcast_channel,
+            "persist_request": pwa.idb_persist_request,
+        },
         "phase": {
             "manifest": True,
             "service_worker": True,
-            "idb_audio_cache": False,       # Phase 2: IndexedDB 持久化音频
-            "vapid_push": False,            # Phase 3: Web Push 通知
-            "background_sync": False,       # Phase 4: 离线生成队列
+            "idb_audio_cache": pwa.idb_audio_cache,  # Phase 2: 已从 Pydantic 读取
+            "vapid_push": bool(pwa.vapid_public_key),  # Phase 3: 填充公钥即启用
+            "background_sync": False,                  # Phase 4: 离线生成队列
         },
     }
