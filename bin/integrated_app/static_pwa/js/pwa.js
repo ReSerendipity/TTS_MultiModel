@@ -1,5 +1,5 @@
 /* =============================================================================
- * TTS MultiModel Voice Studio - PWA Client (Phase 1)
+ * TTS MultiModel Voice Studio - PWA Client (Phase 1-4)
  *
  * 职责（客户端层）：
  *   1. 注册 Service Worker（/sw.js, scope=/）
@@ -7,6 +7,8 @@
  *   3. 监听 iOS Safari（无 beforeinstallprompt），显示手动指引
  *   4. 监听 SW updatefound，提示用户刷新以激活新版本
  *   5. 监听 controllerchange，新 SW 接管后自动 reload
+ *   6. Phase 3: 推送通知订阅（请求权限 + PushManager.subscribe + 发送后端）
+ *   7. Phase 2.5: IDB 缓存管理（查询用量 + 清空缓存）
  *
  * 不依赖任何框架（Alpine.js / HTMX / jQuery 都可兼容）
  * ============================================================================= */
@@ -195,4 +197,210 @@
       );
     });
   };
+
+  // =============================================================================
+  // 6. Phase 3: 推送通知订阅
+  // =============================================================================
+
+  /**
+   * Base64URL -> Uint8Array（VAPID 公钥转换，PushManager.subscribe 要求）
+   */
+  function urlBase64ToUint8Array(base64Url) {
+    const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
+    const base64 = (base64Url + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    const output = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      output[i] = rawData.charCodeAt(i);
+    }
+    return output;
+  }
+
+  /**
+   * 获取 CSRF Token（从 cookie 或 meta 标签）
+   */
+  function getCsrfToken() {
+    // 从 cookie 读取
+    const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+    // 从 meta 标签读取
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) return meta.getAttribute("content") || "";
+    return "";
+  }
+
+  /**
+   * 初始化推送通知：检查 VAPID 公钥 + 通知权限 → 自动或手动订阅
+   */
+  async function initPushNotifications() {
+    try {
+      const response = await fetch("/api/pwa/push/status");
+      if (!response.ok) return;
+      const status = await response.json();
+
+      if (!status.enabled || !status.vapid_public_key) {
+        // 推送未配置：隐藏推送按钮
+        const btn = document.getElementById("pwa-push-btn");
+        if (btn) btn.hidden = true;
+        return;
+      }
+
+      // 检查通知权限
+      if (!("Notification" in window)) {
+        const btn = document.getElementById("pwa-push-btn");
+        if (btn) btn.hidden = true;
+        return;
+      }
+
+      if (Notification.permission === "granted") {
+        // 已授权：自动订阅
+        await subscribePush(status.vapid_public_key);
+        const btn = document.getElementById("pwa-push-btn");
+        if (btn) {
+          btn.hidden = true;
+        }
+      } else if (Notification.permission === "denied") {
+        // 已拒绝：隐藏按钮
+        const btn = document.getElementById("pwa-push-btn");
+        if (btn) btn.hidden = true;
+      } else {
+        // 默认：显示订阅按钮
+        const btn = document.getElementById("pwa-push-btn");
+        if (btn) {
+          btn.hidden = false;
+          btn.dataset.vapidKey = status.vapid_public_key;
+        }
+      }
+    } catch (err) {
+      console.warn("[PWA] initPushNotifications failed:", err);
+    }
+  }
+
+  /**
+   * 订阅推送服务
+   */
+  async function subscribePush(vapidPublicKey) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      });
+
+      // 发送订阅到后端
+      const csrfToken = getCsrfToken();
+      const headers = { "Content-Type": "application/json" };
+      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+      await fetch("/api/pwa/push/subscribe", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(subscription),
+      });
+
+      console.info("[PWA] Push subscription sent to backend");
+    } catch (err) {
+      console.warn("[PWA] subscribePush failed:", err);
+    }
+  }
+
+  /**
+   * 用户点击“开启推送通知”按钮
+   */
+  window.__pwa_subscribe_push__ = async function () {
+    const btn = document.getElementById("pwa-push-btn");
+    const vapidKey = btn ? btn.dataset.vapidKey : "";
+    if (!vapidKey) return;
+
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      await subscribePush(vapidKey);
+      if (btn) btn.hidden = true;
+    }
+  };
+
+  // =============================================================================
+  // 7. Phase 2.5: IDB 缓存管理 UI
+  // =============================================================================
+
+  /**
+   * 查询 IDB 缓存统计并更新 UI
+   */
+  async function updateIdbCacheStats() {
+    const el = document.getElementById("pwa-cache-usage");
+    if (!el) return;
+
+    if (!navigator.serviceWorker.controller) {
+      el.textContent = "—";
+      return;
+    }
+
+    try {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (event) => {
+        const stats = event.data;
+        if (stats && stats.available) {
+          const usedMB = (stats.totalSize / 1024 / 1024).toFixed(1);
+          const maxMB = stats.maxSizeMB;
+          el.textContent = usedMB + " / " + maxMB + " MB";
+          // 更新进度条（如有）
+          const bar = document.getElementById("pwa-cache-bar");
+          if (bar) {
+            const pct = Math.min(100, (stats.totalSize / (maxMB * 1024 * 1024)) * 100);
+            bar.style.width = pct + "%";
+          }
+        } else {
+          el.textContent = "不可用";
+        }
+      };
+      navigator.serviceWorker.controller.postMessage(
+        { type: "GET_IDB_STATS" },
+        [channel.port2]
+      );
+    } catch (err) {
+      console.warn("[PWA] updateIdbCacheStats failed:", err);
+      el.textContent = "—";
+    }
+  }
+
+  /**
+   * 清空 IDB 音频缓存（用户点击“清空缓存”按钮）
+   */
+  window.__pwa_clear_cache__ = async function () {
+    // 优先使用 window.__idbCache（idb_cache.js 在窗口上下文加载时可用）
+    if (window.__idbCache && typeof window.__idbCache.clear === "function") {
+      const ok = await window.__idbCache.clear();
+      if (ok) {
+        console.info("[PWA] IDB cache cleared via window.__idbCache");
+        updateIdbCacheStats();
+        return;
+      }
+    }
+    // 降级：通过 SW 消息清空
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: "CLEAR_IDB" });
+      console.info("[PWA] IDB cache clear requested via SW");
+      setTimeout(updateIdbCacheStats, 500);
+    }
+  };
+
+  // 监听 BroadcastChannel 更新缓存统计
+  if (typeof BroadcastChannel !== "undefined") {
+    try {
+      const bc = new BroadcastChannel("tts-idb-audio-cache");
+      bc.onmessage = (event) => {
+        if (event.data && (event.data.type === "PUT" || event.data.type === "EVICTED" || event.data.type === "CLEARED")) {
+          updateIdbCacheStats();
+        }
+      };
+    } catch (e) {
+      console.warn("[PWA] BroadcastChannel for cache stats failed:", e);
+    }
+  }
+
+  // SW ready 后初始化推送 + 缓存统计
+  navigator.serviceWorker.ready.then(() => {
+    initPushNotifications();
+    updateIdbCacheStats();
+  });
 })();

@@ -314,7 +314,7 @@ async def pwa_config() -> dict[str, object]:
             "manifest": True,
             "service_worker": True,
             "idb_audio_cache": pwa.idb_audio_cache,  # Phase 2: 已从 Pydantic 读取
-            "vapid_push": bool(pwa.vapid_public_key),  # Phase 3: 填充公钥即启用
-            "background_sync": False,                  # Phase 4: 离线生成队列
+            "vapid_push": bool(pwa.vapid_public_key and pwa.vapid_private_key),  # Phase 3: 公钥+私钥都填写才启用
+            "background_sync": pwa.background_sync,  # Phase 4: 离线生成队列
         },
     }
