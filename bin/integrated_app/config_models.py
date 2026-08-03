@@ -31,6 +31,7 @@
     Pydantic 静默丢弃，保证旧配置文件在新版本代码上仍可正常加载。
 """
 
+import os
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -340,7 +341,19 @@ class PwaConfig(BaseModel):
     api_cache_max_age_s: int = Field(default=300, ge=0, le=86400, description="API 缓存最大时长（秒）")
     html_cache_max_entries: int = Field(default=50, ge=0, le=500, description="HTML 缓存条目数")
     scope: str = Field(default="/", description="SW scope")
-    vapid_public_key: str = Field(default="", description="VAPID 公钥（Phase 3）")
+    vapid_public_key: str = Field(default="", description="VAPID 公钥（Phase 3 推送通知，Base64URL）")
+
+    # ===== Phase 3: VAPID 推送通知 =====
+    # 生成密钥对：python scripts/generate_vapid_keys.py
+    # 公钥填 vapid_public_key，私钥填 vapid_private_key
+    vapid_private_key: str = Field(
+        default="",
+        description="VAPID 私钥（PEM 格式，Phase 3 推送签名用）",
+    )
+    vapid_subject: str = Field(
+        default="",
+        description="VAPID subject（mailto: 或 https:// URL，推送 JWT claim）",
+    )
 
     # ===== Phase 2: IndexedDB 音频缓存 =====
     # 详细设计见 docs/STAGE_E_PWA_PHASE2.md §3
@@ -350,11 +363,15 @@ class PwaConfig(BaseModel):
         description="Phase 2: 是否启用 IndexedDB 持久化音频缓存（仅本地生成音频）",
     )
     idb_max_size_mb: int = Field(
-        default=100, ge=10, le=2000,
+        default=100,
+        ge=10,
+        le=2000,
         description="IDB 音频缓存最大字节 (MB)，超出触发 LRU 清理",
     )
     idb_lru_target_pct: int = Field(
-        default=80, ge=50, le=95,
+        default=80,
+        ge=50,
+        le=95,
         description="LRU 清理目标百分比（占 max_size），保留缓冲避免频繁清理",
     )
     idb_broadcast_channel: bool = Field(
@@ -364,6 +381,12 @@ class PwaConfig(BaseModel):
     idb_persist_request: bool = Field(
         default=True,
         description="启动时是否调 navigator.storage.persist() 请求持久化",
+    )
+
+    # ===== Phase 4: Background Sync =====
+    background_sync: bool = Field(
+        default=True,
+        description="Phase 4: 是否启用 Background Sync 离线生成队列",
     )
 
 
@@ -558,7 +581,7 @@ def load_config_dict(yaml_data: Any) -> AppConfig:
                     "type": "dict_type",
                     "loc": ("__root__",),
                     "msg": f"Expected config root to be a dict/mapping, got {type(yaml_data).__name__}. "
-                           "Please check that config.yaml has a valid key-value structure at the top level.",
+                    "Please check that config.yaml has a valid key-value structure at the top level.",
                     "input": yaml_data,
                 }
             ],
@@ -583,3 +606,34 @@ def load_config_dict(yaml_data: Any) -> AppConfig:
         ui=yaml_data.get("ui", {}),
         pwa=yaml_data.get("pwa", {}),
     )
+
+
+def _apply_env_overrides(config: AppConfig) -> AppConfig:
+    """Apply environment variable overrides for sensitive config fields.
+
+    Environment variables take precedence over config.yaml values.
+    This allows keeping secrets (like VAPID private keys) out of the
+    tracked config.yaml file by placing them in a .env file or system
+    environment variables instead.
+
+    Supported overrides:
+        VAPID_PUBLIC_KEY  -> config.pwa.vapid_public_key
+        VAPID_PRIVATE_KEY -> config.pwa.vapid_private_key
+        VAPID_SUBJECT     -> config.pwa.vapid_subject
+
+    Args:
+        config: The AppConfig instance loaded from YAML.
+
+    Returns:
+        AppConfig: The same instance with env-overridden fields updated.
+    """
+    env_map = {
+        "VAPID_PUBLIC_KEY": "vapid_public_key",
+        "VAPID_PRIVATE_KEY": "vapid_private_key",
+        "VAPID_SUBJECT": "vapid_subject",
+    }
+    for env_key, field_name in env_map.items():
+        env_val = os.environ.get(env_key)
+        if env_val:
+            setattr(config.pwa, field_name, env_val)
+    return config

@@ -35,8 +35,9 @@
 
   // ----- 配置常量（与 config.yaml pwa.idb_* 同步，靠人工保证） -----
   const DB_NAME = "tts-multimodel-audio-cache";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;  // v2: 新增 sync_queue store（Phase 4）
   const STORE_NAME = "audios";
+  const SYNC_STORE_NAME = "sync_queue";  // Phase 4: 离线请求队列
   const INDEX_LAST_ACCESSED = "by_last_accessed";
   const INDEX_TIMESTAMP = "by_timestamp";
   const CHANNEL_NAME = "tts-idb-audio-cache";
@@ -80,11 +81,21 @@
       const req = global.indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = (event) => {
         const db = event.target.result;
+        // v1: audios store
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           const store = db.createObjectStore(STORE_NAME, { keyPath: "taskId" });
           store.createIndex(INDEX_LAST_ACCESSED, "lastAccessed", { unique: false });
           store.createIndex(INDEX_TIMESTAMP, "timestamp", { unique: false });
           console.info("[IDB] Schema created: store=audios, indexes=lastAccessed/timestamp");
+        }
+        // v2: sync_queue store（Phase 4 Background Sync）
+        if (!db.objectStoreNames.contains(SYNC_STORE_NAME)) {
+          const syncStore = db.createObjectStore(SYNC_STORE_NAME, {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          syncStore.createIndex("by_timestamp", "timestamp", { unique: false });
+          console.info("[IDB] Schema v2: sync_queue store created");
         }
       };
       req.onsuccess = (event) => {
@@ -159,24 +170,24 @@
       return false;
     }
 
+    // 补充字段（在 try 外声明，确保 catch 重试路径可访问）
+    const now = Date.now();
+    const fullRecord = {
+      taskId: record.taskId,
+      blob: record.blob,
+      mimeType: record.mimeType || "audio/wav",
+      size: record.size || record.blob.size,
+      text: record.text || "",
+      engine: record.engine || "",
+      voice: record.voice || "",
+      duration: record.duration || 0,
+      timestamp: record.timestamp || now,
+      lastAccessed: now,
+    };
+
     try {
       const db = await getDB();
       if (!db) return false;
-
-      // 补充字段
-      const now = Date.now();
-      const fullRecord = {
-        taskId: record.taskId,
-        blob: record.blob,
-        mimeType: record.mimeType || "audio/wav",
-        size: record.size || record.blob.size,
-        text: record.text || "",
-        engine: record.engine || "",
-        voice: record.voice || "",
-        duration: record.duration || 0,
-        timestamp: record.timestamp || now,
-        lastAccessed: now,
-      };
 
       // 先尝试直接写入
       const tx = db.transaction(STORE_NAME, "readwrite");
@@ -454,7 +465,111 @@
   }
 
   // ===========================================================================
-  // 13. 暴露 API
+  // 13. Phase 4: Sync Queue — 离线请求队列 CRUD
+  // ===========================================================================
+
+  /**
+   * 将失败的写请求加入同步队列。
+   * @param {Object} item - { url, method, headers, body, timestamp }
+   * @returns {Promise<boolean>} 是否入队成功
+   */
+  async function addSyncQueueItem(item) {
+    if (!isAvailable()) return false;
+    if (!item || !item.url) return false;
+    try {
+      const db = await getDB();
+      if (!db) return false;
+      const tx = db.transaction(SYNC_STORE_NAME, "readwrite");
+      tx.objectStore(SYNC_STORE_NAME).put({
+        url: item.url,
+        method: item.method || "POST",
+        headers: item.headers || {},
+        body: item.body || "",
+        timestamp: item.timestamp || Date.now(),
+      });
+      await txComplete(tx);
+      console.info("[IDB] sync queue item added:", item.url);
+      return true;
+    } catch (err) {
+      console.warn("[IDB] addSyncQueueItem() failed:", err);
+      return false;
+    }
+  }
+
+  /**
+   * 获取所有排队的同步请求（按 timestamp 升序）。
+   * @returns {Promise<Array>} 队列数组，每项含 { id, url, method, headers, body, timestamp }
+   */
+  async function getSyncQueue() {
+    if (!isAvailable()) return [];
+    try {
+      const db = await getDB();
+      if (!db) return [];
+      const tx = db.transaction(SYNC_STORE_NAME, "readonly");
+      const store = tx.objectStore(SYNC_STORE_NAME);
+      const index = store.index("by_timestamp");
+      return await new Promise((resolve, reject) => {
+        const items = [];
+        const cursorReq = index.openCursor();
+        cursorReq.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (!cursor) {
+            resolve(items);
+            return;
+          }
+          items.push(cursor.value);
+          cursor.continue();
+        };
+        cursorReq.onerror = (event) => reject(event.target.error);
+      });
+    } catch (err) {
+      console.warn("[IDB] getSyncQueue() failed:", err);
+      return [];
+    }
+  }
+
+  /**
+   * 从同步队列中移除指定请求。
+   * @param {number} id - 队列项的自增 ID
+   * @returns {Promise<boolean>} 是否删除成功
+   */
+  async function removeSyncQueueItem(id) {
+    if (!isAvailable()) return false;
+    try {
+      const db = await getDB();
+      if (!db) return false;
+      const tx = db.transaction(SYNC_STORE_NAME, "readwrite");
+      tx.objectStore(SYNC_STORE_NAME).delete(id);
+      await txComplete(tx);
+      return true;
+    } catch (err) {
+      console.warn("[IDB] removeSyncQueueItem() failed:", err);
+      return false;
+    }
+  }
+
+  /**
+   * 清空同步队列（调试用）。
+   * @returns {Promise<boolean>}
+   */
+  async function clearSyncQueue() {
+    if (!isAvailable()) return false;
+    try {
+      const db = await getDB();
+      if (!db) return false;
+      const tx = db.transaction(SYNC_STORE_NAME, "readwrite");
+      tx.objectStore(SYNC_STORE_NAME).clear();
+      await txComplete(tx);
+      console.info("[IDB] sync queue cleared");
+      return true;
+    } catch (err) {
+      console.warn("[IDB] clearSyncQueue() failed:", err);
+      return false;
+    }
+  }
+
+  // ===========================================================================
+  // 14. 暴露 API
   // ===========================================================================
   const idbCache = {
     isAvailable: isAvailable,
@@ -468,6 +583,11 @@
     requestPersist: requestPersist,
     getTotalSize: getTotalSize,
     configure: configure,
+    // Phase 4: Sync Queue
+    addSyncQueueItem: addSyncQueueItem,
+    getSyncQueue: getSyncQueue,
+    removeSyncQueueItem: removeSyncQueueItem,
+    clearSyncQueue: clearSyncQueue,
     // 常量（供 SW 判断 taskId 格式）
     TASK_ID_PATTERN: TASK_ID_PATTERN,
   };
