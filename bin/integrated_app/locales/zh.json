@@ -75,6 +75,7 @@
   "help_indextts2_feature3": "零样本声音克隆",
   "help_faq_q4": "我应该选择哪个模型？",
   "help_faq_a4": "VoxCPM2 适用于一般语音合成和克隆场景。IndexTTS 2.0 适合需要情感控制和精确时长控制的场景。",
+  "help_social_title": "社交平台",
   "help_copyright_title": "版权与许可",
   "help_copyright_desc": "本项目在 Apache 2.0 许可证下开源。",
   "help_copyright_notice": "© 2024-2026 ReSerendipity. 保留所有权利。",
@@ -805,5 +806,8 @@
   "pwa_ios_install_title": "iOS 用户：点击底部分享按钮 → 选择「添加到主屏幕」→ 点击「添加」",
   "pwa_dismiss": "关闭",
   "pwa_update_available": "检测到新版本，点击刷新以使用最新功能",
-  "pwa_update_now": "立即刷新"
+  "pwa_update_now": "立即刷新",
+  "pwa_push_enable": "开启推送通知",
+  "pwa_cache_label": "离线缓存",
+  "pwa_cache_clear": "清空"
 }
