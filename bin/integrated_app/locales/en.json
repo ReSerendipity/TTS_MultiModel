@@ -75,6 +75,7 @@
   "help_indextts2_feature3": "Zero-Shot Voice Cloning",
   "help_faq_q4": "Which model should I choose?",
   "help_faq_a4": "VoxCPM2 is suitable for general voice synthesis and cloning. IndexTTS 2.0 is ideal for scenarios requiring emotion control and precise duration control.",
+  "help_social_title": "Social Media",
   "help_copyright_title": "Copyright & License",
   "help_copyright_desc": "This project is open source under the Apache License 2.0.",
   "help_copyright_notice": "© 2024-2026 ReSerendipity. All rights reserved.",
@@ -804,5 +805,8 @@
   "pwa_ios_install_title": "iOS users: tap the share button → choose Add to Home Screen → tap Add",
   "pwa_dismiss": "Dismiss",
   "pwa_update_available": "A new version is available. Refresh to use the latest features.",
-  "pwa_update_now": "Refresh Now"
+  "pwa_update_now": "Refresh Now",
+  "pwa_push_enable": "Enable Push Notifications",
+  "pwa_cache_label": "Offline Cache",
+  "pwa_cache_clear": "Clear"
 }

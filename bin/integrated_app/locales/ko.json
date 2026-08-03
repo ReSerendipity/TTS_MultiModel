@@ -68,6 +68,7 @@
   "help_indextts2_feature3": "제로샷 음성 클로닝",
   "help_faq_q4": "어떤 모델을 선해야 하나요?",
   "help_faq_a4": "VoxCPM2는 일반적인 음성 합성 및 클로닝에 적합합니다. IndexTTS 2.0은 감정 제어 및 정확한 시간 제어가 필요한 상황에 적합합니다.",
+  "help_social_title": "소셜 미디어",
   "help_copyright_title": "저작권 및 라이선스",
   "help_copyright_desc": "이 프로젝트는 Apache 2.0 라이선스 하에 오픈 소스로 제공됩니다.",
   "help_copyright_notice": "© 2024-2026 ReSerendipity. 모든 권리 보유.",
@@ -800,5 +801,8 @@
   "pwa_ios_install_title": "iOS: 공유 버튼 → 홈 화면에 추가 → 추가 탭",
   "pwa_dismiss": "닫기",
   "pwa_update_available": "새 버전을 사용할 수 있습니다. 새로 고침하여 최신 기능을 사용하세요.",
-  "pwa_update_now": "지금 새로 고침"
+  "pwa_update_now": "지금 새로 고침",
+  "pwa_push_enable": "푸시 알림 활성화",
+  "pwa_cache_label": "오프라인 캐시",
+  "pwa_cache_clear": "비우기"
 }

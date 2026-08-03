@@ -70,6 +70,7 @@
   "help_indextts2_feature3": "ゼロショット音声クローニング",
   "help_faq_q4": "どのモデルを選べばいいですか？",
   "help_faq_a4": "VoxCPM2は一般的な音声合成とクローニングに適しています。IndexTTS 2.0は感情制御や正確な時間制御が必要な場面に適しています。",
+  "help_social_title": "ソーシャルメディア",
   "help_copyright_title": "著作権とライセンス",
   "help_copyright_desc": "このプロジェクトはApache 2.0ライセンスの下でオープンソース化されています。",
   "help_copyright_notice": "© 2024-2026 ReSerendipity. 全著作権所有。",
@@ -800,5 +801,8 @@
   "pwa_ios_install_title": "iOS：共有ボタン → ホーム画面に追加 → 追加 をタップ",
   "pwa_dismiss": "閉じる",
   "pwa_update_available": "新しいバージョンがあります。更新してください。",
-  "pwa_update_now": "今すぐ更新"
+  "pwa_update_now": "今すぐ更新",
+  "pwa_push_enable": "プッシュ通知を有効化",
+  "pwa_cache_label": "オフラインキャッシュ",
+  "pwa_cache_clear": "クリア"
 }
