@@ -46,6 +46,8 @@ function ensureDir(dir) {
 
 async function setTheme(page, theme) {
   await page.evaluate((t) => {
+    // Skip the new-user onboarding wizard (5-step spotlight)
+    localStorage.setItem('tts_onboarded_v1', '1');
     localStorage.setItem('app_theme', t);
     document.documentElement.classList.remove('dark', 'light');
     document.documentElement.classList.add(t);
@@ -139,7 +141,7 @@ async function captureHomePage(page, theme, viewportName) {
       console.log(`\n=== Viewport: ${vpName} (${vpSize.width}x${vpSize.height}) ===`);
       await page.setViewportSize(vpSize);
 
-      for (const theme of ['dark']) {
+      for (const theme of ['light', 'dark']) {
         console.log(`\n--- Theme: ${theme} ---`);
         try {
           await captureHomePage(page, theme, vpName);

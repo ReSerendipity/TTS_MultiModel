@@ -41,9 +41,23 @@ A powerful open-source multi-model Text-to-Speech platform with voice cloning, v
 |:--------:|:--------:|
 | ![Voice Design](docs/screenshots/voxcpm2_01_voice_design_viewport.png) | ![Voice Clone](docs/screenshots/voxcpm2_02_voice_clone_viewport.png) |
 
-| 剧本配音 | 系统设置 |
+| 极致克隆 | 剧本配音 |
 |:--------:|:--------:|
-| ![Script Workshop](docs/screenshots/voxcpm2_04_script_workshop_viewport.png) | ![Settings](docs/screenshots/voxcpm2_08_settings_viewport.png) |
+| ![Ultimate Clone](docs/screenshots/voxcpm2_03_ultimate_clone_viewport.png) | ![Script Workshop](docs/screenshots/voxcpm2_04_script_workshop_viewport.png) |
+
+| LoRA 管理 | 系统设置 |
+|:---------:|:--------:|
+| ![LoRA](docs/screenshots/voxcpm2_06_lora_viewport.png) | ![Settings](docs/screenshots/voxcpm2_08_settings_viewport.png) |
+
+</div>
+
+### 暗色主题 / Dark Theme
+
+<div align="center">
+
+| 声音设计 (暗) | 历史记录 (暗) |
+|:-------------:|:-------------:|
+| ![Voice Design Dark](docs/screenshots/dark/voxcpm2_01_voice_design_dark_viewport.png) | ![History Dark](docs/screenshots/dark/voxcpm2_09_history_dark_viewport.png) |
 
 </div>
 
@@ -325,9 +339,23 @@ Copyright (c) 2026 ReSerendipity
 |:------------:|:-----------:|
 | ![Voice Design](docs/screenshots/voxcpm2_01_voice_design_viewport.png) | ![Voice Clone](docs/screenshots/voxcpm2_02_voice_clone_viewport.png) |
 
-| Script Workshop | Settings |
-|:---------------:|:--------:|
-| ![Script Workshop](docs/screenshots/voxcpm2_04_script_workshop_viewport.png) | ![Settings](docs/screenshots/voxcpm2_08_settings_viewport.png) |
+| Ultimate Clone | Script Workshop |
+|:--------------:|:---------------:|
+| ![Ultimate Clone](docs/screenshots/voxcpm2_03_ultimate_clone_viewport.png) | ![Script Workshop](docs/screenshots/voxcpm2_04_script_workshop_viewport.png) |
+
+| LoRA | Settings |
+|:----:|:--------:|
+| ![LoRA](docs/screenshots/voxcpm2_06_lora_viewport.png) | ![Settings](docs/screenshots/voxcpm2_08_settings_viewport.png) |
+
+</div>
+
+### Dark Theme
+
+<div align="center">
+
+| Voice Design (Dark) | History (Dark) |
+|:-------------------:|:--------------:|
+| ![Voice Design Dark](docs/screenshots/dark/voxcpm2_01_voice_design_dark_viewport.png) | ![History Dark](docs/screenshots/dark/voxcpm2_09_history_dark_viewport.png) |
 
 </div>
 
