@@ -11,6 +11,7 @@ import re
 from .config_models import (
     ApiAuthConfig,
     GenerationDefaultsConfig,
+    _apply_env_overrides,
     load_config_dict,
 )
 from .config_models import (
@@ -22,8 +23,43 @@ from .config_models import (
 # ---------------------------------------------------------------------------
 
 
+def _load_dotenv():
+    """Load .env file if it exists (no third-party dependency).
+
+    Parses simple KEY=VALUE lines, ignoring comments (#) and blank lines.
+    Values are set with os.environ.setdefault so explicit system env vars
+    always take precedence over .env file entries.
+    """
+    env_path = os.path.join(ROOT_DIR, ".env")
+    if not os.path.exists(env_path):
+        return
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
+                # Remove surrounding quotes if present
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+                    value = value[1:-1]
+                # Convert literal \n to actual newlines (for multi-line PEM keys)
+                value = value.replace("\\n", "\n")
+                if key:
+                    os.environ.setdefault(key, value)
+    except Exception as e:
+        import logging
+
+        logging.getLogger("tts_multimodel").warning(f".env load failed: {e}")
+
+
 def _set_env():
     """Set default offline environment variables."""
+    _load_dotenv()
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["MODELSCOPE_OFFLINE"] = "1"
@@ -199,6 +235,10 @@ class AppConfig:
 
         # Build validated Pydantic config
         self._pydantic_config = load_config_dict(self._yaml_config or {})
+
+        # Apply environment variable overrides for sensitive fields
+        # (e.g. VAPID keys from .env file)
+        _apply_env_overrides(self._pydantic_config)
 
     # -- Raw section accessors ------------------------------------------------
 

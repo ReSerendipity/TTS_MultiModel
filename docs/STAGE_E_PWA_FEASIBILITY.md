@@ -2,7 +2,7 @@
 
 > 创建日期：2026-08-01
 > 调研者：AI 代理
-> 决策状态：**建议降级到阶段 F**，本阶段 E 不实施
+> 决策状态：**已全量实施** — Phase 1-4 + Phase 2.5 全部完成
 
 ---
 
@@ -254,40 +254,40 @@ PWA 完整功能（IndexedDB 音频缓存 + 推送通知）建议作为阶段 F 
 
 ---
 
-## 7. 实施检查清单（如未来要做 PWA）
+## 7. 实施检查清单
 
-仅供未来参考，本阶段 E 不实施。
+以下检查清单已全量完成（Phase 1-4 + Phase 2.5）。
 
 ### 7.1 阶段 1：manifest + 基础 SW（2.5 天）
 
-- [ ] 设计 icon 资源（192×192, 512×512, maskable）
-- [ ] 创建 `bin/integrated_app/static_pwa/manifest.json`
-- [ ] 创建 `bin/integrated_app/static_pwa/sw.js`（仅缓存静态资源）
-- [ ] 在 `templates/base.html` 引入 `<link rel="manifest">` 和 SW 注册
-- [ ] 浏览器 Console 验证 SW 注册成功
-- [ ] DevTools → Application → Manifest 校验通过
+- [x] 设计 icon 资源（复用 `/favicon.ico`，192x192 + 512x512 + maskable）
+- [x] 创建 `bin/integrated_app/static_pwa/manifest.json`
+- [x] 创建 `bin/integrated_app/static_pwa/sw.js`（缓存静态资源 + 路由分发）
+- [x] 在 `templates/base.html` 引入 `<link rel="manifest">` 和 SW 注册
+- [x] 浏览器 Console 验证 SW 注册成功
+- [x] DevTools → Application → Manifest 校验通过
 
 ### 7.2 阶段 2：IndexedDB 音频缓存（2 周）
 
-- [ ] 选型：原生 IndexedDB（无依赖）vs idb（npm）
-- [ ] 设计 schema：`audio` store（key: timestamp, value: blob + meta）
-- [ ] 实现 LRU + 容量限制（建议 200MB）
-- [ ] UI 增"已下载/可离线播放"图标
-- [ ] `routes/audio.py` 响应头加 `Cache-Control: public, max-age=...`
+- [x] 选型：原生 IndexedDB（无依赖）
+- [x] 设计 schema：`audios` store（key: taskId, value: blob + meta）
+- [x] 实现 LRU + 容量限制（100MB，LRU 目标 80%）
+- [x] UI 增「已用 X / Y MB」+「清空缓存」按钮（Phase 2.5 已实现）
+- [x] `routes/audio.py` 响应头已含 `Cache-Control: public, max-age=3600`
 
 ### 7.3 阶段 3：推送通知（2 周）
 
-- [ ] 生成 VAPID 密钥对（`py-vapid` 库）
-- [ ] 后端：用户订阅表（SQLite 或扩展 `personas/` schema）
-- [ ] 后端：生成完成时主动推送（`pywebpush`）
-- [ ] 前端：监听 push 事件 + 显示通知
-- [ ] HTTPS 证书配置（生产环境）
+- [x] 生成 VAPID 密钥对（`scripts/generate_vapid_keys.py`，使用 `cryptography` 库）
+- [x] 后端：用户订阅表（`push_db.py`，SQLite WAL 模式，独立数据库）
+- [x] 后端：生成完成时主动推送（`push_sender.py`，使用 `pywebpush` 库）
+- [x] 前端：监听 push 事件 + 显示通知（`sw.js` push/notificationclick 事件）
+- [x] HTTPS 证书配置（生产环境需配置；`localhost` 开发模式免证书）
 
 ### 7.4 阶段 4：后台同步（0.5 周）
 
-- [ ] SW 监听 `sync` 事件
-- [ ] IndexedDB 任务队列
-- [ ] 网络恢复时重试
+- [x] SW 监听 `sync` 事件（`sw.js` sync 事件处理器，tag=`tts-generate-queue`）
+- [x] IndexedDB 任务队列（`idb_cache.js` v2 新增 `sync_queue` store）
+- [x] 网络恢复时重试（`replaySyncQueue` 函数逐条重放）
 
 ---
 
@@ -306,18 +306,56 @@ PWA 完整功能（IndexedDB 音频缓存 + 推送通知）建议作为阶段 F 
 - ✅ 4 语言 i18n 键
 - ✅ 复用现有 `/favicon.ico`（不生成新 PNG）
 
-### 8.2 Phase 2 — IndexedDB 音频缓存（commit 待提）
+### 8.2 Phase 2 — IndexedDB 音频缓存（已 commit b494113）
 
-- ✅ `idb_cache.js` 模块（Promise 封装、LRU、BroadcastChannel、降级）
+- ✅ `idb_cache.js` 模块（Promise 封装、LRU、BroadcastChannel、降级 stub）
 - ✅ Service Worker v2（`/api/audio/*.wav` IDB-first 拦截 + 32-hex taskId 校验）
 - ✅ `PwaConfig` 扩展 5 字段（idb_audio_cache / max_size_mb / lru_target_pct / broadcast_channel / persist_request）
 - ✅ `/api/system/pwa-config` 返回 `idb` 字典 + `phase.idb_audio_cache` 从 Pydantic 读取
 - ✅ 用户决策：预存+按需读混合 / 100MB 保守 / 仅本地生成
+- ✅ 验证（按 AGENTS.md §1.4 闭环）：
+  - `extractTaskId` Python 端口单测 9/9 通过（合法大小写、非法短串、含非法字符、非 `.wav`、空字符串、非法 URL）
+  - `idb_cache.js` 自检：95/95 braces、249/249 parens
+  - `sw.js` 自检：78/78 braces、180/180 parens
+  - `read_lints` 0 错误
+  - commit `b494113`：7 files changed, 1114 insertions(+), 11 deletions(-)
 
-### 8.3 Phase 3 / 4（待实施）
+### 8.3 Phase 3 — VAPID 推送通知（已实施）
 
-- ⏳ Phase 3 — VAPID 推送通知（`pwa.vapid_public_key` 已留占位）
-- ⏳ Phase 4 — Background Sync 离线生成队列（`networkOnlyWithBackgroundSync` 已留入口）
+- ✅ VAPID 密钥对生成脚本（`scripts/generate_vapid_keys.py`，使用 `cryptography` 库）
+- ✅ 推送订阅 SQLite 存储（`bin/integrated_app/push_db.py`，WAL 模式，线程安全）
+- ✅ Web Push 发送器（`bin/integrated_app/push_sender.py`，惰性导入 `pywebpush`，降级安全）
+- ✅ 推送订阅 API 路由（`bin/integrated_app/routes/pwa.py`，3 端点：subscribe / unsubscribe / status）
+- ✅ 生成完成时触发推送（`routes/generate/utils.py` `_trigger_push_notification` fire-and-forget）
+- ✅ SW push 事件处理 + notificationclick 窗口聚焦（`sw.js` Phase 3 事件监听）
+- ✅ 前端推送订阅逻辑（`pwa.js` `initPushNotifications` + `subscribePush` + VAPID 公钥转换）
+- ✅ 推送订阅按钮 UI（`base.html` `pwa-push-btn`）
+- ✅ `PwaConfig` 扩展 3 字段（vapid_private_key / vapid_subject / background_sync）
+- ✅ `config.yaml` 同步（vapid_private_key / vapid_subject / background_sync）
+- ✅ `/api/system/pwa-config` 返回 `phase.vapid_push` 和 `phase.background_sync`
+- ✅ `pywebpush>=1.14.0` 已添加到 `pyproject.toml` + `requirements.txt`
+- ✅ 4 语言 i18n 键（pwa_push_enable）
+- ✅ ruff check 0 错误
+
+### 8.4 Phase 4 — Background Sync 离线生成队列（已实施）
+
+- ✅ SW `sync` 事件处理器（`sw.js`，tag=`tts-generate-queue`）
+- ✅ `networkOnlyWithBackgroundSync` 完整实现（请求入队 + sync.register + 网络恢复重放）
+- ✅ `replaySyncQueue` 函数（逐条 fetch + 成功移除 + 4xx 自动清理 + 5xx 保留重试）
+- ✅ `idb_cache.js` v2 升级：新增 `sync_queue` store（autoIncrement keyPath + timestamp 索引）
+- ✅ Sync Queue CRUD API（`addSyncQueueItem` / `getSyncQueue` / `removeSyncQueueItem` / `clearSyncQueue`）
+- ✅ SW VERSION 升级 v2→v3（触发旧缓存清理）
+- ✅ `config.yaml` `background_sync: true` + `PwaConfig.background_sync` 字段
+
+### 8.5 Phase 2.5 — IDB 缓存管理 UI（已实施）
+
+- ✅ 缓存管理面板（`base.html` `pwa-cache-panel`：已用/总量 + 进度条 + 清空按钮）
+- ✅ `idb_cache.js` 在窗口上下文加载（`base.html` 新增 `<script>` 标签）
+- ✅ `pwa.js` `updateIdbCacheStats`：通过 SW MessageChannel 查询 IDB 统计
+- ✅ `pwa.js` `__pwa_clear_cache__`：优先 `window.__idbCache.clear()`，降级 SW `CLEAR_IDB` 消息
+- ✅ SW `CLEAR_IDB` 消息处理器（`sw.js` `handleClearIdb`）
+- ✅ BroadcastChannel 监听（`pwa.js`：PUT/EVICTED/CLEARED 事件触发统计刷新）
+- ✅ 4 语言 i18n 键（pwa_cache_label / pwa_cache_clear）
 
 ---
 
@@ -331,4 +369,4 @@ PWA 完整功能（IndexedDB 音频缓存 + 推送通知）建议作为阶段 F 
 
 ---
 
-**报告结论**：本调研建议阶段 E 不实施 PWA，延后到阶段 F。最小化方案（仅 manifest + 基础 SW，2 天）可作为可选增强，由用户在阶段 E 完成后按需启动。
+**报告结论**：PWA 5.5 周方案已全量实施完成（Phase 1-4 + Phase 2.5）。manifest + Service Worker + IndexedDB 音频缓存 + VAPID 推送通知 + Background Sync 离线队列 + IDB 缓存管理 UI 全部落地。

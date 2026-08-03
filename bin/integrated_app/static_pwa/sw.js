@@ -34,7 +34,7 @@
  *   - 完全运行时配置需要客户端在 SW 激活后 postMessage('CONFIGURE_IDB', { enabled: ... })
  * ============================================================================= */
 
-const VERSION = "v2";  // ⚠️ 与 config.yaml pwa.cache_version 保持同步
+const VERSION = "v3";  // ⚠️ 与 config.yaml pwa.cache_version 保持同步（Phase 3+4 升级）
 const STATIC_CACHE = `tts-static-${VERSION}`;
 const HTML_CACHE = `tts-html-${VERSION}`;
 const API_CACHE = `tts-api-${VERSION}`;
@@ -46,6 +46,9 @@ const IDB_MAX_SIZE_MB = 100;
 const IDB_LRU_TARGET_PCT = 80;
 const IDB_BROADCAST_ENABLED = true;
 const IDB_PERSIST_REQUESTED = true;
+// Phase 4: Background Sync 离线生成队列
+const BACKGROUND_SYNC_ENABLED = true;
+const SYNC_TAG = "tts-generate-queue";
 
 // 预缓存关键资源（Phase 2 扩展：加 idb_cache.js 供 SW importScripts）
 // 注意：URL 必须与路由层真实路径一致，否则 install 阶段会 404 失败。
@@ -247,19 +250,58 @@ async function networkOnlyWithBackgroundSync(event) {
   try {
     return await fetch(event.request);
   } catch (err) {
-    // Phase 1：不实现队列，仅日志
-    // Phase 4：调用 self.registration.sync.register('tts-generate-queue')
-    //        → 后台 sync 触发时通过 IndexedDB 取出队列重放
-    console.warn(
-      "[SW] write op failed (BG Sync deferred to Phase 4):",
-      event.request.url,
-      err.message
-    );
+    // Phase 4: 将失败的写请求加入 IndexedDB 队列，等待 Background Sync 重放
+    if (
+      BACKGROUND_SYNC_ENABLED &&
+      self.__idbCache &&
+      self.__idbCache.isAvailable() &&
+      (event.request.method === "POST" || event.request.method === "PUT" ||
+       event.request.method === "DELETE" || event.request.method === "PATCH")
+    ) {
+      try {
+        // 克隆请求体（原始 body 只能消费一次）
+        const body = await event.request.clone().text();
+        const headers = {};
+        event.request.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        await self.__idbCache.addSyncQueueItem({
+          url: event.request.url,
+          method: event.request.method,
+          headers: headers,
+          body: body,
+          timestamp: Date.now(),
+        });
+
+        // 注册 Background Sync 事件（网络恢复后自动触发）
+        if (self.registration && self.registration.sync &&
+            typeof self.registration.sync.register === "function") {
+          await self.registration.sync.register(SYNC_TAG);
+          console.info("[SW] request queued for Background Sync, tag=", SYNC_TAG);
+        }
+
+        return new Response(
+          JSON.stringify({
+            error: "network_unavailable",
+            message: "网络不可用，请求已加入离线队列，网络恢复后自动重试。",
+            queued: true,
+          }),
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+          }
+        );
+      } catch (queueErr) {
+        console.warn("[SW] Failed to queue request for BG Sync:", queueErr);
+      }
+    }
+
+    // Fallback: Background Sync 不可用
+    console.warn("[SW] write op failed (BG Sync unavailable):", event.request.url, err.message);
     return new Response(
       JSON.stringify({
         error: "network_unavailable",
-        message:
-          "Network unavailable. Background sync queue is scheduled for Phase 4.",
+        message: "Network unavailable. Background sync is not available in this browser.",
       }),
       {
         status: 503,
@@ -380,6 +422,11 @@ self.addEventListener("message", (event) => {
     handleGetIdbStats(event);
     return;
   }
+  // Phase 2.5: 客户端请求清空 IDB 缓存
+  if (data.type === "CLEAR_IDB") {
+    handleClearIdb(event);
+    return;
+  }
 });
 
 async function handleGetIdbStats(event) {
@@ -406,4 +453,152 @@ async function handleGetIdbStats(event) {
   } else if (event.source && event.source.postMessage) {
     event.source.postMessage({ type: "IDB_STATS", ...response });
   }
+}
+
+/**
+ * Phase 2.5: 清空 IDB 音频缓存（客户端 CLEAR_IDB 消息触发）
+ */
+async function handleClearIdb(event) {
+  if (!self.__idbCache || !self.__idbCache.isAvailable()) {
+    if (event.source && event.source.postMessage) {
+      event.source.postMessage({ type: "IDB_CLEARED", success: false });
+    }
+    return;
+  }
+  const ok = await self.__idbCache.clear();
+  console.info("[SW] IDB cache cleared via CLEAR_IDB message, ok=", ok);
+  if (event.source && event.source.postMessage) {
+    event.source.postMessage({ type: "IDB_CLEARED", success: ok });
+  }
+}
+
+// =============================================================================
+// Phase 3: Push 事件 — 接收服务端推送并显示通知
+// =============================================================================
+
+self.addEventListener("push", (event) => {
+  let payload;
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (e) {
+    // 非 JSON payload：降级为纯文本
+    payload = {
+      title: "TTS MultiModel",
+      body: event.data ? event.data.text() : "收到通知",
+    };
+  }
+
+  const title = payload.title || "TTS MultiModel";
+  const options = {
+    body: payload.body || "",
+    icon: "/favicon.ico",
+    badge: "/favicon.ico",
+    tag: payload.tag || "tts-notification",
+    data: payload.data || {},
+    requireInteraction: payload.requireInteraction || false,
+    vibrate: [200, 100, 200],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// =============================================================================
+// Phase 3: Notification Click — 点击通知后聚焦/打开应用窗口
+// =============================================================================
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/";
+  const targetPath = new URL(targetUrl, self.location.origin).pathname;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // 优先聚焦已打开的同路径窗口
+      for (const client of clientList) {
+        const clientPath = new URL(client.url, self.location.origin).pathname;
+        if (clientPath === targetPath && "focus" in client) {
+          return client.focus();
+        }
+      }
+      // 其次聚焦任意已打开的窗口
+      for (const client of clientList) {
+        if ("focus" in client) {
+          return client.focus();
+        }
+      }
+      // 都没有则打开新窗口
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+// =============================================================================
+// Phase 4: Background Sync — 网络恢复后重放离线请求队列
+// =============================================================================
+
+self.addEventListener("sync", (event) => {
+  if (event.tag === SYNC_TAG) {
+    event.waitUntil(replaySyncQueue());
+  }
+});
+
+/**
+ * 重放 IndexedDB 中排队的离线请求。
+ * 逐条 fetch，成功的从队列移除，失败的保留等待下次 sync。
+ */
+async function replaySyncQueue() {
+  if (!self.__idbCache || !self.__idbCache.isAvailable()) {
+    console.info("[SW] sync replay skipped: IDB not available");
+    return;
+  }
+
+  const queue = await self.__idbCache.getSyncQueue();
+  if (!queue || queue.length === 0) {
+    console.info("[SW] sync replay: queue empty");
+    return;
+  }
+
+  console.info("[SW] sync replay: processing", queue.length, "queued requests");
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const item of queue) {
+    try {
+      const fetchOptions = {
+        method: item.method || "POST",
+        headers: item.headers || {},
+      };
+      if (item.body) {
+        fetchOptions.body = item.body;
+      }
+      const response = await fetch(item.url, fetchOptions);
+      if (response.ok) {
+        await self.__idbCache.removeSyncQueueItem(item.id);
+        successCount++;
+      } else {
+        console.warn("[SW] sync replay: server returned", response.status, "for", item.url);
+        // 4xx 错误：请求格式有误，重试无意义，移除
+        if (response.status >= 400 && response.status < 500) {
+          await self.__idbCache.removeSyncQueueItem(item.id);
+        }
+        failCount++;
+      }
+    } catch (err) {
+      console.warn("[SW] sync replay: fetch failed for", item.url, err);
+      failCount++;
+      // 网络仍然不可用：保留在队列中，等待下次 sync
+    }
+  }
+
+  console.info(
+    "[SW] sync replay complete: success=%d, fail=%d, remaining=%d",
+    successCount,
+    failCount,
+    queue.length - successCount
+  );
 }
