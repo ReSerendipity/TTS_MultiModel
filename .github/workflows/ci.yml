@@ -125,7 +125,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: always() && runner.os == 'Linux' && matrix.python-version == '3.12'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: unittests
