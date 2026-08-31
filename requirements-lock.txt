@@ -20,7 +20,7 @@ crcmod==1.7
 cryptography==50.0.0
 decorator==5.3.1
 fastapi==0.141.1
-filelock==3.32.3
+filelock==3.32.4
 fsspec==2026.7.0
 funasr==1.4.2
 h11==0.16.0
