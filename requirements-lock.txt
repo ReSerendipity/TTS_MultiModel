@@ -93,7 +93,7 @@ torchaudio==2.11.0
 torchvision==0.28.0+cu132
 tqdm==4.70.0
 transformers==5.15.0
-typer==0.27.1
+typer==0.27.2
 typing-extensions==4.16.0
 typing-inspection==0.4.4
 umap-learn==0.5.12
