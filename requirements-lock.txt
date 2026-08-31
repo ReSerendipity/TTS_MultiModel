@@ -98,7 +98,7 @@ typing-extensions==4.16.0
 typing-inspection==0.4.4
 umap-learn==0.5.12
 urllib3==2.7.0
-uvicorn==0.52.3
+uvicorn==0.52.4
 websockets==17.0.1
 
 # The following packages are considered to be unsafe in a requirements file:
