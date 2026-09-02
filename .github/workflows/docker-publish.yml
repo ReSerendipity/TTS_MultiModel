@@ -50,7 +50,7 @@ jobs:
       # 注意：镜像不含模型权重（.dockerignore 已排除 model/），
       # 运行时必须挂载权重（见 deploy/kubernetes/ 与 docker-compose.yml）。
       - name: Build and push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
