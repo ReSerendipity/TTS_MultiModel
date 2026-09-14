@@ -11,6 +11,21 @@
 
 * **integrity:** 核心模块完整性自检 Ed25519 签名 + `enforce` 阻断（P0）；水印密钥从配置文件迁出为 env/`data/.watermark_key`（P0）；便携包清单重算/重签链路（`generate_integrity_manifest.py --app-dir` + EOF 尾换行规范化）、分发负向断言（无密钥/本机路径残留）、篡改模拟门禁（P1-3/P2-1）
 
+### Bug Fixes
+
+* **ci:** 修复 `scripts/check_config_refs.py` 配置门禁红灯——①为 `config.yaml` 的 `watermark:` 段补建 `WatermarkConfig` 模型并挂到 `AppConfig`（`watermark.py` 长期访问未建模字段）；②把此前「只声明未消费」的 `security.training_data_ttl_days` 真正接线（新增 `cleanup_expired_training_data`，随 lifespan 周期清理与关闭清理执行）
+* **docker:** runtime 阶段补装 `python3.12-venv`（Ubuntu/deadsnakes 拆分包，`ensurepip` 由它提供），修复 `python3.12 -m ensurepip --upgrade` 报 `No module named ensurepip` 导致的镜像构建失败（与 builder 阶段对齐）
+* **ci:** 修复 `scripts/check_engine_specs.py` 引擎规格三向门禁在 CI 结构性不可通过——权重目录 `/model/` 已列入 `.gitignore`（外部产物、运行时卷挂载），门禁却强制要求其存在；现仓库未附带权重时磁盘存在性降级为 WARN，仅当 `model/` 已存在时才 FAIL（该门禁此前被上一道 config 门禁遮蔽，从未在 CI 跑过）
+* **docker:** 修复 `docker-compose.yml` 中 `deploy.resources.limits.devices` 非法字段（Compose 规范 `limits` 仅接受 `cpus`/`memory`/`pids`，GPU 属 `reservations.devices`），该字段使 Docker Smoke 的 Compose 校验失败
+* **security:** 重新生成并重签 `app/integrated_app/security/integrity_manifest.json`，使核心模块完整性清单与本批代码变更一致（否则 enforce 模式启动被拒，E2E 红）
+* **ci:** 修复覆盖率预算门禁在 CI 结构性假红——`tests/training/*` 的 `skipif` 依赖 `datasets/einops/argbind/soundfile`（属 `pyproject.toml [training]` extra），而 CI 只装 `-r requirements.txt` → 训练测试整体跳过 → `training/{data,packers,state}.py` 覆盖率 0%，12 个矩阵项全部 `Check coverage budget` 失败；现三个平台的依赖安装步骤补装该 extra
+
+### Bug Fixes
+
+* **launcher:** 便携钉装自洽修复（真实构建暴露）——全新 WinPython 3.12.10.1 上 `pip install -r requirements-small.txt` 报 ResolutionImpossible，9 项版本对齐 .venv 实测（antlr4 4.9.3 / pydantic-core 2.46.4 / mpmath 1.3.0 / tokenizers 0.21.0 + transformers 4.52.1 / huggingface-hub 0.36.2 / protobuf 3.19.6 / fsspec 2026.6.0 / uvicorn 0.52.4），移除已不引用的 tensorboardx 钉版；92 项 dry-run 全解
+* **dist:** 清理 WinPython 自带脚本 shebang 本机路径残留——`Scripts/jp.py` 首行 `#!` 硬编码构建机临时路径，被门禁 ③ no-local-path-residue 拦下；build 脚本离线验证后自动重写为 `#!python.exe`
+* **dist:** 发布门禁补 ⑤ 冒烟启动——便携包解包后用包内 WPy64 python 跑 `diag_integrity.py --enforce` 自检（断言 `selfcheck=True`/`VERIFY=True`），将完整性 enforce 闭环到分发产物；④ 篡改模拟前清理 `installed`/`out-bundle` 释放磁盘（峰值 116GB→58GB）
+
 ### Chore
 
 * **dist:** 便携依赖钉装（`launcher/requirements-small.txt` 93 项 + `torch==2.13.0+cu132` 系列钉版，`sync_requirements.py --check-small` 校验）（P1-1）

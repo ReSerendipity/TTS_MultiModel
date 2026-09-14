@@ -761,5 +761,37 @@ def _register_builtin_engines() -> None:
         quality="high",
     )
 
+    # Voicebox - 语音转换引擎（基于 OpenVoice ToneColorConverter，音频→音频，非 TTS）
+    # 纯懒导入：openvoice 依赖较重，避免启动时加载。
+    # 注意：VoiceboxEngine 不实现 TTSEngine Protocol（文本→语音），
+    # 而是独立的语音转换接口（音频→音频），由 /api/generate/voicebox/convert 路由调用。
+    engine_registry.register(
+        "voicebox",
+        lazy_module=".engines.voicebox_engine:VoiceboxEngine",
+        display_name="Voicebox VC",
+        vram_requirement=4.0,
+        languages=["zh", "en", "ja", "ko", "es", "fr", "de"],
+        supported_features=["voice_conversion", "zero_shot_clone"],
+        sample_rate=22050,
+        requires_gpu=False,
+        quality="high",
+    )
+
+    # Step-Audio-EditX - 音频编辑引擎（基于 StepFun Step-Audio-EditX，vLLM + CosyVoice）
+    # 纯懒导入：vLLM/CosyVoice 依赖重，避免启动时加载。
+    # 注意：不实现 TTSEngine Protocol，而是独立的音频编辑接口
+    # （参考音频 + 编辑指令 → 编辑后音频），由 /api/generate/step-audio-editx/edit 路由调用。
+    engine_registry.register(
+        "step-audio-editx",
+        lazy_module=".engines.step_audio_editx_engine:StepAudioEditXEngine",
+        display_name="Step-Audio-EditX",
+        vram_requirement=8.0,
+        languages=["zh", "en", "ja", "ko"],
+        supported_features=["audio_editing", "emotion_control", "style_control", "paralinguistic"],
+        sample_rate=22050,
+        requires_gpu=True,
+        quality="high",
+    )
+
 
 _register_builtin_engines()
