@@ -38,9 +38,7 @@ import shutil
 import sys
 from pathlib import Path
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("download_models")
 
 #: HF 镜像社区（国内首选）
@@ -155,8 +153,7 @@ def _download_hf(repo_id: str, local_dir: Path) -> Path:
         from huggingface_hub import snapshot_download
     except ImportError as e:  # 没装 huggingface_hub
         raise RuntimeError(
-            "huggingface_hub 未安装，请先 `pip install huggingface_hub`；"
-            "或改用 --source modelscope 直连魔搭"
+            "huggingface_hub 未安装，请先 `pip install huggingface_hub`；或改用 --source modelscope 直连魔搭"
         ) from e
 
     logger.info("[HF] 从 %s 下载到 %s", repo_id, local_dir)
@@ -178,15 +175,12 @@ def _download_modelscope(repo_id: str, local_dir: Path) -> Path:
         from modelscope.hub.snapshot_download import snapshot_download
     except ImportError as e:
         raise RuntimeError(
-            "modelscope 未安装，请先 `pip install modelscope`；"
-            "或改用 --source hf 走 Hugging Face 镜像"
+            "modelscope 未安装，请先 `pip install modelscope`；或改用 --source hf 走 Hugging Face 镜像"
         ) from e
 
     logger.info("[ModelScope] 从 %s 下载到 %s", repo_id, local_dir)
     cache_dir = local_dir.parent / ".cache" / local_dir.name
-    return Path(
-        snapshot_download(repo_id, cache_dir=str(cache_dir), local_dir=str(local_dir))
-    )
+    return Path(snapshot_download(repo_id, cache_dir=str(cache_dir), local_dir=str(local_dir)))
 
 
 def _arrange_openvoice(local_dir: Path) -> None:
@@ -344,16 +338,13 @@ def download_one(entry: dict, source: str, do_verify: bool) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="TTS_MultiModel 统一模型下载器（HF 镜像优先，ModelScope 回退）"
-    )
+    parser = argparse.ArgumentParser(description="TTS_MultiModel 统一模型下载器（HF 镜像优先，ModelScope 回退）")
     parser.add_argument(
         "--model",
         action="append",
         default=[],
         metavar="KEY",
-        help="只下载指定模型（可重复）。KEY 见 MODEL_REGISTRY："
-        + ", ".join(m["key"] for m in MODEL_REGISTRY),
+        help="只下载指定模型（可重复）。KEY 见 MODEL_REGISTRY：" + ", ".join(m["key"] for m in MODEL_REGISTRY),
     )
     parser.add_argument("--all", action="store_true", help="下载全部 7 个模型集合")
     parser.add_argument(
