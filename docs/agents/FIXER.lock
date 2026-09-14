@@ -1,0 +1,5 @@
+{
+  "_protocol": "一仓一 fixer：开工前把本文件改为 {\"session\": \"<你的会话/工具标识>\", \"since\": \"<ISO8601>\"} 并提交/推送；收工置回 null。检测到 session 非 null 且非本会话时，本会话禁止 commit（等待确认）。",
+  "session": null,
+  "since": null
+}
