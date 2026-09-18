@@ -804,10 +804,28 @@ class IndexTTS2Engine(TTSEngine):
                 logger.debug(f"[IndexTTS2] 时长控制模式：缩放因子={duration_factor}")
 
             # ========== 随机种子设置 ==========
-            # 设置固定种子可使生成结果可复现（相同时输入参数得到相同输出）
-            # None 时使用系统随机种子，每次生成结果略有不同
+            # seed 在「引擎层」消费，绝不透传底层：上游 infer_v2/infer_v2_5 的
+            # infer() 形参无 seed，透传会落入 **generation_kwargs 被
+            # model.generate 以 "model_kwargs 'seed' not used" 拒绝（400，见 GOTCHAS #90）。
             if seed is not None:
-                infer_kwargs["seed"] = int(seed)
+                try:
+                    import random as _random
+
+                    _random.seed(int(seed))
+                    try:
+                        import numpy as _np
+
+                        _np.random.seed(int(seed) % (2**32))
+                    except Exception:
+                        pass
+                    import torch as _torch
+
+                    _torch.manual_seed(int(seed))
+                    if _torch.cuda.is_available():
+                        _torch.cuda.manual_seed_all(int(seed))
+                except Exception as _seed_err:
+                    logger.debug(f"[IndexTTS2] 设置随机种子失败 seed={seed}: {_seed_err}")
+                logger.debug(f"[IndexTTS2] 随机种子={seed}（引擎内消费，不透传底层）")
 
             # ========== 语言设置（仅 2.5 的 infer 接受 lang 形参） ==========
             # infer_v2（2.0）的 infer() 无 lang 参数，若下传会落入 **generation_kwargs
