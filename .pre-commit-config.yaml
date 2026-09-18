@@ -113,7 +113,9 @@ repos:
         entry: .venv/Scripts/python.exe -m pytest tests/test_openapi_snapshot.py -q --tb=short
         language: system
         pass_filenames: false
-        files: ^(app/integrated_app/(routes|app_server|engine_interface)|tests/test_openapi_snapshot|tests/snapshots/openapi_contract)/
+        # 目录与文件混合匹配：routes 匹配目录前缀（含全部子路由），其余分支匹配具体文件；
+        # 旧写法给所有分支强加尾部「/」，把 app_server/engine_interface 等当成目录，导致这些文件永不命中。
+        files: ^(app/integrated_app/routes/|app/integrated_app/(app_server|engine_interface)\.py$|tests/test_openapi_snapshot\.py$|tests/snapshots/openapi_contract\.json$)
         stages: [pre-commit, pre-push]
       # 完整性清单同步门禁：核心模块当前哈希与 integrity_manifest.json 一致
       # （防止「改核心模块未重新生成清单」→ enforce 启动拒绝；见 GOTCHAS #77）
