@@ -7,14 +7,30 @@
         文件头标注 DEV-ONLY 的运维脚本（其默认值允许保留本机路径）
 - 规则详见 docs/CODING_STANDARDS.md「1. 路径可移植性（强制）」
 """
+
 import re
 import subprocess  # nosec B404（仅以参数列表调用 git，无 shell=True，风险可控）
 import sys
 from pathlib import Path
 
 EXEMPT_SUFFIXES = {
-    ".md", ".lock", ".pyc", ".png", ".jpg", ".jpeg", ".gif", ".ico",
-    ".woff2", ".ttf", ".otf", ".exe", ".whl", ".zip", ".7z", ".db", ".sqlite",
+    ".md",
+    ".lock",
+    ".pyc",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".exe",
+    ".whl",
+    ".zip",
+    ".7z",
+    ".db",
+    ".sqlite",
 }
 EXEMPT_FILES = {".gitattributes", ".mailmap", ".gitignore"}
 EXEMPT_DIRS = {"docs", "data", "tests", "__tests__", ".github"}
@@ -24,8 +40,8 @@ _REPO_HINT = SCRIPT_DIR.parent
 
 def _repo_root():
     out = subprocess.run(  # nosec B603, B607（固定参数列表 git rev-parse，无 shell=True）
-        ["git", "-C", str(_REPO_HINT), "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True)
+        ["git", "-C", str(_REPO_HINT), "rev-parse", "--show-toplevel"], capture_output=True, text=True
+    )
     return Path(out.stdout.strip())
 
 
@@ -36,22 +52,22 @@ EXEMPT_MARKER = b"DEV-ONLY"  # 头部标注 DEV-ONLY 的运维脚本豁免（已
 # 占位符：me/doro/admin/user/username/YourName/u/ttsuser（测试断言、示例文案、容器内用户）
 _PLACEHOLDER = r"(?:me\b|doro\b|admin\b|user\b|username\b|yourname\b|u\b|ttsuser\b)"
 PATTERNS = [
-    re.compile(rf"C:\\Users\\(?!{_PLACEHOLDER})[A-Za-z]"),            # 字面 C:\Users\...
-    re.compile(rf"C:\\\\Users\\\\(?!{_PLACEHOLDER})[A-Za-z]"),        # Python 转义 C:\\Users\\...
-    re.compile(rf"C:/Users/(?!{_PLACEHOLDER})[A-Za-z]"),              # 正斜杠 C:/Users/...
-    re.compile(rf"/home/(?!{_PLACEHOLDER})[a-z][a-z0-9_-]*/"),        # /home/<user>/...
-    re.compile(rf"/Users/(?!{_PLACEHOLDER})[A-Za-z]"),                # /Users/<真实用户名>/...
+    re.compile(rf"C:\\Users\\(?!{_PLACEHOLDER})[A-Za-z]"),  # 字面 C:\Users\...
+    re.compile(rf"C:\\\\Users\\\\(?!{_PLACEHOLDER})[A-Za-z]"),  # Python 转义 C:\\Users\\...
+    re.compile(rf"C:/Users/(?!{_PLACEHOLDER})[A-Za-z]"),  # 正斜杠 C:/Users/...
+    re.compile(rf"/home/(?!{_PLACEHOLDER})[a-z][a-z0-9_-]*/"),  # /home/<user>/...
+    re.compile(rf"/Users/(?!{_PLACEHOLDER})[A-Za-z]"),  # /Users/<真实用户名>/...
 ]
 
 # 已知豁免文件（相对路径子串；内容允许含本机路径或占位符，人工复核过）
 ALLOWLIST = [
-    "scripts/check_spec_refs.py",   # 家族 auditor wrapper：docstring 说明仓外依赖
-    "scripts/release_gate.ps1",     # 防泄漏断言自身（必然含被检查的模式）
+    "scripts/check_spec_refs.py",  # 家族 auditor wrapper：docstring 说明仓外依赖
+    "scripts/release_gate.ps1",  # 防泄漏断言自身（必然含被检查的模式）
     "scripts/installer/killttsmultimodel.ps1",  # 注释说明开发路径
-    "dockerfile",                   # 容器内路径（/app /home/<user>）合法
-    "locales/",                     # UI 占位文案（folder_path_placeholder 等）
-    ".env.example",                 # 示例文件（占位符）
-    "local.properties.example",     # 示例文件（占位符）
+    "dockerfile",  # 容器内路径（/app /home/<user>）合法
+    "locales/",  # UI 占位文案（folder_path_placeholder 等）
+    ".env.example",  # 示例文件（占位符）
+    "local.properties.example",  # 示例文件（占位符）
 ]
 
 
@@ -101,8 +117,11 @@ def check_file(rel_path, errors):
 
 def main():
     all_mode = "--all" in sys.argv
-    files = _files_from(["git", "ls-files", "-z"]) if all_mode \
+    files = (
+        _files_from(["git", "ls-files", "-z"])
+        if all_mode
         else _files_from(["git", "diff", "--cached", "--name-only", "--diff-filter=ACM", "-z"])
+    )
     errors = []
     for f in files:
         check_file(f, errors)
