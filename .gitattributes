@@ -41,3 +41,14 @@
 *.mp4  binary
 *.db   binary
 *.sqlite binary
+
+# Pin .gitignore to LF in the working tree (CRLF working copy creates a catch-all ignore rule)
+/.gitignore text eol=lf
+
+# 治理文件自身固定 LF：防止 Windows checkout 转 CRLF 影响规则解析（2026-09-18）
+/.gitattributes text eol=lf
+/.mailmap text eol=lf
+
+# 无扩展名构建/清单文件固定 LF
+Dockerfile text eol=lf
+Makefile text eol=lf

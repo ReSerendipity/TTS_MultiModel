@@ -1,2 +1,8 @@
-﻿ReSerendipity <zengyangc@outlook.com> <41898282+github-actions[bot]@users.noreply.github.com>
-ReSerendipity <zengyangc@outlook.com> <49699333+dependabot[bot]@users.noreply.github.com>
+# 历史身份显示修正（2026-09-18）：同一邮箱/同一人归并到规范身份 ReSerendipity。
+# 仅影响显示（git --use-mailmap / GitHub 贡献者页），不改写提交对象本身。
+ReSerendipity <zengyangc@outlook.com> Mavis <zengyangc@outlook.com>
+ReSerendipity <zengyangc@outlook.com> Mavis <mavis@local>
+ReSerendipity <zengyangc@outlook.com> Doro <zengyangc@outlook.com>
+ReSerendipity <zengyangc@outlook.com> Doro <ReSerendipity@outlook.com>
+ReSerendipity <zengyangc@outlook.com> PetPal Dev <zengyangc@outlook.com>
+ReSerendipity <zengyangc@outlook.com> DraftPeek Dev <zengyangc@outlook.com>
