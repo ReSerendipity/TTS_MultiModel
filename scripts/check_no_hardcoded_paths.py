@@ -73,9 +73,7 @@ def is_exempt(path):
     low = p.as_posix().lower()
     if any(a in low for a in ALLOWLIST):
         return True
-    if ".test" in name or ".spec" in name:
-        return True
-    return False
+    return bool(".test" in name or ".spec" in name)
 
 
 def check_file(rel_path, errors):
