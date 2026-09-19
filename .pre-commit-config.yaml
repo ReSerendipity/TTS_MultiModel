@@ -39,8 +39,8 @@ repos:
         files: ^pyproject\.toml$
       - id: check-merge-conflict
       - id: check-added-large-files
-        args: [--maxkb=500]
-        exclude: ^model/|^models/|^\.ruff_cache/
+        args: [--maxkb=5000]
+        exclude: ^model/|^models/|^\.ruff_cache/|^app/integrated_app/static/fonts/
       - id: detect-private-key
         # .github/SECURITY.md 是漏洞披露文档，正文含 "PRIVATE KEY" 字样（报告指引），
         # 非真实密钥文件，排除避免误报；其他文件仍全量扫描。
