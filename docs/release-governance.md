@@ -15,6 +15,33 @@
 - 发布由 `release-please` 自动生成 GitHub Release 并打 semver tag；该作业若失败**不会**再被吞掉
   （v2.2.2 曾在工作流全绿的情况下既没 tag 迁移也没 Release，原因见 `CHANGELOG.md` 该条标注）。
 
+### 1.1 存量依赖债务卡：便携钉版 `transformers` 低于自家下界
+
+| 项 | 值 |
+|---|---|
+| 违规 | `requirements-lock.txt` 与 `launcher/requirements-small.txt` 钉 `transformers==4.52.1` |
+| 下界 | `pyproject.toml:59` + `requirements.txt:5` 均声明 `>=4.57.0`，理由写在 pyproject：VoxCPM2 / IndexTTS2 的 tokenizer 与 modeling 需要较新 transformers API |
+| 连带 | `transformers 4.57.0` 的元数据要求 **`tokenizers>=0.22.0,<=0.23.0`**（PyPI 实测），而我们钉 `tokenizers==0.21.0` → **不是单包 bump，必然连带 tokenizers** |
+| 未受阻项 | `huggingface-hub==0.36.2`（需 `>=0.34,<1.0` ✔）、`numpy==2.5.2` ✔、`safetensors==0.8.0` ✔、`pydantic==2.13.4` ✔；`requirements.txt:6` 只声明 `tokenizers>=0.19.0`，无上游 vendor 钉死 0.21.0 |
+| 为什么当初降到 4.52.1 | 见 `CHANGELOG.md`「便携钉装自洽修复」：全新 WinPython 3.12.10.1 上 `pip install -r requirements-small.txt` 报 `ResolutionImpossible`，当时按 `.venv` 实测值对齐了 9 项 |
+
+修它的正确顺序（属发布级动作，需真机；不要只改两行就发）：
+
+```bash
+# 1) 全量解析验证（先只解析不装）：把两文件里的 transformers/tokenizers 改为
+#    transformers==4.57.* 与 tokenizers==0.23.* 后
+python -m pip install --dry-run --ignore-installed --report /tmp/res.json \
+    -r launcher/requirements-small.txt
+# 2) 解析通过再重建便携包并过门禁（需要 ≥60GB 磁盘的 self-hosted runner）
+pwsh scripts/build_portable_bundle.ps1 ... ; pwsh scripts/release_gate.ps1 -Mode real
+# 3) 门禁绿了以后，把 CI 白名单收紧 —— 见 security.yml 的 --allow-debt
+python scripts/check_pin_floors.py            # 不带 --allow-debt，应为 0 违规
+```
+
+当前 `python scripts/check_pin_floors.py` 实测：25 个声明下界 / 93 个钉版 / **1 处违规**。
+CI 侧（`Security Scan` 的 pip-audit job）用 `--allow-debt transformers` 棘轮化：
+存量只报不拦，名单外新增即红；**这条债务修好后必须把 `transformers` 从白名单删掉**。
+
 ## 2. 发布流程
 
 0. **main 不可直推**：分支保护要求 3 项状态检查且 `enforce_admins=true`，
