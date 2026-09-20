@@ -154,3 +154,28 @@ commit `552b0c6`（= 当前 main），results=97。逐条 GET 校验 state 与�
   `"won't fix"`，不是 `false_positive` 这种下划线形式（422）。
 - 代码改动会**推移告警行号**：#53 的汇点从 `:460` 变成 `:468`（就是我加在函数入口的
   8 行守卫），这本身是修复已进主干的旁证。
+
+## 6. 第二批：17 条 `py/path-injection` 复核（2026-09-20，随 PR #83）
+
+逐条读码后分三类；已 dismiss 15 条，留 2 条给修复重扫。
+
+| 组 | 告警 | 条数 | 复核结论 | 处置 |
+|---|---|---|---|---|
+| `routes/audio.py` | #2 #3 #4 #5 | 4 | 误报。全部文件访问过 `_safe_file_path`：字符白名单→强制拼接 `root_dir`→`resolve()+relative_to`（注释自述防 symlink）；`:441` 的 glob 命中后再复核一次归属 | dismissed `false positive` |
+| `routes/training.py` | #42–#50 | 9 | 已缓解。`pretrained_path`/`train_manifest`/`save_path` 三处在 `os.makedirs` 之前**无条件**过 `_validate_path`（`realpath` + `startswith(base + os.sep)`，带分隔符故无同名兄弟目录漏洞） | dismissed `mitigated` |
+| `openai_api.py` 输出路径 | #12 #13 | 2 | 误报。sink 读的是应用自生成的输出路径（`final_path` / `_stream_file` 入参），非请求可控 | dismissed `false positive` |
+| `openai_api.py` voice | #109 #110 | 2 | **真问题**：`os.path.exists(os.path.join(PERSONA_DIR, f"{body.voice}.wav"))` 把请求体原样拼进路径；命中继续合成、不命中才 400，响应差异即**存在性预言机**（受 `.wav` 后缀约束，可读面有限但仍可探测） | #83 改为 `_persona_wav_exists`（realpath 归属 + `isfile`）。**等合并重扫自然消解；若不消解再以 `mitigated` 收口** |
+
+新旧对照实测（同一夹具）：
+
+```
+相对越界 …/secret_target        旧 -> True    新 -> False
+绝对路径名（join 会丢弃 dir）    旧 -> True    新 -> False
+同名兄弟目录 personas_evil/trap  新 -> False
+合法音色 alice                  新 -> True
+```
+
+刻意**不用** `_validate_persona_name` 的字符白名单来挡这件事：那会误伤早期登记、名字里带
+空格或全角字符的音色；遍历由 containment 挡掉即可。
+
+累计：dismiss **25 条**（第一批 9 + #53；第二批 15），open **110 → 85**，critical **0**。
