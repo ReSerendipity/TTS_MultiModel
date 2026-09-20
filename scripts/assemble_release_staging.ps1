@@ -64,7 +64,7 @@ Copy-Item -LiteralPath $ShellExe -Destination (Join-Path $OutDir 'TTSMultiModel.
 $total += (Get-Item -LiteralPath (Join-Path $OutDir 'TTSMultiModel.exe')).Length
 Write-Host ("  · TTSMultiModel.exe（{0}）" -f (Format-TTSMultiModelSize (Get-Item -LiteralPath (Join-Path $OutDir 'TTSMultiModel.exe')).Length))
 # 2) 根文件：start_portable.py / config.yaml / version.json / 许可与说明
-foreach ($f in @('start_portable.py', 'config.yaml', 'version.json', 'LICENSE', 'README.md', 'start.bat')) {
+foreach ($f in @('start_portable.py', 'config.yaml', 'version.json', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'start.bat')) {
     $src = Join-Path $root $f
     if (Test-Path -LiteralPath $src -PathType Leaf) {
         Copy-Item -LiteralPath $src -Destination (Join-Path $OutDir $f) -Force
