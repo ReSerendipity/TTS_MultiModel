@@ -205,7 +205,7 @@ function New-TTSMultiModelCorePayload {
     foreach ($f in $CoreIncludeFiles) {
         $src = Join-Path $ProjectRoot $f
         if (-not (Test-Path -LiteralPath $src)) {
-            continue
+            throw "CoreIncludeFiles missing: $f"
         }
         $stats = Copy-TTSMultiModelTree -Source $src -Dest $appDir -ExcludePatterns $CoreExcludePatterns
         $totalFiles += $stats.Files
