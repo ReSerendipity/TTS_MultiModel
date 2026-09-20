@@ -34,6 +34,14 @@ jobs:
           pip-audit -r requirements.txt --desc
           # 2026-08-16 本地评估 0 已知漏洞，解锁为门禁；依赖升级由 dependabot 自动跟进
 
+      - name: Pin-vs-floor consistency (ratchet)
+        run: |
+          # 便携分卷的钉版集不得低于 pyproject/requirements 声明的下界。
+          # --allow-debt 是棘轮白名单：transformers 4.52.1 属已登记存量债务
+          # （修它要重做便携包解析验证，见 docs/release-governance.md §1），
+          # 出现名单外的新违规即红。修好后请把 transformers 从白名单删掉。
+          python scripts/check_pin_floors.py --allow-debt transformers
+
   bandit:
     name: Code Security Scan (bandit)
     runs-on: ubuntu-latest

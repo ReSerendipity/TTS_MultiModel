@@ -17,8 +17,15 @@
 
 ## 2. 发布流程
 
+0. **main 不可直推**：分支保护要求 3 项状态检查且 `enforce_admins=true`，
+   直推会被 `GH006: 3 of 3 required status checks are expected` 拒绝（admin 也一样）。
+   一切变更走 PR；下面第 2 步的「push 触发」实际发生在 PR 合入那一刻。
+0.5 发布前置断言：`python scripts/check_pin_floors.py --allow-debt transformers` 必须 0 违规，
+   且**白名单应逐次清空**。当前存量债务是便携钉版 `transformers==4.52.1` 低于
+   `pyproject.toml:59` 声明的 `>=4.57.0`（理由：VoxCPM2/IndexTTS2 的 tokenizer 与 modeling
+   需要较新 transformers API）——修它要重做便携包依赖解析并在真机验证，属发布级动作。
 1. 确认 CHANGELOG `[Unreleased]` 条目完整；release-please 提交后自动收敛版本
-2. `git push` 触发 `release-please.yml`
+2. PR 合入 main 触发 `release-please.yml`
 3. 同步 `config.yaml` 顶层 `version`（release-please 不自动同步，需人工）
 4. CI 盯到终态；容器镜像钉 digest 发布，禁止 `:latest`
 
