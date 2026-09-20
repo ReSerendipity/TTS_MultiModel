@@ -805,6 +805,7 @@ def create_app() -> FastAPI:
 
     csrf_secret_path = os.path.join(_PROJECT_ROOT, "data", ".csrf_secret")
     csrf_secret = ""  # nosec B105 - 占位初始化，随后立即被 secrets.token_urlsafe(48) 覆盖为强随机值
+    csrf_store_err: OSError | None = None
     try:
         os.makedirs(os.path.dirname(csrf_secret_path), exist_ok=True)
         if os.path.exists(csrf_secret_path):
@@ -816,7 +817,25 @@ def create_app() -> FastAPI:
                 f.write(csrf_secret)
             logger.info("[create_app] 已生成新的 CSRF HMAC 密钥: %s", csrf_secret_path)
     except OSError as csrf_err:
-        logger.warning("[create_app] CSRF 密钥初始化失败，回退到无签名模式: %s", csrf_err)
+        csrf_store_err = csrf_err
+
+    if not csrf_secret:
+        # 此前这里只 logger.warning 然后拿空密钥挂中间件 —— CSRF 防护会因为一次磁盘或
+        # 权限故障静默自我关闭。改为默认硬失败；只读部署需显式声明才接受内存态密钥。
+        if os.environ.get("TTS_ALLOW_EPHEMERAL_CSRF") == "1":
+            csrf_secret = _secrets.token_urlsafe(48)
+            logger.warning(
+                "[create_app] 按 TTS_ALLOW_EPHEMERAL_CSRF=1 使用内存态 CSRF 密钥，"
+                "重启后所有已下发 token 失效；持久化失败原因: %s",
+                csrf_store_err,
+            )
+        else:
+            raise RuntimeError(
+                f"CSRF 密钥不可用（持久化失败: {csrf_store_err}），拒绝以无签名模式启动。"
+                f"请让 {os.path.dirname(csrf_secret_path)}/ 可写后重启"
+                "（compose 已把 ./data 挂为可写）；确需只读部署请显式设 "
+                "TTS_ALLOW_EPHEMERAL_CSRF=1，代价是重启后 token 全部失效。"
+            ) from csrf_store_err
 
     app.add_middleware(CSRFMiddleware, secret_key=csrf_secret)
 
