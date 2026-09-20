@@ -113,9 +113,44 @@ gh api --paginate "repos/ReSerendipity/TTS_MultiModel/code-scanning/alerts?state
 | 批次 | 内容 | 量 | 判据 |
 |---|---|---|---|
 | ~~P0~~（已做） | #53 可达路径封死 + 3 条回归测试 + `fullmatch` | 1 + 18 收敛 | 撤守卫必红、加回必绿 |
-| P0 剩余 | `py/overly-large-range` 7 + `bad-tag-filter` 中 tests 2 条 → 平台上 dismiss 并写明理由 | 9 | 不动代码，先降噪 |
+| ~~P0 剩余~~（已做，见 §5） | `py/overly-large-range` 7 + `bad-tag-filter` 中 tests 2 条 → 平台上 dismiss 并写明理由 | 9 | 不动代码，先降噪 |
 | P1 | `stack-trace-exposure` 统一「生产模式不回显异常细节」开关（含 `server.host != 127.0.0.1` 时强制） | 29 | 一处中间件，不逐点改 |
 | P1 | `path-injection` training/openai_api/audio 三处逐条定性 | 17 | 每条要么 dismiss 理由要么进追踪表 |
 | P2 | 前端 `xss-through-dom` + `incomplete-sanitization` | 13 | 逐条看数据源是否用户可控 |
-| 决策 | CSRF 密钥写失败是否改硬失败 | 1 | 需先确认部署形态 |
+| ~~决策~~（已做） | CSRF 密钥写失败改硬失败：默认 `raise`，只读部署需显式 `TTS_ALLOW_EPHEMERAL_CSRF=1` 走内存态密钥 | 1 | 已核实 `docker-compose.yml:39` 的 `./data` 是可写挂载 |
 | 决策 | CodeQL 是否进 `main` 必需检查 | — | 现在加会立刻卡死所有 PR；建议先降到 <30 条再纳入 |
+
+## 5. 处置进展（2026-09-20）
+
+dismiss **前先确认重扫过**：最近一次 CodeQL 分析 `2026-09-19T18:05:48Z`，
+commit `552b0c6`（= 当前 main），results=97。逐条 GET 校验 state 与路径未变才 PATCH。
+
+| 告警 | 规则 | 处置 | 理由类别 |
+|---|---|---|---|
+| #54–#60 | `py/overly-large-range` | dismissed | `false positive`（emoji 码位区间，非可放大循环） |
+| #111 #112 | `py/bad-tag-filter` @ tests/ | dismissed | `used in tests`（静态断言测试自家 HTML，非安全边界） |
+| #53 | `py/unsafe-deserialization` (critical) | dismissed | `mitigated`（`weights_only=True` + #79 的 realpath 入口守卫） |
+
+处置后：**open 110 → 99，critical 1 → 0**。剩余分布：
+
+| rule | open |
+|---|---|
+| py/path-injection | 53 |
+| py/stack-trace-exposure | 29 |
+| js/xss-through-dom | 10 |
+| js/incomplete-sanitization | 3 |
+| py/bad-tag-filter | 1（`engines/voxcpm2/design.py:82`，§2.4 待定夺） |
+| py/reflective-xss | 2 |
+| py/url-redirection | 1 |
+| py/unsafe-deserialization | 0 |
+| py/clear-text-storage-sensitive-data | 1（§2.5，记录不修） |
+| py/overly-large-range | 0 |
+
+两条操作口径（踩过）：
+
+- `dismissed_comment` **上限 280 字符**，长理由写不进 API；本表的 §2.x 才是判据的持久出处，
+  告警注释里必须带 §号引用。
+- `dismissed_reason` 取人读枚举 `"false positive"` / `"used in tests"` / `"mitigated"` /
+  `"won't fix"`，不是 `false_positive` 这种下划线形式（422）。
+- 代码改动会**推移告警行号**：#53 的汇点从 `:460` 变成 `:468`（就是我加在函数入口的
+  8 行守卫），这本身是修复已进主干的旁证。
