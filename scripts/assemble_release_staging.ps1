@@ -66,9 +66,10 @@ Write-Host ("  · TTSMultiModel.exe（{0}）" -f (Format-TTSMultiModelSize (Get-
 # 2) 根文件：start_portable.py / config.yaml / version.json / 许可与说明
 foreach ($f in @('start_portable.py', 'config.yaml', 'version.json', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'start.bat')) {
     $src = Join-Path $root $f
-    if (Test-Path -LiteralPath $src -PathType Leaf) {
-        Copy-Item -LiteralPath $src -Destination (Join-Path $OutDir $f) -Force
+    if (-not (Test-Path -LiteralPath $src -PathType Leaf)) {
+        throw "staging root file missing: $f"
     }
+    Copy-Item -LiteralPath $src -Destination (Join-Path $OutDir $f) -Force
 }
 # 3) app/（后端代码，排除运行时状态/密钥/缓存）
 $appExclude = @(
