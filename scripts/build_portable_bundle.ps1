@@ -168,7 +168,7 @@ function Get-TTSMultiModelModelDirs {
 
 $CoreIncludeDirs = @('app', 'launcher')
 $CoreIncludeFiles = @('config.yaml', 'pyproject.toml', 'requirements.txt', 'requirements-lock.txt',
-    'LICENSE', 'README.md', 'SECURITY.md', 'CHANGELOG.md', 'start.bat', 'start_portable.py', 'version.json')
+    'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'SECURITY.md', 'CHANGELOG.md', 'start.bat', 'start_portable.py', 'version.json')
 $CoreExcludePatterns = @(
     '__pycache__\*', '*.pyc', '*.pyo', '.pytest_cache\*',
     'data\*', 'app\integrated_app\data\*', 'logs\*.log', '*.db', '*.db-wal', '*.db-shm', '*.log',
