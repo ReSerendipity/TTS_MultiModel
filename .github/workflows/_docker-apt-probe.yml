@@ -1,0 +1,72 @@
+# 临时诊断作业：定位 Dockerfile 里 apt 层报的
+#   `update-alternatives: error: alternative path /usr/share/man/man7/bash-builtins.7.gz doesn't exist`
+# 为什么单独开一个作业而不是直接改 Dockerfile 猜：
+# - 本机没有 docker daemon（只有 CLI，也没 colima/podman），改完无法自验；
+# - `docker-build.yml` 的完整构建一轮要 20+ 分钟（25 GB 上下文 + Trivy 扫描），
+#   用它当"试错循环"既慢又会把两条门禁反复刷红；
+# - 这个作业只在托管 runner 的 container job 里拉同一个基础镜像、逐条跑 Dockerfile 的 apt 命令，
+#   几分钟出结论，并顺手把 dpkg/man-db 状态打出来。
+# 定位完成后本文件会被删除（它是一次性探针，不是常开门禁）。
+name: Docker apt probe (temporary)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/_docker-apt-probe.yml"
+      - "Dockerfile"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Reproduce apt layers from the Dockerfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: nvidia/cuda:12.1.0-runtime-ubuntu22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Base image identity
+        run: |
+          . /etc/os-release
+          echo "PRETTY_NAME=$PRETTY_NAME"
+          dpkg --print-architecture
+
+      - name: "Layer A = Dockerfile builder 第一段（software-properties-common git git-lfs ffmpeg ca-certificates）"
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            software-properties-common git git-lfs ffmpeg ca-certificates
+
+      - name: "Layer B = Dockerfile runtime 的 apt-get upgrade -y（头号嫌疑：它会把 bash/man-db/manpages 一起升上来）"
+        run: |
+          apt-get update
+          apt-get upgrade -y
+
+      - name: "Layer C = deadsnakes PPA + python3.12/-venv（与 Dockerfile 同序）"
+        run: |
+          add-apt-repository -y ppa:deadsnakes/ppa
+          apt-get update
+          apt-get install -y --no-install-recommends python3.12 python3.12-venv
+
+      - name: 失败时 dump 诊断信息
+        if: failure()
+        run: |
+          set +e
+          echo "=== 谁在维护这个 alternative ==="
+          grep -rls "bash-builtins" /var/lib/dpkg/info/ /var/lib/dpkg/alternatives/ 2>/dev/null | head -10
+          echo "=== dpkg 里 bash / man-db / manpages 的状态 ==="
+          dpkg -l | grep -E "^(ii|iU|rc|hi)? *(bash|man-db|manpages|manpages-dev|debconf|libc-bin) " | head -12
+          echo "=== /usr/share/man 现状 ==="
+          ls -l /usr/share/man/man7/ 2>/dev/null | head -8
+          echo "=== apt-get -s upgrade 会动谁 ==="
+          apt-get -s upgrade | head -25
+          echo "=== 相关包的 postinst 是否调 update-alternatives ==="
+          for f in /var/lib/dpkg/info/bash.postinst /var/lib/dpkg/info/man-db.postinst; do
+            echo "--- $f"; test -f "$f" && grep -n "update-alternatives\|man" "$f" | head -6
+          done
+          exit 0
