@@ -2,6 +2,25 @@
 
 > 说明：以下历史条目中提及的 `AGENTS.md` 为**本地维护、不随仓库分发**的资产（`.gitignore` 已忽略）；条目仅为变更发生时的历史记录，clone 读者无需在仓库中查找该文件。
 
+## [2.2.4](https://github.com/ReSerendipity/TTS_MultiModel/compare/v2.2.3...v2.2.4) (2026-09-22)
+
+
+### Bug Fixes
+
+* **ci:** 性能门禁不再拿噪声当信号（issue [#118](https://github.com/ReSerendipity/TTS_MultiModel/issues/118)） ([3f2663e](https://github.com/ReSerendipity/TTS_MultiModel/commit/3f2663ea2dfae14b436418e7f56cc7fa31031ae5))
+* **ci:** 性能门禁不再拿噪声当信号（issue [#118](https://github.com/ReSerendipity/TTS_MultiModel/issues/118)） ([732ac0f](https://github.com/ReSerendipity/TTS_MultiModel/commit/732ac0f5d31dbea613ec019fbcb5f7c3d8308662))
+* **release:** config.yaml 从 RP 的 extra-files 摘掉，并给每条自动位加"真能命中"的闸 ([33769b5](https://github.com/ReSerendipity/TTS_MultiModel/commit/33769b596b0e2aa468e7202abc78ae0efa0a4c8a))
+* **release:** config.yaml 从 RP 的 extra-files 摘掉，并给每条自动位加"真能命中"的闸 ([022baf7](https://github.com/ReSerendipity/TTS_MultiModel/commit/022baf7d3ae33fc36866efceb27c5715bf844f10))
+* 引擎直切 503（[#84](https://github.com/ReSerendipity/TTS_MultiModel/issues/84)）与 onclick 属性 XSS（[#99](https://github.com/ReSerendipity/TTS_MultiModel/issues/99)） ([777bfe1](https://github.com/ReSerendipity/TTS_MultiModel/commit/777bfe17e07d8e93dd017b95d877128071d82c4d))
+
+
+### Documentation
+
+* **release:** release PR 上没有 CI 检查这件事必须写下来（并纠正我在 [#123](https://github.com/ReSerendipity/TTS_MultiModel/issues/123) 里的假设） ([2fb782b](https://github.com/ReSerendipity/TTS_MultiModel/commit/2fb782b6c829272c5540ed669ce6cc0a3579ff23))
+* **release:** 写清"release PR 上看不到 CI"这件事，以及它对手工同步位的后果 ([8b93442](https://github.com/ReSerendipity/TTS_MultiModel/commit/8b93442e670e5df9fe5e208704806b34155eb169))
+* **security:** §7b 复算结果落成账（复算不等于能覆盖真锁）+ 排障产物 ignore ([0e6898d](https://github.com/ReSerendipity/TTS_MultiModel/commit/0e6898db20b827277e18834e5dad5cc91ef1846f))
+* **security:** 把 §7b 的复算结果落成账（①②③ 已跑完，只差 ④ 真装） ([d68deed](https://github.com/ReSerendipity/TTS_MultiModel/commit/d68deed81417910c0384dda2e85654d89834ae48))
+
 ## [Unreleased]
 
 ## [2.2.3] - 2026-09-22
