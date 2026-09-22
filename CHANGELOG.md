@@ -2,6 +2,15 @@
 
 > 说明：以下历史条目中提及的 `AGENTS.md` 为**本地维护、不随仓库分发**的资产（`.gitignore` 已忽略）；条目仅为变更发生时的历史记录，clone 读者无需在仓库中查找该文件。
 
+## [2.2.6](https://github.com/ReSerendipity/TTS_MultiModel/compare/v2.2.5...v2.2.6) (2026-09-22)
+
+
+### Documentation
+
+* **release:** 把"自动发版路径今天走通了"写成可复用的操作条件，并钉住第 10 处版本位 ([08a0d3d](https://github.com/ReSerendipity/TTS_MultiModel/commit/08a0d3deb1219e55b6c4c2ce362b438855b01d7d))
+* **release:** 自动发版路径的三条边界（手工位/DCO/不吃镜像）+ 第 10 处版本位入闸 ([d2d538a](https://github.com/ReSerendipity/TTS_MultiModel/commit/d2d538abf9a7f2ded1e7e1f887458fc987b58969))
+* **release:** 记下自动发版路径不吃镜像这一步（RP 的 tag 同样不级联） ([c381654](https://github.com/ReSerendipity/TTS_MultiModel/commit/c38165470bc9fcc811077f3ffbf6439d320b3aed))
+
 ## [2.2.5](https://github.com/ReSerendipity/TTS_MultiModel/compare/v2.2.4...v2.2.5) (2026-09-22)
 
 
