@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """TTS_MultiModel 上游同步探针（UPSTREAM_SYNC_PLAN C1）。
 
-对本项目 vendor 的两处上游源码做三方哈希比对，区分六类状态：
+对本项目 vendor 的两处上游源码做三方哈希比对，区分六类状态（外加一个"没比对"的状态）：
 
     SYNC_LAG      上游已改、本地自锚点后未动 -> 上游有更新未吸收
     LOCAL_DRIFT   本地自锚点后改过 -> 已登记则 info，未登记则 warn
     CONFLICT      本地与上游都改了同一个文件 -> 必须人工合并
     NEW_UPSTREAM  上游新增、本地未 vendor
     LOCAL_ONLY    本地独有文件（不在白名单则 warn）
+    LOCAL_DIR_ABSENT  本地目录未检出（reference_repos/ 不在版本控制里）-> 不参与门禁
 
 比对用 git blob SHA-1（``sha1("blob <len>\\0" + content)``），与 GitHub Trees API
 返回的 blob sha 同算法，因此**不需要下载文件内容**，一次 recursive tree 请求
@@ -249,6 +250,19 @@ def check(offline: bool = False) -> dict[str, Any]:
 
     for key, tgt in state["targets"].items():
         spec = TARGETS[key]
+        local_root = REPO_ROOT / spec["local_dir"]
+        if not local_root.is_dir():
+            # 本地目录压根没检出：`reference_repos/` 被 .gitignore 排除，干净克隆上就没有。
+            # 这**不是**"上游新增 225 个文件"——把"探测不到"写成"有结论"比误报更危险，
+            # 会让人去追一批根本不存在的同步任务。单列一类，且不参与 --strict 判定。
+            tally["LOCAL_DIR_ABSENT"] = tally.get("LOCAL_DIR_ABSENT", 0) + 1
+            results["targets"][key] = {
+                "repo": spec["repo"],
+                "status": "LOCAL_DIR_ABSENT",
+                "local_dir": spec["local_dir"],
+                "counts": {},
+            }
+            continue
         locals_ = local_files(key)
         local_now = {p: git_blob_sha(f) for p, f in locals_.items()}
         registered = set((tgt.get("registered_modifications") or {}).keys())
@@ -365,11 +379,22 @@ def write_report(res: dict[str, Any]) -> Path:
         "LOCAL_DRIFT_REGISTERED": "本地改过、已登记",
         "NEW_UPSTREAM": "上游新增、本地未 vendor",
         "LOCAL_ONLY": "本地独有、不在白名单",
+        "LOCAL_DIR_ABSENT": "本地目录未检出（**不代表任何同步缺口**）",
     }
     for k in meaning:
         lines.append(f"| {k} | {res['counts'].get(k, 0)} | {meaning[k]} |")
     lines.append("")
     for key, t in res["targets"].items():
+        if t.get("status") == "LOCAL_DIR_ABSENT":
+            lines += [
+                f"## {key}（`{t['repo']}`）—— 未比对",
+                "",
+                f"- `{t['local_dir']}` 在本机不存在，本目标**一个文件都没比对**。",
+                "- 该目录由外部检出提供（`reference_repos/` 在 `.gitignore` 里），"
+                "干净克隆上缺失属正常状态，不计入门禁。",
+                "",
+            ]
+            continue
         moved = "已移动" if t["moved"] else ("未移动" if t.get("probed_upstream", True) else "未联网探测，状态未知")
         lines += [
             f"## {key}（`{t['repo']}`）",
@@ -456,6 +481,7 @@ def main() -> int:
         f"SYNC_LAG={c.get('SYNC_LAG', 0)} CONFLICT={conflicts} "
         f"LOCAL_DRIFT(未登记)={unregistered} LOCAL_DRIFT(已登记)={c.get('LOCAL_DRIFT_REGISTERED', 0)} "
         f"NEW_UPSTREAM={c.get('NEW_UPSTREAM', 0)}"
+        + (f" LOCAL_DIR_ABSENT={c['LOCAL_DIR_ABSENT']}(该目标未比对)" if c.get("LOCAL_DIR_ABSENT") else "")
     )
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
