@@ -17,9 +17,14 @@
     python scripts/check_upstream_sync.py --init      # 建立/刷新锚点快照
     python scripts/check_upstream_sync.py             # 比对并出报告
     python scripts/check_upstream_sync.py --offline    # 只查本地漂移，不联网
-    python scripts/check_upstream_sync.py --selftest   # 门禁样本自检
+    python scripts/check_upstream_sync.py --selftest   # 先跑已知答案自检，再继续正式比对
     python scripts/check_upstream_sync.py --json
     python scripts/check_upstream_sync.py --strict     # 有 warn 即非零退出
+    python scripts/check_upstream_sync.py --no-report  # 不写 docs/reports/（供门禁用）
+
+门禁调用口径（= .pre-commit-config.yaml 里的 check-upstream-sync）：
+    python scripts/check_upstream_sync.py --offline --selftest --strict --no-report
+退出码：0 通过 / 1 有未登记漂移或冲突 / 2 自检没过（探针自身坏了，拒绝给出结论）。
 
 配额：匿名 GitHub API 60 req/h。设 GITHUB_TOKEN 可提到 5000 req/h。
 """
@@ -75,13 +80,17 @@ def _utf8_stdio() -> None:
             s.reconfigure(encoding="utf-8", errors="replace")
 
 
-def git_blob_sha(path: Path) -> str:
-    """Return the git blob SHA-1 of a file (matches GitHub Trees API ``sha``)."""
-    data = path.read_bytes()
+def blob_sha_of_bytes(data: bytes) -> str:
+    """Raw bytes 的 git blob SHA-1（与 GitHub Trees API 的 ``sha`` 同算法）。"""
     digest = hashlib.sha1()
     digest.update(b"blob %d\0" % len(data))
     digest.update(data)
     return digest.hexdigest()
+
+
+def git_blob_sha(path: Path) -> str:
+    """Return the git blob SHA-1 of a file (matches GitHub Trees API ``sha``)."""
+    return blob_sha_of_bytes(path.read_bytes())
 
 
 def _gh_get(url: str, cache: bool = True) -> Any:
@@ -380,11 +389,28 @@ def write_report(res: dict[str, Any]) -> Path:
 
 
 def selftest() -> int:
-    """门禁样本：探针本身坏了会输出"看着像结论"的结果，所以先断言它能分辨同与不同。"""
+    """已知答案自检：只断言"探针自己没坏"，不断言仓库当前状态。
+
+    探针坏了不会报错，只会输出一张"看着像结论"的报告，所以正式比对前必须先验
+    两件事：① 哈希口径与 git 一致（用与仓库内容无关的硬编码向量）；② 状态文件
+    里"应判为同"和"应判为不同"两类样本都还在。
+
+    早期版本在这里还逐个比对 differing 文件的当前哈希与锚点记录，于是"有人改了
+    已登记的 vendor 文件"会被报成退出码 2（探针坏了）——恰恰反了：那次改动本该由
+    正式比对归成 LOCAL_DRIFT、以退出码 1 失败。两个成因必须占两个码。
+    """
+    # 三个向量逐条与 `git hash-object --stdin` 对过，改任何一个都说明哈希口径变了。
+    known_answers = {
+        b"": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        b"hello\n": "ce013625030ba8dba906f756967f9e9ca394464a",
+        b"a\nb\n": "422c2b7ab3b3c668038da977e4e93a5fc623169c",
+    }
+    for data, expected in known_answers.items():
+        got = blob_sha_of_bytes(data)
+        assert got == expected, f"门禁失败：哈希口径已变，blob_sha_of_bytes({data!r})={got}，git 给的是 {expected}"
+
     state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
     tgt = state["targets"]["voxcpm"]
-    locals_ = local_files("voxcpm")
-    prefix = tgt["upstream_prefix"]
 
     identical = [
         p for p, v in tgt["files"].items() if v.get("local") and v.get("upstream") and v["local"] == v["upstream"]
@@ -392,14 +418,9 @@ def selftest() -> int:
     differing = [
         p for p, v in tgt["files"].items() if v.get("local") and v.get("upstream") and v["local"] != v["upstream"]
     ]
-    assert identical, "门禁失败：找不到『应判为相同』的样本，比对链路可能坏了"
-    assert differing, "门禁失败：找不到『应判为不同』的样本（vendor/voxcpm 已知有 4 处本地改动）"
-    for p in differing:
-        assert git_blob_sha(locals_[p]) == tgt["files"][p]["local"], f"门禁失败：{p} 本地哈希与锚点记录不符"
-    # 人为造一个不同：拼两个文件内容算哈希，必须与任一原值不等
-    a, b = git_blob_sha(locals_[prefix + differing[0].replace(prefix, "")]), "0" * 40
-    assert a != b, "门禁失败：哈希函数退化"
-    print(f"selftest OK  identical={len(identical)} differing={len(differing)}")
+    assert identical, "门禁失败：状态文件里没有『应判为相同』的样本，锚点快照已退化"
+    assert differing, "门禁失败：状态文件里没有『应判为不同』的样本（vendor/voxcpm 已知有 4 处本地改动）"
+    print(f"selftest OK  known_answers={len(known_answers)} identical={len(identical)} differing={len(differing)}")
     return 0
 
 
@@ -410,6 +431,7 @@ def main() -> int:
     ap.add_argument("--offline", action="store_true", help="不联网，只报本地漂移")
     ap.add_argument("--selftest", action="store_true", help="门禁样本自检")
     ap.add_argument("--json", action="store_true", help="输出 JSON 而非 markdown 报告")
+    ap.add_argument("--no-report", action="store_true", help="只打印分类计数，不落报告文件（供门禁调用）")
     ap.add_argument("--strict", action="store_true", help="存在未登记本地改动/冲突时非零退出")
     args = ap.parse_args()
 
@@ -417,7 +439,14 @@ def main() -> int:
         write_state()
         args.offline = True
     if args.selftest:
-        return selftest()
+        # 自检只证明"探针自己没坏"，不代表 vendor 没漂移——跑完必须继续正式比对。
+        # 早先这里直接 return，于是 `--selftest --strict` 组合把 --strict 吞掉了，
+        # 对"登记为相同、后来被人改了"的文件完全不设防（恰是最常见的漂移场景）。
+        try:
+            selftest()
+        except AssertionError as exc:
+            print(f"{exc}\n（比对链路未通过，拒绝出报告）", file=sys.stderr)
+            return 2
 
     res = check(offline=args.offline)
     c = res["counts"]
@@ -430,7 +459,7 @@ def main() -> int:
     )
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
-    else:
+    elif not args.no_report:
         print(f"报告：{write_report(res).relative_to(REPO_ROOT)}")
     return 1 if args.strict and (unregistered or conflicts) else 0
 

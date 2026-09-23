@@ -5,11 +5,14 @@ AR 只在引擎侧有、UI 侧三张表都没登记，所以下拉框根本选�
 另有两个"静默回退"叠在一起会让 AR/ES 失败伪装成成功：
     - 上游 indextts/utils/tokenizer.py:173-177  lang_to_token 未知码回落 "common"
     - 我方 indextts2_engine 归一后不在 supported_langs 时回落 "Auto"
+RTL 部分守的是模板：语音文本入口必须带 dir="auto"，且按标签逐个扫——只扫共用
+partial 的那条测试曾在 13 个手写入口全缺 dir 的情况下一直绿。
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -23,6 +26,23 @@ from integrated_app.config import (
 )
 
 _LOCALES = Path(__file__).resolve().parents[1] / "app" / "integrated_app" / "locales"
+_TEMPLATES = _LOCALES.parent / "templates"
+
+# 用户在这些字段里输入的是"待合成文本 / 参考音频转写"，语种可能就是阿拉伯语；
+# instruction 一类是风格指令，不纳入 dir 门禁。
+_SPEECH_TEXT_FIELDS = ("prompt_text", "ref_text", "text")
+_INPUT_TAG_RE = re.compile(r"<(?:textarea|input)\b[^>]*>")
+
+
+def _speech_text_tags(source: str) -> list[str]:
+    """源码里所有"语音文本入口"的开标签（textarea / input）。"""
+    field_re = re.compile(f'name="(?:{"|".join(_SPEECH_TEXT_FIELDS)})"')
+    return [m.group(0) for m in _INPUT_TAG_RE.finditer(source) if field_re.search(m.group(0))]
+
+
+def _speech_text_tags_without_dir(source: str) -> list[str]:
+    """挑出源码里所有「语音文本入口但没声明 dir」的开标签。"""
+    return [tag for tag in _speech_text_tags(source) if 'dir="' not in tag]
 
 
 class TestArabicRegistered:
@@ -104,3 +124,27 @@ class TestRtlInput:
         """阿拉伯语从右往左；textarea 不声明 dir 会按页面 LTR 排版，光标行为很怪。"""
         tpl = (_LOCALES.parent / "templates" / "partials" / "text_input.html").read_text(encoding="utf-8")
         assert 'dir="auto"' in tpl
+
+    def test_scanner_catches_a_tag_without_dir(self) -> None:
+        """已知答案：扫描器必须能分辨"带 dir"与"不带 dir"，否则下一条测试的绿没有意义。"""
+        assert _speech_text_tags_without_dir('<textarea name="text" id="a">\n') == ['<textarea name="text" id="a">']
+        assert _speech_text_tags_without_dir('<textarea name="text" dir="auto" id="a">\n') == []
+        # 非语音文本入口（风格指令）不该被算进来
+        assert _speech_text_tags_without_dir('<textarea name="instruction" id="b">\n') == []
+
+    def test_every_speech_text_field_declares_direction(self) -> None:
+        """全部模板里的语音文本入口都要有 dir。
+
+        上一轮我只给共用 partial 加了 dir="auto"，而 10 个 tab 各自手写自己的
+        textarea——那条 partial 测试全绿，实际 13 个入口一个都没覆盖到。
+        """
+        offenders: list[str] = []
+        seen = 0
+        for path in sorted(_TEMPLATES.rglob("*.html")):
+            source = path.read_text(encoding="utf-8")
+            seen += len(_speech_text_tags(source))
+            offenders.extend(
+                f"{path.name} :: {tag.splitlines()[0].strip()}" for tag in _speech_text_tags_without_dir(source)
+            )
+        assert seen >= 14, f"只扫到 {seen} 个语音文本入口，扫描器或模板目录变了，本断言已空转"
+        assert not offenders, "以下入口缺 dir 声明，阿拉伯语下仍是 LTR 编辑器：" + "; ".join(offenders)

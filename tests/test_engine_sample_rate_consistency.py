@@ -11,13 +11,17 @@ resampling 那份错表当时全仓零引用所以没暴露；但它一旦被接
 48kHz 音频会得到"时长翻倍、音调变低"的文件，而且不会抛错。
 
 本文件不重复 scripts/check_engine_specs.py 的 config↔注册表↔磁盘比对，只守它
-管不到的两点：
+管不到的三点：
     1. 兜底表/兜底常量必须等于权威值（错表就是在这里被抓的）。
     2. 取值优先级：引擎实例实际值 > config 声明 > 兜底常量。
+    3. engines/ 里不得再出现与权威值不符的裸采样率形参默认值
+       （concatenate_lines(sample_rate=24000) 那一类——首轮报红量 0，
+       因为只约束形参默认值，不约束函数体内有意的兜底赋值）。
 """
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import wave
 from pathlib import Path
@@ -32,6 +36,7 @@ from integrated_app.model_registry import registry
 from integrated_app.routes.generate.voxcpm2 import streaming
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
+_ENGINES_DIR = _REPO_ROOT / "app" / "integrated_app" / "engines"
 # 历史上被误写进兜底表、但没有任何现役引擎真的以它为原生输出率的值
 _LEGACY_MISMATCH_RATES = {24000, 16000, 44100}
 
@@ -93,6 +98,95 @@ def test_no_live_code_hardcodes_a_legacy_rate() -> None:
             declared = _declared_rate(_yaml_engines()[name])
             assert declared == rate, f"{name} 的 {rate} 与 config({declared}) 不一致"
     assert resampling.get_declared_sample_rate("voxcpm2") == 48000
+
+
+def _bare_rate_defaults_in(source: str) -> list[tuple[str, str, int]]:
+    """从一段 Python 源码里挑出「形参默认值是裸采样率字面量」的 (函数, 参数, 值)。
+
+    只认形参默认值，不认函数体内的赋值：兜底常量、分段自身速率推断这类
+    写法是有意为之，一律纳入会把门禁首轮打成一片红，也就没人看了。
+    """
+    found: list[tuple[str, str, int]] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        for arg, default in zip(
+            node.args.args[len(node.args.args) - len(node.args.defaults) :], node.args.defaults, strict=False
+        ):
+            if not (isinstance(default, ast.Constant) and isinstance(default.value, int)):
+                continue
+            if arg.arg == "sr" or arg.arg.endswith("_sr") or "sample_rate" in arg.arg:
+                found.append((node.name, arg.arg, default.value))
+    return found
+
+
+def _engine_of(relpath: str) -> str | None:
+    """把 engines/ 下的文件路径映射到引擎名（最长名优先，防 indextts2 吃掉 indextts20）。"""
+    lowered = relpath.lower()
+    for name in sorted(engine_registry.list_engines(), key=len, reverse=True):
+        if name.lower() in lowered:
+            return name
+    return None
+
+
+def test_engine_dir_param_defaults_do_not_reinvent_the_rate() -> None:
+    """engines/ 里的裸采样率形参默认值必须等于该引擎的权威声明值。
+
+    抓的是 concatenate_lines(sample_rate=24000) 这一类：voxcpm2 实际输出 48k，
+    默认值差了近一倍，唯一的现役调用方恰好显式传了 48000 所以一直没发作——
+    下一个忘记传参的调用方就会拿到"时长翻倍、音调变低"的合并结果。
+    """
+    checked = 0
+    for path in sorted(_ENGINES_DIR.rglob("*.py")):
+        relpath = path.relative_to(_REPO_ROOT).as_posix()
+        engine = _engine_of(relpath)
+        if engine is None:
+            continue
+        authority = resampling.get_declared_sample_rate(engine)
+        for func, arg, value in _bare_rate_defaults_in(path.read_text(encoding="utf-8")):
+            checked += 1
+            assert value == authority, (
+                f"{relpath}::{func}({arg}={value}) 与 {engine} 的权威采样率 {authority} 不符；"
+                f"改为默认 None 并在函数体里取 resampling.get_declared_sample_rate({engine!r})"
+            )
+    assert checked, "engines/ 下一个采样率形参默认值都没扫到，本断言已空转（扫描器或目录变了）"
+
+
+def test_rate_default_scanner_catches_a_known_bad_sample() -> None:
+    """扫描器自身的已知答案：坏样例必须被抓到，否则上一条测试的"绿"没有意义。"""
+    assert _bare_rate_defaults_in("def f(a, sample_rate: int = 16000):\n    return a\n") == [
+        ("f", "sample_rate", 16000)
+    ]
+    assert _bare_rate_defaults_in("def f(a, sr=22050):\n    return a\n") == [("f", "sr", 22050)]
+    # 非采样率参数与函数体内赋值都不该报
+    assert _bare_rate_defaults_in("def f(a, timeout: int = 16000):\n    return a\n") == []
+    assert _bare_rate_defaults_in("def f(a):\n    sr = 24000\n    return sr\n") == []
+
+
+def test_concatenate_lines_default_follows_the_authority() -> None:
+    """concatenate_lines 不传 sample_rate 时按权威值合并，显式传参仍可覆盖。"""
+    from integrated_app.engines.voxcpm2.script import ScriptLine, concatenate_lines
+
+    authority = resampling.get_declared_sample_rate("voxcpm2")
+    assert concatenate_lines.__defaults__[1] is None, "默认值又被写回字面量了"
+
+    def _line(idx: int) -> ScriptLine:
+        return ScriptLine(
+            line_id=idx,
+            role=None,
+            text="hello",
+            is_instruction=False,
+            duration_ms=None,
+            audio=np.zeros(authority, dtype=np.float32),
+            error=None,
+        )
+
+    merged, sr = concatenate_lines([_line(1), _line(2)], silence_ms=0)
+    assert sr == authority
+    assert merged.shape[0] == 2 * authority, "默认路径下每秒音频未被按权威采样率计点"
+
+    _, sr_override = concatenate_lines([_line(1), _line(2)], silence_ms=0, sample_rate=8000)
+    assert sr_override == 8000, "显式覆盖被默认解析吃掉了"
 
 
 def test_get_declared_sample_rate_prefers_config_over_fallback(monkeypatch: pytest.MonkeyPatch) -> None:

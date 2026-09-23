@@ -16,7 +16,7 @@
                     <form id="vd-form" hx-post="/api/generate/voxcpm_design" hx-target="#vd-result" hx-swap="innerHTML" hx-indicator="#vd-spinner" x-data="{ vdTab: 'create' }">
                         <div class="fg">
                             <label class="fl" for="vd-text">{{ "synthesis_text"|t(lang) }}</label>
-                            <textarea name="text" id="vd-text"
+                            <textarea name="text" dir="auto" id="vd-text"
                                       class="ft tts-textarea tts-auto-resize"
                                       rows="3"
                                       placeholder="{{ 'enter_text_placeholder'|t(lang) }}"
